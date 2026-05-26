@@ -1,0 +1,80 @@
+<h2>Le Hub : quelle structure principale ?</h2>
+<p class="subtitle">Comment les recherches de tous les utilisateurs sont-elles organisées sur la page d'accueil ?</p>
+
+<div class="options">
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Feed chronologique</h3>
+      <p>Toutes les recherches de tous les utilisateurs dans un fil d'actualité, triées par date. Chaque "carte recherche" montre : qui a cherché, quoi, quand, et les X meilleures annonces trouvées.</p>
+      <div class="mockup" style="margin-top:12px">
+        <div class="mockup-header">Aperçu</div>
+        <div class="mockup-body" style="padding:12px;display:flex;flex-direction:column;gap:8px">
+          <div style="background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.2);border-radius:8px;padding:10px;font-size:0.82rem">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px"><strong>@alex</strong> <span style="opacity:0.5">il y a 2h</span></div>
+            <div style="opacity:0.7">🔍 Laptops gaming RTX 4060 — 47 annonces • Meilleure note : 94.2/100</div>
+          </div>
+          <div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:8px;padding:10px;font-size:0.82rem">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px"><strong>@marie</strong> <span style="opacity:0.5">il y a 5h</span></div>
+            <div style="opacity:0.7">🔍 iPhone 14 Pro — 23 annonces • Meilleure note : 88.5/100</div>
+          </div>
+          <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;padding:10px;font-size:0.82rem">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px"><strong>@tris</strong> <span style="opacity:0.5">hier</span></div>
+            <div style="opacity:0.7">🔍 Voitures Clio essence &lt;100k km — 112 annonces • Meilleure note : 91.0/100</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Onglets par recherche</h3>
+      <p>Chaque recherche est un onglet persistant dans une barre latérale ou en haut. On clique sur l'onglet et on voit directement les annonces notées de cette recherche, comme des "salles" séparées.</p>
+      <div class="mockup" style="margin-top:12px">
+        <div class="mockup-header">Aperçu</div>
+        <div class="mockup-body" style="padding:0;display:flex;min-height:100px">
+          <div style="width:140px;border-right:1px solid rgba(255,255,255,0.08);padding:8px;display:flex;flex-direction:column;gap:4px;font-size:0.78rem">
+            <div style="background:rgba(56,189,248,0.15);border-radius:6px;padding:6px 8px;border-left:2px solid #38bdf8">💻 Laptops RTX</div>
+            <div style="padding:6px 8px;opacity:0.5">📱 iPhone 14 Pro</div>
+            <div style="padding:6px 8px;opacity:0.5">🚗 Clio essence</div>
+            <div style="padding:6px 8px;opacity:0.5">🎮 PS5 d'occas</div>
+          </div>
+          <div style="flex:1;padding:10px;font-size:0.8rem">
+            <div style="opacity:0.6;margin-bottom:6px">@alex · il y a 2h · 47 annonces</div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <div style="background:rgba(251,191,36,0.1);border-radius:4px;padding:5px 8px">⭐ 94.2 — Asus TUF A15 RTX4060 — 750€</div>
+              <div style="background:rgba(255,255,255,0.04);border-radius:4px;padding:5px 8px">⭐ 91.7 — MSI Cyborg 15 — 680€</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Catégories + Feed mixte</h3>
+      <p>Une page d'accueil avec des catégories (Informatique, Auto, Téléphones…) et sous chaque catégorie les recherches récentes. Un grand tableau de bord des meilleures affaires toutes catégories confondues.</p>
+      <div class="mockup" style="margin-top:12px">
+        <div class="mockup-header">Aperçu</div>
+        <div class="mockup-body" style="padding:12px">
+          <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+            <span style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);border-radius:20px;padding:3px 10px;font-size:0.75rem">💻 Informatique (3)</span>
+            <span style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:3px 10px;font-size:0.75rem">🚗 Auto (1)</span>
+            <span style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:3px 10px;font-size:0.75rem">📱 Téléphones (2)</span>
+          </div>
+          <div style="font-size:0.75rem;opacity:0.5;margin-bottom:6px">🏆 Meilleures affaires du moment</div>
+          <div style="display:flex;flex-direction:column;gap:4px;font-size:0.78rem">
+            <div style="background:rgba(251,191,36,0.1);border-radius:4px;padding:5px 8px">⭐ 94.2 — Asus TUF A15 RTX4060 — 750€ · @alex</div>
+            <div style="background:rgba(255,255,255,0.04);border-radius:4px;padding:5px 8px">⭐ 91.0 — Clio 2021 essence 45k km — 11 500€ · @tris</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

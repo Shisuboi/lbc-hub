@@ -1,0 +1,84 @@
+<h2>Architecture globale</h2>
+<p class="subtitle">Comment les pièces s'assemblent — de la machine d'un ami au hub partagé</p>
+
+<div style="display:flex;flex-direction:column;gap:1.5rem;max-width:700px;margin:0 auto">
+
+  <!-- LOCAL SIDE -->
+  <div style="background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.2);border-radius:14px;padding:1.25rem">
+    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;color:#38bdf8;margin-bottom:0.9rem;text-transform:uppercase">💻 Machine de l'utilisateur (local)</div>
+    <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
+      <div style="flex:1;min-width:140px;background:rgba(0,0,0,0.25);border-radius:8px;padding:0.75rem;font-size:0.82rem">
+        <div style="font-weight:600;margin-bottom:0.3rem">🌐 Navigateur</div>
+        <div style="opacity:0.65;font-size:0.77rem">Ouvre lbcdeals.fr<br>Interface du scraper<br>Hub & résultats</div>
+      </div>
+      <div style="display:flex;align-items:center;font-size:1.2rem;opacity:0.4">⇄</div>
+      <div style="flex:1;min-width:140px;background:rgba(0,0,0,0.25);border-radius:8px;padding:0.75rem;font-size:0.82rem">
+        <div style="font-weight:600;margin-bottom:0.3rem">⚙️ server.py (local)</div>
+        <div style="opacity:0.65;font-size:0.77rem">Playwright scraping<br>Ollama (IA locale)<br>Tourne sur :8080</div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:0.75rem;font-size:0.75rem;opacity:0.5">Le navigateur détecte si server.py tourne → active le bouton "Scraper"</div>
+  </div>
+
+  <!-- ARROW DOWN -->
+  <div style="display:flex;align-items:center;justify-content:center;gap:0.75rem">
+    <div style="height:1px;flex:1;background:rgba(255,255,255,0.08)"></div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:0.2rem;font-size:0.78rem;opacity:0.6">
+      <span>📤 Push résultats (HTTPS)</span>
+      <span>🔐 Token JWT Supabase</span>
+    </div>
+    <div style="height:1px;flex:1;background:rgba(255,255,255,0.08)"></div>
+  </div>
+
+  <!-- SUPABASE -->
+  <div style="background:rgba(168,85,247,0.06);border:1px solid rgba(168,85,247,0.2);border-radius:14px;padding:1.25rem">
+    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;color:#c084fc;margin-bottom:0.9rem;text-transform:uppercase">☁️ Supabase (hébergé — gratuit)</div>
+    <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
+      <div style="flex:1;min-width:110px;background:rgba(0,0,0,0.25);border-radius:8px;padding:0.75rem;font-size:0.82rem">
+        <div style="font-weight:600;margin-bottom:0.3rem">🗄️ Base PostgreSQL</div>
+        <div style="opacity:0.65;font-size:0.77rem">users<br>searches<br>listings</div>
+      </div>
+      <div style="flex:1;min-width:110px;background:rgba(0,0,0,0.25);border-radius:8px;padding:0.75rem;font-size:0.82rem">
+        <div style="font-weight:600;margin-bottom:0.3rem">🔑 Auth</div>
+        <div style="opacity:0.65;font-size:0.77rem">Email + password<br>Invitations<br>Sessions JWT</div>
+      </div>
+      <div style="flex:1;min-width:110px;background:rgba(0,0,0,0.25);border-radius:8px;padding:0.75rem;font-size:0.82rem">
+        <div style="font-weight:600;margin-bottom:0.3rem">⚡ Realtime</div>
+        <div style="opacity:0.65;font-size:0.77rem">Feed mis à jour<br>sans refresh<br>quand qqun publie</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW DOWN -->
+  <div style="display:flex;align-items:center;justify-content:center;gap:0.75rem">
+    <div style="height:1px;flex:1;background:rgba(255,255,255,0.08)"></div>
+    <div style="font-size:0.78rem;opacity:0.6">🌍 Servi via GitHub Pages / Vercel (gratuit)</div>
+    <div style="height:1px;flex:1;background:rgba(255,255,255,0.08)"></div>
+  </div>
+
+  <!-- FRONTEND -->
+  <div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:14px;padding:1.25rem">
+    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;color:#6ee7b7;margin-bottom:0.9rem;text-transform:uppercase">🎨 Frontend (lbcdeals.fr ou github.io)</div>
+    <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
+      <div style="flex:1;min-width:110px;background:rgba(0,0,0,0.25);border-radius:8px;padding:0.75rem;font-size:0.82rem">
+        <div style="font-weight:600;margin-bottom:0.3rem">📰 Hub / Feed</div>
+        <div style="opacity:0.65;font-size:0.77rem">Toutes les recherches<br>tri par date/note<br>temps réel</div>
+      </div>
+      <div style="flex:1;min-width:110px;background:rgba(0,0,0,0.25);border-radius:8px;padding:0.75rem;font-size:0.82rem">
+        <div style="font-weight:600;margin-bottom:0.3rem">⚡ Scraper</div>
+        <div style="opacity:0.65;font-size:0.77rem">Connecté au server.py<br>local via localhost<br>Si dispo → actif</div>
+      </div>
+      <div style="flex:1;min-width:110px;background:rgba(0,0,0,0.25);border-radius:8px;padding:0.75rem;font-size:0.82rem">
+        <div style="font-weight:600;margin-bottom:0.3rem">📥 Import JSON</div>
+        <div style="opacity:0.65;font-size:0.77rem">Claude.ai workflow<br>déjà existant<br>→ publie direct</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INSTALL BOX -->
+  <div style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);border-radius:14px;padding:1rem;font-size:0.82rem">
+    <div style="font-weight:700;color:#fbbf24;margin-bottom:0.4rem">📦 Installation pour les amis</div>
+    <div style="opacity:0.75">Lien Google Drive → ZIP contenant : <code>server.py</code> + <code>install.bat</code> (Windows) / <code>install.sh</code> (Mac/Linux) → 1 double-clic, tout s'installe. Le site hub est déjà accessible, pas besoin d'installer quoi que ce soit pour juste consulter le feed.</div>
+  </div>
+
+</div>

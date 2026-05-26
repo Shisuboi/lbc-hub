@@ -1,0 +1,83 @@
+<h2>Toutes les pages de l'app</h2>
+<p class="subtitle">Structure de navigation complète — de la connexion au hub</p>
+
+<div style="display:flex;flex-direction:column;gap:1rem;max-width:720px;margin:0 auto">
+
+  <!-- AUTH -->
+  <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:1rem">
+    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;opacity:0.45;margin-bottom:0.75rem;text-transform:uppercase">Non connecté</div>
+    <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
+      <div style="background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.25);border-radius:8px;padding:0.6rem 1rem;font-size:0.83rem">
+        <div style="font-weight:600">🔐 /login</div>
+        <div style="opacity:0.6;font-size:0.75rem">Email + mot de passe</div>
+      </div>
+      <div style="background:rgba(56,189,248,0.05);border:1px solid rgba(56,189,248,0.15);border-radius:8px;padding:0.6rem 1rem;font-size:0.83rem">
+        <div style="font-weight:600">📧 /invite/:token</div>
+        <div style="opacity:0.6;font-size:0.75rem">Création de compte via lien d'invitation</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HUB -->
+  <div style="background:rgba(168,85,247,0.06);border:1px solid rgba(168,85,247,0.25);border-radius:12px;padding:1rem">
+    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;color:#c084fc;margin-bottom:0.75rem;text-transform:uppercase">🏠 Hub principal</div>
+    <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
+      <div style="background:rgba(0,0,0,0.25);border-radius:8px;padding:0.6rem 1rem;font-size:0.83rem;flex:1;min-width:150px">
+        <div style="font-weight:600">📰 / (feed)</div>
+        <div style="opacity:0.6;font-size:0.75rem;line-height:1.5">Feed de toutes les recherches<br>Tri : récent / meilleures notes<br>Date visible sur chaque carte<br>Temps réel (Supabase realtime)</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.25);border-radius:8px;padding:0.6rem 1rem;font-size:0.83rem;flex:1;min-width:150px">
+        <div style="font-weight:600">🔍 /search/:id</div>
+        <div style="opacity:0.6;font-size:0.75rem;line-height:1.5">Page d'une recherche<br>Toutes les annonces notées<br>Filtres + tri local<br>Stats (meilleure note, prix min...)</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.25);border-radius:8px;padding:0.6rem 1rem;font-size:0.83rem;flex:1;min-width:150px">
+        <div style="font-weight:600">👤 /profile/:user</div>
+        <div style="opacity:0.6;font-size:0.75rem;line-height:1.5">Toutes les recherches<br>d'un utilisateur spécifique<br>Historique personnel</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRAPER -->
+  <div style="background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.25);border-radius:12px;padding:1rem">
+    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;color:#38bdf8;margin-bottom:0.75rem;text-transform:uppercase">⚡ Scraper (outil actuel adapté)</div>
+    <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
+      <div style="background:rgba(0,0,0,0.25);border-radius:8px;padding:0.6rem 1rem;font-size:0.83rem;flex:1;min-width:150px">
+        <div style="font-weight:600">⚙️ /scraper</div>
+        <div style="opacity:0.6;font-size:0.75rem;line-height:1.5">L'outil actuel (URL, critères, modèle...)<br>Détecte server.py local<br>Console + progression live</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.25);border-radius:8px;padding:0.6rem 1rem;font-size:0.83rem;flex:1;min-width:150px">
+        <div style="font-weight:600">📤 Bouton "Publier"</div>
+        <div style="opacity:0.6;font-size:0.75rem;line-height:1.5">Apparaît après analyse terminée<br>Ajoute titre + description<br>Pousse vers Supabase</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.25);border-radius:8px;padding:0.6rem 1rem;font-size:0.83rem;flex:1;min-width:150px">
+        <div style="font-weight:600">📥 Import JSON</div>
+        <div style="opacity:0.6;font-size:0.75rem;line-height:1.5">Workflow Claude.ai existant<br>→ "Publier" directement<br>sans server.py</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN -->
+  <div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:12px;padding:1rem">
+    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;color:#6ee7b7;margin-bottom:0.75rem;text-transform:uppercase">🛡️ Admin (toi seulement)</div>
+    <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
+      <div style="background:rgba(0,0,0,0.25);border-radius:8px;padding:0.6rem 1rem;font-size:0.83rem">
+        <div style="font-weight:600">📧 Inviter un ami</div>
+        <div style="opacity:0.6;font-size:0.75rem">Génère un lien d'invitation unique<br>Pas d'inscription publique possible</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.25);border-radius:8px;padding:0.6rem 1rem;font-size:0.83rem">
+        <div style="font-weight:600">🗑️ Modération</div>
+        <div style="opacity:0.6;font-size:0.75rem">Supprimer une recherche<br>ou un utilisateur</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INSTALL -->
+  <div style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);border-radius:12px;padding:1rem">
+    <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;color:#fbbf24;margin-bottom:0.75rem;text-transform:uppercase">📦 /install (guide d'installation)</div>
+    <div style="background:rgba(0,0,0,0.25);border-radius:8px;padding:0.6rem 1rem;font-size:0.83rem">
+      <div style="font-weight:600">Page tuto intégrée dans le site</div>
+      <div style="opacity:0.6;font-size:0.75rem;line-height:1.6">Guide pas-à-pas : télécharger le ZIP (lien Google Drive) → double-cliquer install.bat → ouvrir le site → se connecter. Screenshots + vidéo courte optionnelle. Accessible sans être connecté.</div>
+    </div>
+  </div>
+
+</div>

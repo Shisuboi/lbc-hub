@@ -1,0 +1,78 @@
+<h2>Clic sur une recherche dans le feed</h2>
+<p class="subtitle">@alex a partagé "Laptops gaming RTX 4060 – 47 annonces" — tu cliques dessus, que vois-tu ?</p>
+
+<div class="options">
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Page dédiée</h3>
+      <p>Navigation vers une page propre à cette recherche : <code>/search/abc123</code>. On voit toutes les annonces notées, les filtres, les stats, et les infos de contexte (date, critères, modèle IA utilisé). URL partageable.</p>
+      <div class="mockup" style="margin-top:10px">
+        <div class="mockup-header">/search/laptops-rtx-alex-2026</div>
+        <div class="mockup-body" style="padding:10px;font-size:0.8rem">
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px;opacity:0.7">
+            <span>🔍 <strong>Laptops gaming RTX 4060</strong> par @alex</span>
+            <span>📅 26 mai 2026, 18h32</span>
+          </div>
+          <div style="display:flex;gap:6px;margin-bottom:8px">
+            <span style="background:rgba(56,189,248,0.12);border-radius:4px;padding:2px 8px;font-size:0.75rem">47 annonces</span>
+            <span style="background:rgba(251,191,36,0.12);border-radius:4px;padding:2px 8px;font-size:0.75rem">⭐ Top : 94.2</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div style="background:rgba(251,191,36,0.1);border-radius:4px;padding:6px 8px">⭐ 94.2 — Asus TUF A15 RTX4060 — 750€</div>
+            <div style="background:rgba(255,255,255,0.04);border-radius:4px;padding:6px 8px">⭐ 91.7 — MSI Cyborg 15 — 680€</div>
+            <div style="background:rgba(255,255,255,0.04);border-radius:4px;padding:6px 8px">⭐ 88.4 — Lenovo LOQ RTX4060 — 720€</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Modale / overlay</h3>
+      <p>Un panneau s'ouvre par-dessus le feed sans quitter la page. On voit les annonces, on peut fermer et revenir immédiatement au fil. Rapide à consulter, mais pas d'URL partageable.</p>
+      <div class="mockup" style="margin-top:10px">
+        <div class="mockup-header">Feed (arrière-plan flouté)</div>
+        <div class="mockup-body" style="padding:0;position:relative;min-height:110px">
+          <div style="position:absolute;inset:0;padding:8px;opacity:0.25;font-size:0.75rem;display:flex;flex-direction:column;gap:4px">
+            <div style="background:rgba(255,255,255,0.05);border-radius:6px;height:28px"></div>
+            <div style="background:rgba(255,255,255,0.05);border-radius:6px;height:28px"></div>
+          </div>
+          <div style="position:absolute;inset:8px;background:rgba(15,23,42,0.97);border:1px solid rgba(56,189,248,0.3);border-radius:10px;padding:10px;font-size:0.78rem;box-shadow:0 8px 32px rgba(0,0,0,0.5)">
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px"><strong>Laptops gaming RTX 4060</strong> <span style="cursor:pointer;opacity:0.5">✕</span></div>
+            <div style="display:flex;flex-direction:column;gap:3px">
+              <div style="background:rgba(251,191,36,0.1);border-radius:4px;padding:4px 7px">⭐ 94.2 — Asus TUF — 750€</div>
+              <div style="background:rgba(255,255,255,0.04);border-radius:4px;padding:4px 7px">⭐ 91.7 — MSI Cyborg — 680€</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Expansion inline</h3>
+      <p>La carte se déplie directement dans le feed pour montrer les annonces. Le reste du feed reste visible au-dessus et en-dessous. Fluide, sans rupture de navigation.</p>
+      <div class="mockup" style="margin-top:10px">
+        <div class="mockup-header">Feed</div>
+        <div class="mockup-body" style="padding:10px;display:flex;flex-direction:column;gap:6px;font-size:0.78rem">
+          <div style="background:rgba(255,255,255,0.04);border-radius:6px;padding:7px 10px;opacity:0.4">@marie · iPhone 14 Pro · il y a 5h</div>
+          <div style="background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.25);border-radius:8px;padding:8px 10px">
+            <div style="margin-bottom:6px"><strong>@alex · Laptops gaming RTX 4060</strong> <span style="float:right;opacity:0.5;font-size:0.72rem">▲ réduire</span></div>
+            <div style="display:flex;flex-direction:column;gap:3px">
+              <div style="background:rgba(251,191,36,0.1);border-radius:4px;padding:4px 7px">⭐ 94.2 — Asus TUF — 750€</div>
+              <div style="background:rgba(255,255,255,0.06);border-radius:4px;padding:4px 7px">⭐ 91.7 — MSI Cyborg — 680€</div>
+            </div>
+          </div>
+          <div style="background:rgba(255,255,255,0.04);border-radius:6px;padding:7px 10px;opacity:0.4">@tris · Clio essence · hier</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

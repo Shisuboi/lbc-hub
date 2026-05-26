@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+
+# Project data files (regenerated each run)
+leboncoin_brut.json
+leboncoin_ia_imported.json
+leboncoin_ia_results.csv
+leboncoin_ia_results.html
+debug_lbc.html
+server_out.txt
+server_err.txt
+
+# Backup files
+*.scraper-backup
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build / release
+release/
+_site/
+node_modules/
+
+# Worktrees
+.claude/worktrees/
+
+# Secrets (local only — Supabase keys live in supabase-client.js but service_role never committed)
+.env
+.env.local
+*.secret
