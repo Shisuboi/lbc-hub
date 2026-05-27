@@ -706,9 +706,6 @@ async def index_handler(request):
 async def style_handler(request):
     return web.FileResponse(os.path.join(os.path.dirname(__file__), 'style.css'))
 
-async def app_handler(request):
-    return web.FileResponse(os.path.join(os.path.dirname(__file__), 'app.js'))
-
 async def start_handler(request):
     try:
         data = await request.json()
@@ -895,7 +892,8 @@ def create_app() -> web.Application:
     app.router.add_get('/', index_handler)
     app.router.add_get('/index.html', index_handler)
     app.router.add_get('/style.css', style_handler)
-    app.router.add_get('/app.js', app_handler)
+    # /app.js : ancien fichier supprimé, remplacé par les modules ES6 dans /js/
+    # (la route est laissée comme redirection 410 pour debug si un vieux cache navigateur insiste)
     app.router.add_post('/api/start', start_handler)
     app.router.add_post('/api/resume', resume_handler)
     app.router.add_post('/api/stop', stop_handler)
