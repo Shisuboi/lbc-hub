@@ -5,9 +5,10 @@
 //   - filtres : texte, score min, tri (note/prix)
 //   - grille de listing cards
 import { supa } from '../supabase-client.js';
-import { requireAuth } from '../auth.js';
+import { requireAuth, getProfile } from '../auth.js';
 import { listingCardHtml } from '../components/listing-card.js';
 import { avatarHtml } from '../lib/colors.js';
+import { loadFavorites, toggleFavorite, isFavorite } from '../lib/favorites.js';
 
 function escapeHtml(s) {
     if (s == null) return '';
@@ -57,6 +58,10 @@ export async function render({ id }) {
         .eq('id', search.user_id)
         .single();
 
+    const me = await getProfile();
+    await loadFavorites(me?.id);
+    const fav = isFavorite(search.id);
+
     const isCloud = search.model_type === 'cloud';
     const platform = PLATFORM_LABEL[search.platform] || PLATFORM_LABEL.other;
     const scrapedDate = search.scraped_at || search.created_at;
@@ -74,7 +79,10 @@ export async function render({ id }) {
                     ${isCloud ? '✨' : '⚡'} ${escapeHtml(search.model_name)} — modèle ${isCloud ? 'cloud (précision élevée)' : 'local'}
                 </div>
                 <div class="search-header-body">
-                    <h2>${escapeHtml(search.title)}</h2>
+                    <div class="search-title-row">
+                        <h2>${escapeHtml(search.title)}</h2>
+                        <button type="button" id="btnSearchFav" class="fav-btn fav-btn-lg ${fav ? 'is-fav' : ''}" title="${fav ? 'Retirer des favoris' : 'Ajouter aux favoris'}" aria-label="favori">${fav ? '⭐' : '☆'}</button>
+                    </div>
                     <div class="search-author">
                         ${avatarHtml(author, 32)}
                         ${author?.username
@@ -115,6 +123,24 @@ export async function render({ id }) {
             `}
         </section>
     `;
+
+    // Bouton favori sur le header
+    const btnFav = document.getElementById('btnSearchFav');
+    if (btnFav && me?.id) {
+        btnFav.addEventListener('click', async () => {
+            btnFav.disabled = true;
+            try {
+                const nowFav = await toggleFavorite(me.id, search.id);
+                btnFav.classList.toggle('is-fav', nowFav);
+                btnFav.textContent = nowFav ? '⭐' : '☆';
+                btnFav.title = nowFav ? 'Retirer des favoris' : 'Ajouter aux favoris';
+            } catch (err) {
+                console.error('toggleFavorite failed', err);
+            } finally {
+                btnFav.disabled = false;
+            }
+        });
+    }
 
     if (listings.length === 0) return;
 

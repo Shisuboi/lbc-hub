@@ -2240,3 +2240,62 @@ a.feed-author:hover .feed-author-name {
     }
     .profile-stat-value { font-size: 20px; }
 }
+
+/* ===== FAVORITES ===== */
+.fav-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--text-muted, #888);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.fav-btn:hover {
+    background: rgba(251, 191, 36, 0.10);
+    color: #fbbf24;
+    transform: scale(1.1);
+}
+.fav-btn.is-fav {
+    color: #fbbf24;
+    text-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
+}
+.fav-btn:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+.fav-btn-lg {
+    width: 44px;
+    height: 44px;
+    font-size: 24px;
+}
+
+.feed-meta-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.hub-chip-fav {
+    margin-left: auto; /* repousse le chip favoris à droite */
+}
+.hub-chip-fav.is-active {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.20), rgba(245, 158, 11, 0.20));
+    border-color: #fbbf24;
+    color: #fbbf24;
+}
+
+.search-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+.search-title-row h2 { margin: 0; }

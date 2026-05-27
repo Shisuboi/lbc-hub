@@ -3,8 +3,9 @@
 // Subscribe à Supabase Realtime pour afficher les nouvelles searches sans refresh.
 // Toolbar de tri (date / score / prix) et filtres (plateforme, auteur, texte).
 import { supa } from '../supabase-client.js';
-import { requireAuth } from '../auth.js';
+import { requireAuth, getProfile } from '../auth.js';
 import { feedCardHtml } from '../components/feed-card.js';
+import { loadFavorites, toggleFavorite, isFavorite } from '../lib/favorites.js';
 
 const PLATFORM_LABELS = {
     leboncoin: '🟠 LBC',
@@ -49,6 +50,9 @@ export async function render() {
                         <span class="hub-chip-label">Auteur :</span>
                         <button type="button" class="hub-chip is-active" data-author="all">Tous</button>
                     </div>
+                    <div class="hub-chip-row" id="hubFavChips">
+                        <button type="button" class="hub-chip hub-chip-fav" data-fav-filter="off" title="Filtrer sur mes favoris">☆ Favoris</button>
+                    </div>
                 </div>
                 <div class="hub-toolbar-row hub-toolbar-counter">
                     <span id="hubResultCount" class="muted small">— recherches</span>
@@ -75,8 +79,13 @@ export async function render() {
         sort: 'recent',
         platform: 'all',
         author: 'all',
+        favOnly: false,
         text: '',
     };
+
+    // === Charge les favoris du user courant ===
+    const me = await getProfile();
+    await loadFavorites(me?.id);
 
     // === Fetch initial ===
     const { data: searches, error } = await supa
@@ -129,6 +138,37 @@ export async function render() {
         state.author = btn.dataset.author;
         document.querySelectorAll('#hubAuthorChips .hub-chip').forEach(b => b.classList.toggle('is-active', b === btn));
         renderFeed();
+    });
+    document.getElementById('hubFavChips').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-fav-filter]');
+        if (!btn) return;
+        state.favOnly = !state.favOnly;
+        btn.classList.toggle('is-active', state.favOnly);
+        btn.textContent = state.favOnly ? '⭐ Favoris' : '☆ Favoris';
+        renderFeed();
+    });
+
+    // Délégation : toggle favori au clic sur un bouton .fav-btn dans la grille
+    document.getElementById('feedGrid').addEventListener('click', async (e) => {
+        const btn = e.target.closest('.fav-btn');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const searchId = btn.dataset.favId;
+        if (!me?.id) return;
+        btn.disabled = true;
+        try {
+            const nowFav = await toggleFavorite(me.id, searchId);
+            btn.classList.toggle('is-fav', nowFav);
+            btn.textContent = nowFav ? '⭐' : '☆';
+            btn.title = nowFav ? 'Retirer des favoris' : 'Ajouter aux favoris';
+            // Si le filtre "favoris seulement" est actif, re-render pour faire disparaître la carte
+            if (state.favOnly && !nowFav) renderFeed();
+        } catch (err) {
+            console.error('toggleFavorite failed', err);
+        } finally {
+            btn.disabled = false;
+        }
     });
 
     // === Realtime : insertion d'une nouvelle recherche ===
@@ -200,6 +240,9 @@ export async function render() {
         if (state.author !== 'all') {
             list = list.filter(s => s.user_id === state.author);
         }
+        if (state.favOnly) {
+            list = list.filter(s => isFavorite(s.id));
+        }
         if (state.text) {
             list = list.filter(s => {
                 const profile = state.profileMap.get(s.user_id);
@@ -239,7 +282,7 @@ export async function render() {
         }
         noMatch.classList.add('hidden');
 
-        grid.innerHTML = list.map(s => feedCardHtml(s, state.profileMap.get(s.user_id))).join('');
+        grid.innerHTML = list.map(s => feedCardHtml(s, state.profileMap.get(s.user_id), { isFavorite: isFavorite(s.id) })).join('');
 
         if (flagNewId) {
             const newCard = grid.querySelector(`[data-search-id="${flagNewId}"]`);

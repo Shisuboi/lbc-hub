@@ -38,7 +38,7 @@ const PLATFORM_BADGES = {
     other:     { icon: '⚪', label: 'Autre' },
 };
 
-export function feedCardHtml(search, profile) {
+export function feedCardHtml(search, profile, opts = {}) {
     const isCloud = search.model_type === 'cloud';
     const banner = isCloud
         ? `<div class="model-banner cloud">✨ ${escapeHtml(search.model_name)} — modèle cloud (précision élevée)</div>`
@@ -52,12 +52,18 @@ export function feedCardHtml(search, profile) {
         ? `<a href="/profile/${encodeURIComponent(profile.username)}" data-link class="feed-author">${avatarHtml(profile, 28)}<span class="feed-author-name">@${escapeHtml(username)}</span></a>`
         : `<span class="feed-author">${avatarHtml(profile, 28)}<span class="feed-author-name">@${escapeHtml(username)}</span></span>`;
 
+    const isFav = !!opts.isFavorite;
+    const favBtn = `<button type="button" class="fav-btn ${isFav ? 'is-fav' : ''}" data-fav-id="${search.id}" title="${isFav ? 'Retirer des favoris' : 'Ajouter aux favoris'}" aria-label="favori">${isFav ? '⭐' : '☆'}</button>`;
+
     return `
         <article class="feed-card card" data-search-id="${search.id}">
             ${banner}
             <div class="feed-card-meta">
                 ${authorLink}
-                <span class="feed-date">${dateFr(bestDate(search))}</span>
+                <div class="feed-meta-right">
+                    <span class="feed-date">${dateFr(bestDate(search))}</span>
+                    ${favBtn}
+                </div>
             </div>
             <a href="/search/${search.id}" data-link class="feed-card-body">
                 <h3 class="feed-title">${escapeHtml(search.title)}</h3>
