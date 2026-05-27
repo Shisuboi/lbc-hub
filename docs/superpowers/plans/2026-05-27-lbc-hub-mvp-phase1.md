@@ -19,6 +19,11 @@
 3. Tests pragmatiques : pytest pour endpoints serveur uniquement ; tests manuels guidés pour frontend
 4. Hébergement GitHub Pages sous-domaine `github.io` (pas de domaine custom)
 
+**Amendements post-brainstorm :**
+- A1 — **Date scraping** : `searches.scraped_at` (= moment du scraping capturé par server.py) est LA date affichée partout. `created_at` = date d'insertion Supabase, pour logs uniquement.
+- A2 — **Multi-plateforme** : `url_lbc` renommé en `source_url` (générique) + champ `platform text` ajouté (`'leboncoin'|'ebay'|'vinted'|'other'`). Badge plateforme sur les feed cards.
+- A3 — **Sync cross-machines** : `CLAUDE.md` commité dans le repo pour reconstruire le contexte Claude sur n'importe quelle machine. Config `.claude/settings.json` aussi dans le repo.
+
 ---
 
 ## Vue d'ensemble des sections
@@ -185,13 +190,16 @@ create table public.searches (
     user_id       uuid not null references public.profiles(id) on delete cascade,
     title         text not null check (char_length(title) between 1 and 120),
     criteria      text not null default '',
-    url_lbc       text,
+    source_url    text,                                         -- [A2] générique (pas url_lbc)
+    platform      text not null default 'leboncoin'             -- [A2] 'leboncoin'|'ebay'|'vinted'|'other'
+                  check (platform in ('leboncoin', 'ebay', 'vinted', 'other')),
     model_name    text not null,
     model_type    text not null check (model_type in ('cloud', 'local')),
     listing_count int  not null default 0,
     best_score    float,
     min_price     float,
-    created_at    timestamptz not null default now()
+    scraped_at    timestamptz,                                  -- [A1] date du scraping (affichée partout)
+    created_at    timestamptz not null default now()            -- date d'insertion Supabase (logs uniquement)
 );
 
 create index searches_created_at_idx on public.searches(created_at desc);
