@@ -1,9 +1,17 @@
 // js/pages/hub.js
-// Page /hub : feed chronologique des recherches publiées par tous les users.
+// Page /hub : feed des recherches publiées par tous les users.
 // Subscribe à Supabase Realtime pour afficher les nouvelles searches sans refresh.
+// Toolbar de tri (date / score / prix) et filtres (plateforme, auteur, texte).
 import { supa } from '../supabase-client.js';
 import { requireAuth } from '../auth.js';
 import { feedCardHtml } from '../components/feed-card.js';
+
+const PLATFORM_LABELS = {
+    leboncoin: '🟠 LBC',
+    ebay: '🔵 eBay',
+    vinted: '🟢 Vinted',
+    other: '⚪ Autre',
+};
 
 export async function render() {
     await requireAuth();
@@ -15,15 +23,60 @@ export async function render() {
                 <h2>Hub des recherches</h2>
                 <a href="/scraper" data-link class="btn btn-primary">🔍 Nouvelle recherche</a>
             </div>
+
+            <div class="hub-toolbar card" id="hubToolbar">
+                <div class="hub-toolbar-row">
+                    <div class="hub-search">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="hubFilterText" placeholder="Filtrer par titre ou pseudo...">
+                    </div>
+                    <div class="hub-filter-group">
+                        <label for="hubSort">Trier :</label>
+                        <select id="hubSort">
+                            <option value="recent">Plus récentes ⏱️</option>
+                            <option value="score">Meilleures notes ⭐</option>
+                            <option value="price-asc">Prix croissant 📈</option>
+                            <option value="price-desc">Prix décroissant 📉</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="hub-toolbar-row">
+                    <div class="hub-chip-row" id="hubPlatformChips">
+                        <span class="hub-chip-label">Plateforme :</span>
+                        <button type="button" class="hub-chip is-active" data-platform="all">Toutes</button>
+                    </div>
+                    <div class="hub-chip-row" id="hubAuthorChips">
+                        <span class="hub-chip-label">Auteur :</span>
+                        <button type="button" class="hub-chip is-active" data-author="all">Tous</button>
+                    </div>
+                </div>
+                <div class="hub-toolbar-row hub-toolbar-counter">
+                    <span id="hubResultCount" class="muted small">— recherches</span>
+                </div>
+            </div>
+
             <div id="feedGrid" class="feed-grid"></div>
             <div id="feedEmpty" class="empty-state card hidden">
                 <h3>Pas encore de recherche publiée</h3>
                 <p>Sois le premier à scraper et publier une recherche sur le hub !</p>
                 <a href="/scraper" data-link class="btn btn-primary">Lancer une recherche</a>
             </div>
-            <p class="hub-disclaimer">💡 <em>Les notes d'un modèle cloud (Claude, GPT-4) sont généralement plus précises que celles d'un modèle local. Tenez-en compte en comparant des recherches entre elles.</em></p>
+            <div id="feedNoMatch" class="empty-state card hidden">
+                <h3>Aucune recherche ne correspond</h3>
+                <p>Essaie de relâcher tes filtres.</p>
+            </div>
         </section>
     `;
+
+    // === State partagé entre fetch initial, filters, et Realtime ===
+    const state = {
+        searches: [],
+        profileMap: new Map(),
+        sort: 'recent',
+        platform: 'all',
+        author: 'all',
+        text: '',
+    };
 
     // === Fetch initial ===
     const { data: searches, error } = await supa
@@ -38,25 +91,47 @@ export async function render() {
         return;
     }
 
-    if (!searches || searches.length === 0) {
+    state.searches = searches || [];
+
+    if (state.searches.length === 0) {
         document.getElementById('feedEmpty').classList.remove('hidden');
+        document.getElementById('hubToolbar').classList.add('hidden');
     } else {
-        // Fetch tous les profils auteurs en un seul appel
-        const userIds = [...new Set(searches.map(s => s.user_id))];
+        const userIds = [...new Set(state.searches.map(s => s.user_id))];
         const { data: profiles } = await supa
             .from('profiles')
             .select('id, username, avatar_color')
             .in('id', userIds);
-        const profileMap = new Map((profiles || []).map(p => [p.id, p]));
-
-        document.getElementById('feedGrid').innerHTML = searches
-            .map(s => feedCardHtml(s, profileMap.get(s.user_id)))
-            .join('');
+        state.profileMap = new Map((profiles || []).map(p => [p.id, p]));
+        rebuildChips();
+        renderFeed();
     }
 
+    // === Filtres & tri : événements UI ===
+    document.getElementById('hubFilterText').addEventListener('input', (e) => {
+        state.text = e.target.value.trim().toLowerCase();
+        renderFeed();
+    });
+    document.getElementById('hubSort').addEventListener('change', (e) => {
+        state.sort = e.target.value;
+        renderFeed();
+    });
+    document.getElementById('hubPlatformChips').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-platform]');
+        if (!btn) return;
+        state.platform = btn.dataset.platform;
+        document.querySelectorAll('#hubPlatformChips .hub-chip').forEach(b => b.classList.toggle('is-active', b === btn));
+        renderFeed();
+    });
+    document.getElementById('hubAuthorChips').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-author]');
+        if (!btn) return;
+        state.author = btn.dataset.author;
+        document.querySelectorAll('#hubAuthorChips .hub-chip').forEach(b => b.classList.toggle('is-active', b === btn));
+        renderFeed();
+    });
+
     // === Realtime : insertion d'une nouvelle recherche ===
-    // On nettoie d'abord une éventuelle subscription d'une visite précédente,
-    // car le router ne notifie pas la sortie de la page.
     if (window.__hubChannel) {
         try { await supa.removeChannel(window.__hubChannel); } catch (_) {}
         window.__hubChannel = null;
@@ -67,23 +142,112 @@ export async function render() {
             { event: 'INSERT', schema: 'public', table: 'searches' },
             async (payload) => {
                 const newSearch = payload.new;
-                const { data: profile } = await supa
-                    .from('profiles')
-                    .select('id, username, avatar_color')
-                    .eq('id', newSearch.user_id)
-                    .single();
-                const grid = document.getElementById('feedGrid');
-                if (!grid) return; // l'user a quitté la page
-                const wrapper = document.createElement('div');
-                wrapper.innerHTML = feedCardHtml(newSearch, profile);
-                const card = wrapper.firstElementChild;
-                if (card) {
-                    card.classList.add('feed-card-new');
-                    grid.insertBefore(card, grid.firstChild);
+                // Récupère le profil de l'auteur si pas déjà connu
+                if (!state.profileMap.has(newSearch.user_id)) {
+                    const { data: profile } = await supa
+                        .from('profiles')
+                        .select('id, username, avatar_color')
+                        .eq('id', newSearch.user_id)
+                        .single();
+                    if (profile) state.profileMap.set(profile.id, profile);
                 }
+                // Ajoute en tête du state
+                state.searches.unshift(newSearch);
+                // Affiche la toolbar si c'était la première recherche
                 document.getElementById('feedEmpty')?.classList.add('hidden');
+                document.getElementById('hubToolbar')?.classList.remove('hidden');
+                rebuildChips();
+                renderFeed({ flagNewId: newSearch.id });
             })
         .subscribe();
 
     window.__hubChannel = channel;
+
+    // === Helpers ===
+    function rebuildChips() {
+        // Platforms : conserve l'ordre LBC/eBay/Vinted/Other et ne montre que celles présentes
+        const platforms = new Set(state.searches.map(s => s.platform || 'other'));
+        const platOrder = ['leboncoin', 'ebay', 'vinted', 'other'].filter(p => platforms.has(p));
+        const platBar = document.getElementById('hubPlatformChips');
+        const platHtml = ['<span class="hub-chip-label">Plateforme :</span>',
+            `<button type="button" class="hub-chip ${state.platform === 'all' ? 'is-active' : ''}" data-platform="all">Toutes</button>`,
+            ...platOrder.map(p =>
+                `<button type="button" class="hub-chip ${state.platform === p ? 'is-active' : ''}" data-platform="${p}">${PLATFORM_LABELS[p] || p}</button>`
+            )].join('');
+        platBar.innerHTML = platHtml;
+
+        // Authors : tri alphabétique par pseudo
+        const authorIds = [...new Set(state.searches.map(s => s.user_id))];
+        const authors = authorIds
+            .map(id => state.profileMap.get(id))
+            .filter(Boolean)
+            .sort((a, b) => a.username.localeCompare(b.username));
+        const authBar = document.getElementById('hubAuthorChips');
+        const authHtml = ['<span class="hub-chip-label">Auteur :</span>',
+            `<button type="button" class="hub-chip ${state.author === 'all' ? 'is-active' : ''}" data-author="all">Tous</button>`,
+            ...authors.map(p =>
+                `<button type="button" class="hub-chip ${state.author === p.id ? 'is-active' : ''}" data-author="${p.id}">@${p.username}</button>`
+            )].join('');
+        authBar.innerHTML = authHtml;
+    }
+
+    function filterAndSort() {
+        let list = state.searches.slice();
+
+        if (state.platform !== 'all') {
+            list = list.filter(s => (s.platform || 'other') === state.platform);
+        }
+        if (state.author !== 'all') {
+            list = list.filter(s => s.user_id === state.author);
+        }
+        if (state.text) {
+            list = list.filter(s => {
+                const profile = state.profileMap.get(s.user_id);
+                const haystack = `${s.title || ''} @${profile?.username || ''}`.toLowerCase();
+                return haystack.includes(state.text);
+            });
+        }
+
+        switch (state.sort) {
+            case 'score':
+                list.sort((a, b) => (b.best_score || 0) - (a.best_score || 0));
+                break;
+            case 'price-asc':
+                list.sort((a, b) => (a.min_price ?? Infinity) - (b.min_price ?? Infinity));
+                break;
+            case 'price-desc':
+                list.sort((a, b) => (b.min_price ?? -Infinity) - (a.min_price ?? -Infinity));
+                break;
+            default: // recent
+                list.sort((a, b) => new Date(b.scraped_at || b.created_at) - new Date(a.scraped_at || a.created_at));
+        }
+        return list;
+    }
+
+    function renderFeed({ flagNewId = null } = {}) {
+        const list = filterAndSort();
+        const grid = document.getElementById('feedGrid');
+        const counter = document.getElementById('hubResultCount');
+        const noMatch = document.getElementById('feedNoMatch');
+        if (!grid) return;
+
+        if (list.length === 0) {
+            grid.innerHTML = '';
+            noMatch.classList.remove('hidden');
+            counter.textContent = `0 / ${state.searches.length} recherche${state.searches.length > 1 ? 's' : ''}`;
+            return;
+        }
+        noMatch.classList.add('hidden');
+
+        grid.innerHTML = list.map(s => feedCardHtml(s, state.profileMap.get(s.user_id))).join('');
+
+        if (flagNewId) {
+            const newCard = grid.querySelector(`[data-search-id="${flagNewId}"]`);
+            if (newCard) newCard.classList.add('feed-card-new');
+        }
+
+        counter.textContent = list.length === state.searches.length
+            ? `${list.length} recherche${list.length > 1 ? 's' : ''}`
+            : `${list.length} / ${state.searches.length} recherche${state.searches.length > 1 ? 's' : ''}`;
+    }
 }

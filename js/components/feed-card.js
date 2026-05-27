@@ -48,7 +48,7 @@ export function feedCardHtml(search, profile) {
     const platformBadge = `<span class="badge badge-platform">${platform.icon} ${platform.label}</span>`;
 
     return `
-        <a href="/search/${search.id}" data-link class="feed-card card">
+        <a href="/search/${search.id}" data-link data-search-id="${search.id}" class="feed-card card">
             ${banner}
             <div class="feed-card-meta">
                 <div class="feed-author">
