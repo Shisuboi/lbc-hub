@@ -80,6 +80,14 @@ server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK J
 - `32d878a6-1ac8-40d0-8e53-f7f2980f4b44` — premier token (non utilisé, expire dans 7 jours à partir du 27/05/2026)
 - URL d'invitation : `https://shisuboi.github.io/lbc-hub/invite/32d878a6-1ac8-40d0-8e53-f7f2980f4b44`
 
+## Supabase Auth — config URL
+- Pendant le dev local : Site URL = `http://localhost:8080`
+- Au déploiement (Section 9) : remettre Site URL = `https://shisuboi.github.io/lbc-hub`
+- Redirect URLs (laisser les 3 en permanence) :
+  - `https://shisuboi.github.io/lbc-hub/*`
+  - `http://localhost:8080/*`
+  - `http://localhost:8080/**`
+
 ## Phase actuelle
 **Phase 1 — Hub MVP** (en cours)
 Phase 2 = profils, admin UI, tri feed, Realtime amélioré
