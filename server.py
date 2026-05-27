@@ -854,10 +854,44 @@ async def events_handler(request):
         
     return response
 
+# --- CORS / PRIVATE NETWORK ACCESS ---
+# Le frontend tourne en HTTPS (GitHub Pages) et appelle ce serveur en HTTP
+# sur localhost. Chrome/Edge requièrent ces headers (notamment
+# `Access-Control-Allow-Private-Network`) pour autoriser un appel public→privé.
+
+CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Private-Network': 'true',
+    'Access-Control-Max-Age': '86400',
+}
+
+
+@web.middleware
+async def cors_middleware(request, handler):
+    if request.method == 'OPTIONS':
+        return web.Response(status=204, headers=CORS_HEADERS)
+    response = await handler(request)
+    for k, v in CORS_HEADERS.items():
+        response.headers[k] = v
+    return response
+
+
+async def options_handler(request):
+    return web.Response(status=204, headers=CORS_HEADERS)
+
+
+async def ping_handler(request):
+    """Health-check appelé par le frontend pour détecter le serveur local."""
+    return web.json_response({'status': 'ok'})
+
+
 # --- SERVER BOOT ---
 
-async def make_app():
-    app = web.Application()
+def create_app() -> web.Application:
+    """Construit l'app aiohttp. Utilisée par main() et par les tests pytest."""
+    app = web.Application(middlewares=[cors_middleware])
     app.router.add_get('/', index_handler)
     app.router.add_get('/index.html', index_handler)
     app.router.add_get('/style.css', style_handler)
@@ -869,10 +903,14 @@ async def make_app():
     app.router.add_get('/api/scraped-info', scraped_info_handler)
     app.router.add_get('/api/events', events_handler)
     app.router.add_post('/api/import-results', import_handler)
+    app.router.add_get('/api/ping', ping_handler)
+    # Catch-all OPTIONS pour les preflights CORS
+    app.router.add_route('OPTIONS', '/{path:.*}', options_handler)
     return app
 
+
 def main():
-    app = asyncio.run(make_app())
+    app = create_app()
     print("✨ Le serveur Leboncoin Scraper & IA est lancé !")
     print("👉 Ouvrez votre navigateur sur : http://localhost:8080")
     web.run_app(app, host='localhost', port=8080)
