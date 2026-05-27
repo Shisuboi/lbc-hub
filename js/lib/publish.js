@@ -16,11 +16,9 @@ import { supa } from '../supabase-client.js';
  * @returns {Promise<string>} l'ID de la search créée
  */
 export async function publishSearch(payload) {
-    console.log('[publish] start, payload =', payload);
     const { data: { session } } = await supa.auth.getSession();
     const user = session?.user;
     if (!user) throw new Error('Non authentifié — reconnecte-toi.');
-    console.log('[publish] user id =', user.id);
 
     const listings = payload.listings || [];
 
@@ -35,7 +33,6 @@ export async function publishSearch(payload) {
         ? new Date(payload.scraped_at).toISOString()
         : new Date().toISOString();
 
-    console.log('[publish] inserting search...');
     const { data: search, error: e1 } = await supa.from('searches').insert({
         user_id: user.id,
         title: payload.title,
@@ -49,7 +46,6 @@ export async function publishSearch(payload) {
         min_price,
         scraped_at: scrapedAtIso,
     }).select().single();
-    console.log('[publish] search insert result, error =', e1, 'search =', search);
 
     if (e1) throw new Error('Échec création recherche : ' + e1.message);
 
@@ -65,11 +61,9 @@ export async function publishSearch(payload) {
             explication: l.explication || '',
             match_criteres: !!l.match_criteres,
         }));
-        console.log('[publish] inserting', rows.length, 'listings');
         for (let i = 0; i < rows.length; i += 100) {
             const chunk = rows.slice(i, i + 100);
             const { error: e2 } = await supa.from('listings').insert(chunk);
-            console.log('[publish] chunk', i, 'error =', e2);
             if (e2) {
                 // Rollback : supprimer la search déjà créée pour éviter une coquille vide
                 await supa.from('searches').delete().eq('id', search.id);
@@ -78,7 +72,6 @@ export async function publishSearch(payload) {
         }
     }
 
-    console.log('[publish] done, search id =', search.id);
     return search.id;
 }
 

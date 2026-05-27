@@ -10,7 +10,6 @@ if (!window.supabase) {
     throw new Error('Supabase SDK not loaded. Check the <script> tag in index.html.');
 }
 
-console.log('[supa-client] before createClient');
 export const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
         persistSession: true,
@@ -22,7 +21,6 @@ export const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY
         lock: async (_name, _timeout, fn) => await fn(),
     },
 });
-console.log('[supa-client] after createClient');
 
 export async function currentUser() {
     // getSession() lit localStorage sans appel réseau (≠ getUser() qui valide côté serveur).
