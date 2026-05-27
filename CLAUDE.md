@@ -31,8 +31,8 @@ server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK J
 
 ## Auth / accès
 - Inscriptions publiques **OFF** dans Supabase
-- Invitations manuelles par l'admin (Tristan) via dashboard Supabase + snippet SQL
-- Flow Phase 1 : admin crée user auth + invitation SQL → communique credentials → user va sur /invite/:token et choisit son pseudo (RPC consume_invitation)
+- Invitations gérées par l'admin via **la page `/admin`** (UI livrée en v1.1.0)
+- Flow actuel : admin crée user auth dans Dashboard Supabase + génère token via `/admin` → communique credentials + URL → user va sur `/invite/:token` et choisit son pseudo (RPC `consume_invitation`)
 
 ## Schéma DB important (versions cibles)
 - `profiles` : id, username, avatar_color, role ('user'|'admin'), created_at
@@ -62,11 +62,14 @@ server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK J
 - Plugins Superpowers : réinstaller sur chaque machine
 
 ## Fichiers critiques
-- `server.py` — scraper Python (ne PAS casser l'existant en refactorant)
-- `app.js` — logique scraper originale (à migrer dans `js/pages/scraper.js`, pas supprimer avant)
-- `index.html` — shell SPA (backup dans `index.html.scraper-backup` avant modification)
-- `docs/superpowers/plans/2026-05-27-lbc-hub-mvp-phase1.md` — plan d'implémentation Phase 1
+- `server.py` — scraper Python (D-01 appliqué : scrape only, plus d'analyse IA)
+- `index.html` — shell SPA avec `<base href>` dynamique (prod/dev) + script SPA route restore
+- `js/main.js` — entrypoint SPA, ORDRE IMPORTANT (renderHeader avant onAuthChange)
+- `js/supabase-client.js` — config SDK avec `lock: noop`, etc. (cf. "Bugs / pièges connus")
+- `js/vendor/supabase.min.js` — SDK self-hébergé (anti-Tracking-Prevention)
+- `docs/superpowers/plans/2026-05-27-lbc-hub-mvp-phase1.md` — plan d'origine Phase 1
 - `docs/superpowers/specs/2026-05-26-lbc-hub-platform-design.md` — spec validée
+- `TESTING.md` + `TESTING-phase2-3.md` — check-lists de tests E2E
 
 ## Ce qui NE change PAS
 - Scraping Playwright reste identique
@@ -74,9 +77,10 @@ server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK J
 - Dark theme UI reste identique
 - server.py reste optionnel (uniquement pour scraper)
 
-## Tokens d'invitation actifs
-- `32d878a6-1ac8-40d0-8e53-f7f2980f4b44` — premier token (non utilisé, expire dans 7 jours à partir du 27/05/2026)
-- URL d'invitation : `https://shisuboi.github.io/lbc-hub/invite/32d878a6-1ac8-40d0-8e53-f7f2980f4b44`
+## Invitations
+- Génération via `/admin` (réservé `role = 'admin'`).
+- L'admin doit aussi créer le user `auth.users` dans le Supabase Dashboard (la frontend ne peut pas le faire sans `service_role`).
+- Les tokens expirent à 7 jours (default DB).
 
 ## Supabase Auth — config URL
 - Pendant le dev local : Site URL = `http://localhost:8080`
@@ -87,24 +91,114 @@ server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK J
   - `http://localhost:8080/**`
 
 ## Phase actuelle
-**Phase 1 — Hub MVP : code terminé (43/43 tasks).** Reste à tester end-to-end et déployer.
+**Phases 1 → 3 entièrement livrées.** Code stable, déployé en prod, jamais testé E2E pour les Phase 2+3.
 
-### État au 27/05/2026
-- Sections 1-9 du plan : **toutes implémentées côté code**
-- Branch active : `feature/hub-phase1` (non encore mergée dans `master`)
-- Tests pytest : ✅ 3/3 passent (`pytest tests/ -v`)
-- Tests E2E manuels : **PAS encore faits** — voir `TESTING.md` pour la check-list complète
+### État au 27/05/2026 — récap complet pour reprise (laptop)
 
-### Prochaine étape pour Claude
-1. Lire `TESTING.md` et proposer à Tristan de dérouler la check-list dans l'ordre
-2. Si tout passe → faire la Task 9.4 (créer le ZIP + uploader Drive + mettre à jour le lien dans `js/pages/install.js`)
-3. Quand stable → merger `feature/hub-phase1` dans `master` et tagger `v1.0.0-phase1`
+**Branche** : `master` (Phase 1 a été mergée depuis `feature/hub-phase1` puis cette dernière n'est plus utilisée).
+**Tag courant** : `v1.6.0-phase3`.
+**Prod en ligne** : https://shisuboi.github.io/lbc-hub/ (déploiement auto sur push master via GH Actions).
+**Tests pytest backend** : ✅ 3/3 passent (`python -m pytest tests/ -v`).
+**Tests E2E manuels** :
+- Phase 1 (v1.0.0) : ✅ déroulés section par section (cf. `TESTING.md`)
+- Phases 2-3 (v1.1.0 → v1.6.0) : ⚠️ **PAS ENCORE FAITS** — check-list complète dans `TESTING-phase2-3.md`
 
-### Préalables à valider AVANT les tests (côté Supabase Dashboard)
-- Auth → Providers → Email : "Enable Email provider" ON (signups OFF)
-- Auth → URL Configuration → Site URL = `http://localhost:8080` (DEV) / `https://shisuboi.github.io/lbc-hub` (PROD)
-- Auth → Users → user admin : mdp défini (via "Edit user")
-- Database → Replication → cocher la table `searches` (pour Realtime)
+### Historique des tags (du plus ancien au plus récent)
+
+| Tag | Date | Feature livrée |
+|---|---|---|
+| `v1.0.0-phase1` | 27/05 | MVP : auth, hub, search detail, scraper Ollama, install, deploy GH Pages |
+| `v1.1.0-admin` | 27/05 | Page `/admin` (gestion invitations) — admin only |
+| `v1.2.0-d01` | 27/05 | Retrait Ollama : workflow forcé Claude.ai (D-01) |
+| `v1.3.0-feed-sort` | 27/05 | Toolbar tri + filtres (plateforme/auteur/texte) sur `/hub` |
+| `v1.4.0-profiles` | 27/05 | Pages publiques `/profile/:username` + @username cliquable |
+| `v1.5.0-favorites` | 27/05 | Star ⭐ + chip "Favoris" sur `/hub` |
+| `v1.6.0-phase3` | 27/05 | Notifications (title-badge + Notification API) + badge "annonce expirée" |
+
+### Routes SPA actives (`js/main.js`)
+- `/` — login
+- `/install` — guide d'installation public
+- `/invite/:token` — création de profil après acceptation invitation
+- `/onboarding` — fallback si user loggé sans profil
+- `/hub` — feed des recherches (avec toolbar tri+filtres+favoris+notif)
+- `/scraper` — page scraper local (workflow Claude.ai après D-01)
+- `/search/:id` — détail d'une recherche + listings (avec étoile favori + toggle expiré)
+- `/profile/:username` — profil public d'un membre
+- `/admin` — gestion des invitations (admin only)
+
+### Endpoints `server.py` (port 8080)
+- `GET /api/ping` — health check
+- `POST /api/start` — démarrer un scraping (params : url, pages, criteres, delay)
+- `POST /api/resume` — débloquer un job en attente de captcha
+- `POST /api/stop` — arrêter un job en cours
+- `GET /api/scraped-info` — métadonnées sur `leboncoin_brut.json` existant
+- `GET /api/raw-ads` — télécharger `leboncoin_brut.json` (pour joindre à Claude.ai)
+- `GET /api/events` — SSE stream (status, logs, scraped, results)
+- `POST /api/import-results` — pousser les annonces analysées par Claude.ai
+- `GET /*` (catch-all) — SPA fallback (sert `index.html`)
+
+### Schéma DB final (Supabase)
+
+```sql
+-- Tables (toutes en public, toutes en RLS activé)
+profiles    (id, username, avatar_color, role, created_at)
+invitations (token, created_by, used_by, used_at, expires_at, created_at)
+searches    (id, user_id, title, criteria, source_url, platform, model_name,
+             model_type, listing_count, best_score, min_price, scraped_at, created_at)
+listings    (id, search_id, titre, prix, url, note_sur_100, caracteristiques,
+             explication, match_criteres, expired_at, created_at)
+favorites   (user_id, search_id, created_at) -- PK composite
+
+-- RPCs
+validate_invitation(invitation_token uuid)
+consume_invitation(invitation_token uuid, new_username text)
+
+-- Indexes
+profiles_username_idx, searches_created_at_idx, searches_user_id_idx,
+searches_platform_idx, listings_search_id_idx, listings_note_idx,
+listings_expired_idx (partial), favorites_user_idx, favorites_search_idx
+```
+
+### Migrations Supabase à appliquer manuellement (si pas encore fait)
+
+Dans `supabase/migrations/` :
+1. `2026-05-27-favorites.sql` — table `favorites` + RLS
+2. `2026-05-27-listings-expired.sql` — colonne `listings.expired_at` + UPDATE RLS
+
+Sans elles, les boutons ⭐ et 🚫 affichent l'UI mais ne persistent rien (try/catch silencieux).
+
+### Architecture frontend
+- `js/main.js` — entrypoint SPA, routes lazy-load, onAuthChange registered APRÈS premier renderHeader (sinon SDK deadlock)
+- `js/router.js` — history API mini-router, strip prefix `/lbc-hub` (prod GH Pages)
+- `js/supabase-client.js` — SDK self-hébergé dans `js/vendor/supabase.min.js` (anti-Tracking-Prevention Edge/Firefox), config `lock: noop`, `autoRefreshToken: false`, `detectSessionInUrl: false`, `storage: localStorage`
+- `js/auth.js` — `requireAuth({requireRole})`, getProfile cached
+- `js/components/` — header, feed-card (article wrapper avec auteur en lien séparé), listing-card (avec expired banner + actions row)
+- `js/pages/` — login, invite, hub, search, scraper, install, admin, profile
+- `js/lib/` — colors, publish, server-ping, favorites
+
+### Fichiers de doc à consulter en cas de reprise
+- `TESTING.md` — check-list Phase 1 (faite et validée)
+- `TESTING-phase2-3.md` — check-list Phase 2-3 (à dérouler à la reprise)
+- `docs/superpowers/plans/2026-05-27-lbc-hub-mvp-phase1.md` — plan d'origine Phase 1 (avec section "Décisions / Évolutions")
+- `docs/superpowers/specs/2026-05-26-lbc-hub-platform-design.md` — spec produit
+- `README-rapide.txt` — guide rapide pour les amis (dans le ZIP de distribution)
+
+### Bugs / pièges connus à éviter
+1. **`navigator.locks` du Supabase SDK** : peut figer `getSession()` au boot si un onglet zombie tient le verrou. Mitigation appliquée = `lock: noop` dans `supabase-client.js`.
+2. **Edge / Firefox Tracking Prevention** sur SDK CDN cross-origin → blocage localStorage. Mitigation = SDK self-hébergé.
+3. **SPA refresh sur `/hub`** → 405 si server.py n'a pas le catch-all GET. Mitigation = route `add_get('/{path:.*}', index_handler)` dans `create_app()`.
+4. **`<base href>` dynamique** dans `index.html` : prod `/lbc-hub/`, dev `/`. Sans ça, les chemins relatifs cassent au refresh sur SPA route.
+5. **Cross-tab `sessionStorage`** : l'invitation flow utilise `sessionStorage.pendingInvite` qui est PAR ONGLET — il faut faire le flow dans un seul onglet, sinon le token est perdu.
+6. **`onAuthChange` AVANT `renderHeader`** = deadlock du SDK. L'ordre dans `main.js` doit rester : `await renderHeader()` → `initRouter()` → `onAuthChange(...)`.
+
+### Prochaine étape pour Claude (reprise laptop)
+
+1. **Pull le repo** : `git pull --tags` sur `master`
+2. **Vérifier les migrations Supabase** sont appliquées (favorites + expired)
+3. **Proposer à Tristan de dérouler `TESTING-phase2-3.md`** section par section
+4. Si tout passe, taguer une version "stable testée" (ex : `v1.6.0-tested` ou `v1.6.1`)
+5. Sinon, débugger ce qui casse en s'aidant des "Bugs / pièges connus" ci-dessus
+6. Quand stable et testé → discuter d'idées Phase 4 (auto-détection expirées, recherches planifiées, commentaires, modération admin)
 
 ### Phases futures
 - ~~Phase 2 = profils, admin UI, tri feed, Realtime amélioré~~ ✅ LIVRÉ (v1.1.0–v1.4.0)
