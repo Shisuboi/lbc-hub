@@ -89,6 +89,25 @@ server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK J
   - `http://localhost:8080/**`
 
 ## Phase actuelle
-**Phase 1 — Hub MVP** (en cours)
-Phase 2 = profils, admin UI, tri feed, Realtime amélioré
-Phase 3 = favoris, notifications, badge "annonce expirée"
+**Phase 1 — Hub MVP : code terminé (43/43 tasks).** Reste à tester end-to-end et déployer.
+
+### État au 27/05/2026
+- Sections 1-9 du plan : **toutes implémentées côté code**
+- Branch active : `feature/hub-phase1` (non encore mergée dans `master`)
+- Tests pytest : ✅ 3/3 passent (`pytest tests/ -v`)
+- Tests E2E manuels : **PAS encore faits** — voir `TESTING.md` pour la check-list complète
+
+### Prochaine étape pour Claude
+1. Lire `TESTING.md` et proposer à Tristan de dérouler la check-list dans l'ordre
+2. Si tout passe → faire la Task 9.4 (créer le ZIP + uploader Drive + mettre à jour le lien dans `js/pages/install.js`)
+3. Quand stable → merger `feature/hub-phase1` dans `master` et tagger `v1.0.0-phase1`
+
+### Préalables à valider AVANT les tests (côté Supabase Dashboard)
+- Auth → Providers → Email : "Enable Email provider" ON (signups OFF)
+- Auth → URL Configuration → Site URL = `http://localhost:8080` (DEV) / `https://shisuboi.github.io/lbc-hub` (PROD)
+- Auth → Users → user admin : mdp défini (via "Edit user")
+- Database → Replication → cocher la table `searches` (pour Realtime)
+
+### Phases futures
+- Phase 2 = profils, admin UI, tri feed, Realtime amélioré
+- Phase 3 = favoris, notifications, badge "annonce expirée"
