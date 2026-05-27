@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>LBC Hub — Redirection…</title>
+    <script>
+        // Single Page Apps for GitHub Pages — basé sur https://github.com/rafgraph/spa-github-pages
+        // GitHub Pages renvoie ce fichier 404.html pour toute route inconnue (ex: /lbc-hub/hub).
+        // On reconstruit l'URL d'origine dans le query string puis on redirige vers index.html.
+        // Le script en tête de index.html détectera ce pattern et restaurera la route SPA.
+        (function () {
+            var pathSegments = window.location.pathname.split('/').filter(Boolean);
+            var repoName = pathSegments[0] || '';
+            var subPath = pathSegments.slice(1).join('/');
+            window.location.replace(
+                '/' + repoName + '/?/' + subPath +
+                window.location.search.replace(/^\?/, '&').replace(/&/g, '~and~') +
+                window.location.hash
+            );
+        })();
+    </script>
+</head>
+<body>
+    <p>Redirection…</p>
+</body>
+</html>

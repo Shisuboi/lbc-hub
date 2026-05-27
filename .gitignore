@@ -20,6 +20,7 @@ server_err.txt
 
 # Backup files
 *.scraper-backup
+*.bak
 
 # IDE
 .vscode/

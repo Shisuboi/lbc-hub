@@ -19,6 +19,11 @@
 3. Tests pragmatiques : pytest pour endpoints serveur uniquement ; tests manuels guidés pour frontend
 4. Hébergement GitHub Pages sous-domaine `github.io` (pas de domaine custom)
 
+**Amendements post-brainstorm :**
+- A1 — **Date scraping** : `searches.scraped_at` (= moment du scraping capturé par server.py) est LA date affichée partout. `created_at` = date d'insertion Supabase, pour logs uniquement.
+- A2 — **Multi-plateforme** : `url_lbc` renommé en `source_url` (générique) + champ `platform text` ajouté (`'leboncoin'|'ebay'|'vinted'|'other'`). Badge plateforme sur les feed cards.
+- A3 — **Sync cross-machines** : `CLAUDE.md` commité dans le repo pour reconstruire le contexte Claude sur n'importe quelle machine. Config `.claude/settings.json` aussi dans le repo.
+
 ---
 
 ## Vue d'ensemble des sections
@@ -185,13 +190,16 @@ create table public.searches (
     user_id       uuid not null references public.profiles(id) on delete cascade,
     title         text not null check (char_length(title) between 1 and 120),
     criteria      text not null default '',
-    url_lbc       text,
+    source_url    text,                                         -- [A2] générique (pas url_lbc)
+    platform      text not null default 'leboncoin'             -- [A2] 'leboncoin'|'ebay'|'vinted'|'other'
+                  check (platform in ('leboncoin', 'ebay', 'vinted', 'other')),
     model_name    text not null,
     model_type    text not null check (model_type in ('cloud', 'local')),
     listing_count int  not null default 0,
     best_score    float,
     min_price     float,
-    created_at    timestamptz not null default now()
+    scraped_at    timestamptz,                                  -- [A1] date du scraping (affichée partout)
+    created_at    timestamptz not null default now()            -- date d'insertion Supabase (logs uniquement)
 );
 
 create index searches_created_at_idx on public.searches(created_at desc);
@@ -2825,3 +2833,42 @@ Aucun `.env` requis pour la Phase 1 (frontend pur côté hébergé, server.py re
 4. **Cred Supabase** : à la Task 3.2, demander au user les vraies clés (URL + anon key) — ne pas inventer de placeholders en prod.
 5. **Lien Drive** : à la Task 9.4, demander au user le lien réel — placeholder en attendant.
 6. **Subagent dispatching** : les sections 1, 4-5, 6, 8 sont relativement indépendantes une fois que la 2 et la 3 sont faites. Possible de paralléliser après section 3.
+
+---
+
+## Décisions / Évolutions à intégrer en Phase 2
+
+> Section ajoutée pendant l'exécution de la Phase 1 — à transformer en tâches concrètes lors du plan Phase 2.
+
+### D-01 — Retirer l'analyse Ollama locale (date décision : 2026-05-27)
+
+**Contexte** : pour faciliter l'onboarding des amis dans le hub, Tristan veut éliminer la dépendance à Ollama. L'install reste légère (Python + Playwright pour le scraping), mais l'IA d'analyse passe systématiquement par Claude.ai via le workflow "Générer le Prompt" → copie-colle dans Claude.ai → import du JSON.
+
+**Ce qui reste (= Phase 2 conserve)** :
+- `server.py` avec Playwright (le scraping LBC reste local pour respecter les ToS et éviter la détection)
+- Le workflow "Générer le Prompt pour Claude.ai" (`btnShowPrompt`)
+- L'endpoint `POST /api/import-results` + la pipeline d'import JSON côté UI
+- Le schéma DB tel quel (la colonne `model_type` reste utile : différencie `cloud` vs `local` historique)
+
+**Ce qu'il faut retirer** :
+- `OLLAMA_API_URL`, `DEFAULT_MODEL`, `analyser_description_ia()` dans [server.py](../../server.py)
+- L'endpoint `GET /api/models` (liste des modèles Ollama)
+- La phase "IA ANALYSIS PHASE" dans `run_pipeline_task()` — `server.py` se contente d'écrire `leboncoin_brut.json` puis renvoie le status `scrape_completed` (à inventer) au lieu de chaîner l'analyse
+- L'option "♻️ Ré-analyser les annonces déjà scrapées" (n'a plus de sens sans Ollama local)
+- Le `<select>` "Modèle IA (Ollama)" dans la sidebar Configuration de [js/pages/scraper.js](../../js/pages/scraper.js)
+- L'helper [js/lib/server-ping.js](../../js/lib/server-ping.js) garde son rôle (détecter le serveur local), mais sa logique de "modèles Ollama chargés" disparaît
+
+**Nouveau flow scraper UI** :
+1. User entre URL LBC + critères dans Configuration
+2. Bouton "Lancer le Scraping" (renommé depuis "Lancer l'Analyse") → server.py scrape uniquement
+3. Quand le scrape est terminé → UI affiche "✅ X annonces brutes prêtes" + bouton **"📋 Copier le prompt pour Claude.ai"** (active automatiquement)
+4. User colle dans Claude.ai, récupère le JSON, l'importe → UI affiche les annonces notées
+5. Bouton **"📤 Publier sur le hub"** apparaît (avec `model_type: 'cloud'` forcé)
+
+**Impact sur les utilisateurs existants** :
+- Les anciennes recherches publiées avec `model_type: 'local'` restent en DB et s'affichent normalement (bandeau gris pour la rétro-compat — à garder dans `feed-card.js`)
+- L'UX disclaimer "modèle cloud = précision élevée" devient redondant (toujours cloud) → à retirer aussi
+
+**Estimation** : ~1 demi-journée (suppressions + simplification UI + retest 7a/7b).
+
+**Pré-requis** : Phase 1 stable + Tristan a validé l'expérience de bout-en-bout avec ses amis.

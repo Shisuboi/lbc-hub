@@ -1,0 +1,78 @@
+// js/router.js
+// Mini-router history API. Routes statiques + paramètres dynamiques (:id, :token, :username).
+// En prod GitHub Pages, l'URL est préfixée par /lbc-hub (= nom du repo) : on strip ce prefix
+// avant de matcher pour que les définitions de routes restent identiques en dev et en prod.
+
+const ROUTE_PREFIX = '/lbc-hub';
+const routes = [];
+let notFoundHandler = null;
+
+export function route(pattern, loader) {
+    // pattern: '/hub' ou '/search/:id'
+    const paramNames = [];
+    const regex = new RegExp('^' + pattern.replace(/:([a-zA-Z]+)/g, (_, name) => {
+        paramNames.push(name);
+        return '([^/]+)';
+    }) + '$');
+    routes.push({ pattern, regex, paramNames, loader });
+}
+
+export function notFound(loader) {
+    notFoundHandler = loader;
+}
+
+function stripPrefix(path) {
+    if (path.startsWith(ROUTE_PREFIX)) {
+        const rest = path.slice(ROUTE_PREFIX.length);
+        return rest === '' ? '/' : rest;
+    }
+    return path;
+}
+
+export async function navigate(path, replace = false) {
+    // Quand on navigue, on ré-ajoute le prefix si nécessaire (pour que l'URL affichée reste correcte)
+    const needsPrefix = location.pathname.startsWith(ROUTE_PREFIX) && !path.startsWith(ROUTE_PREFIX);
+    const finalPath = needsPrefix ? ROUTE_PREFIX + path : path;
+    if (replace) history.replaceState({}, '', finalPath);
+    else history.pushState({}, '', finalPath);
+    await render();
+}
+
+export async function render() {
+    const path = stripPrefix(location.pathname) || '/';
+    const root = document.getElementById('appRoot');
+    for (const r of routes) {
+        const m = path.match(r.regex);
+        if (m) {
+            const params = {};
+            r.paramNames.forEach((name, i) => {
+                params[name] = decodeURIComponent(m[i + 1]);
+            });
+            root.innerHTML = '<div class="page-loading">⏳ Chargement…</div>';
+            try {
+                await r.loader(params);
+            } catch (e) {
+                if (e && e.message === 'Not authenticated') return; // requireAuth a déjà redirigé
+                if (e && e.message === 'Profile not yet created') return;
+                console.error('[router] page load failed', e);
+                root.innerHTML = `<div class="error-panel card">❌ Erreur de chargement : ${e.message}</div>`;
+            }
+            return;
+        }
+    }
+    if (notFoundHandler) await notFoundHandler();
+}
+
+export function init() {
+    window.addEventListener('popstate', render);
+    // Intercept tous les clics sur <a data-link> pour navigation SPA
+    document.body.addEventListener('click', e => {
+        const a = e.target.closest('a[data-link]');
+        if (a) {
+            e.preventDefault();
+            const href = a.getAttribute('href');
+            navigate(href);
+        }
+    });
+    render();
+}

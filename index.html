@@ -3,331 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LBC DealFinder AI - Recherche Intelligent Leboncoin</title>
+    <title>LBC DealFinder Hub</title>
+
+    <!-- SPA route restoration : si on arrive depuis 404.html avec ?/foo/bar,
+         on remplace l'URL par /foo/bar avant que le router ne s'initialise. -->
+    <script>
+        (function (l) {
+            if (l.search[1] === '/') {
+                var decoded = l.search.slice(1).split('&').map(function (s) {
+                    return s.replace(/~and~/g, '&');
+                }).join('?');
+                window.history.replaceState(null, null,
+                    l.pathname.slice(0, -1) + decoded + l.hash);
+            }
+        }(window.location));
+    </script>
+
+    <!-- Base href dynamique : assure que style.css / js/main.js se chargent correctement
+         même quand on rafraîchit sur une route SPA (/hub, /search/:id, etc.).
+         Prod GitHub Pages : base = /lbc-hub/  |  Dev server.py : base = / -->
+    <script>
+        (function () {
+            var p = window.location.pathname;
+            var basePath = p.indexOf('/lbc-hub') === 0 ? '/lbc-hub/' : '/';
+            document.write('<base href="' + basePath + '">');
+        })();
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Background glow elements for premium aesthetics -->
     <div class="bg-glow bg-glow-1"></div>
     <div class="bg-glow bg-glow-2"></div>
 
     <div class="app-container">
-        <!-- TOPBAR -->
-        <header class="app-header">
-            <div class="logo-area">
-                <span class="logo-icon">🤖</span>
-                <div class="logo-text">
-                    <h1>LBC DealFinder <span class="accent-text">AI</span></h1>
-                    <p class="subtitle">Scraper & Analyseur de Rapport Qualité/Prix Intelligent</p>
-                </div>
-            </div>
-            <div class="status-indicator">
-                <span class="status-dot status-idle" id="statusDot"></span>
-                <span class="status-label" id="statusLabel">Serveur Prêt</span>
-            </div>
+        <header class="app-header" id="appHeader">
+            <!-- Injecté par js/components/header.js -->
         </header>
 
-        <div class="app-body">
-            <!-- SIDEBAR CONFIGURATION -->
-            <aside class="sidebar card">
-                <h2 class="section-title">Configuration</h2>
-                <form id="configForm">
-                    <div class="form-group">
-                        <label for="urlInput">URL de Recherche Leboncoin</label>
-                        <input type="url" id="urlInput" placeholder="https://www.leboncoin.fr/recherche?..." required autocomplete="off">
-                        <small class="help-text">Copiez l'URL de recherche exacte depuis votre navigateur.</small>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="pagesInput">Pages Max</label>
-                            <input type="number" id="pagesInput" min="1" max="50" value="1" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="delayInput">Délai Scraping (ms)</label>
-                            <input type="number" id="delayInput" min="0" max="10000" step="100" value="1500" required>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="modelSelect">Modèle IA (Ollama)</label>
-                        <div class="select-wrapper-row">
-                            <div class="select-wrapper">
-                                <select id="modelSelect" required>
-                                    <option value="" disabled selected>Chargement...</option>
-                                </select>
-                            </div>
-                            <button type="button" id="btnRefreshModels" class="btn-icon-only" title="Rafraîchir la liste des modèles Ollama">🔄</button>
-                        </div>
-                        <small class="help-text" id="modelsStatus"></small>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="criteresInput">Critères Précis de Recherche (IA)</label>
-                        <textarea id="criteresInput" rows="4" placeholder="Ex: Ordinateur portable avec au moins 16 Go de RAM, processeur i7 récent ou Ryzen 7, carte graphique dédiée RTX..." required></textarea>
-                        <small class="help-text">Décrivez précisément ce que vous recherchez. L'IA filtrera les annonces et calculera le rapport qualité/prix sur cette base.</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="checkbox-tile">
-                            <input type="checkbox" id="reuseScrapedInput">
-                            <span class="checkbox-content">
-                                <span class="checkbox-title">♻️ Ré-analyser les annonces déjà scrapées</span>
-                                <span class="checkbox-desc" id="reuseScrapedHint">Ne re-scrape pas : ré-utilise le dernier lot téléchargé et applique tes nouveaux critères / réglages IA.</span>
-                            </span>
-                        </label>
-                        <small class="help-text">Le tri (note, prix croissant, prix décroissant) se choisit à la fin, directement sur les résultats.</small>
-                    </div>
-
-                    <div class="actions-area">
-                        <button type="submit" id="btnStart" class="btn btn-primary">
-                            <span class="btn-icon">⚡</span> Lancer l'Analyse
-                        </button>
-                        <button type="button" id="btnStop" class="btn btn-danger" disabled>
-                            <span class="btn-icon">🛑</span> Arrêter
-                        </button>
-
-                        <div class="actions-divider">— ou via IA en ligne —</div>
-
-                        <button type="button" id="btnShowPrompt" class="btn btn-ghost">
-                            <span class="btn-icon">📋</span> Générer le Prompt pour Claude.ai
-                        </button>
-                        <input type="file" id="importJsonFile" accept=".json" style="display:none">
-                        <button type="button" id="btnImportResults" class="btn btn-secondary">
-                            <span class="btn-icon">📥</span> Importer résultats IA (JSON)
-                        </button>
-                    </div>
-                </form>
-            </aside>
-
-            <!-- MAIN CONTENT AREA -->
-            <main class="main-content">
-                <!-- CAPTCHA ACTION WARNING BANNER -->
-                <div class="captcha-banner card hidden" id="captchaBanner">
-                    <div class="captcha-icon">⚠️</div>
-                    <div class="captcha-info">
-                        <h3>Blocage anti-bot (Datadome) détecté !</h3>
-                        <p>Une vérification humaine (Captcha) est apparue dans la fenêtre Chromium ouverte sur votre écran.</p>
-                        <p class="instruction">Résolvez le Captcha là-bas, puis cliquez sur le bouton ci-contre pour reprendre.</p>
-                    </div>
-                    <button id="btnResume" class="btn btn-warning">
-                        🔓 J'ai résolu le Captcha
-                    </button>
-                </div>
-
-                <!-- VIEW 1: WELCOME SCREEN -->
-                <section class="view-panel" id="welcomeView">
-                    <div class="welcome-card card">
-                        <div class="welcome-hero">🔍🤖💸</div>
-                        <h2>Bienvenue sur Leboncoin DealFinder AI</h2>
-                        <p>Cet outil utilise <strong>Playwright</strong> pour extraire les annonces de recherche Leboncoin et fait analyser leur description par votre <strong>modèle d'intelligence artificielle local (via Ollama)</strong> pour dénicher les meilleures affaires du marché.</p>
-                        
-                        <div class="steps-guide">
-                            <div class="guide-step">
-                                <div class="step-num">1</div>
-                                <h4>Recherchez sur LBC</h4>
-                                <p>Faites votre recherche sur le site Leboncoin et copiez l'adresse URL du résultat.</p>
-                            </div>
-                            <div class="guide-step">
-                                <div class="step-num">2</div>
-                                <h4>Configurez l'IA</h4>
-                                <p>Déterminez vos critères d'exigence (RAM, état, modèle exact) et choisissez le modèle Ollama local.</p>
-                            </div>
-                            <div class="guide-step">
-                                <div class="step-num">3</div>
-                                <h4>Laissez faire la magie</h4>
-                                <p>L'IA va filtrer les mauvaises annonces et attribuer une note précise de rapport qualité/prix sur 100.</p>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- VIEW 2: PROGRESS & CONSOLE SCREEN -->
-                <section class="view-panel hidden" id="progressView">
-                    <div class="progress-card card">
-                        <div class="progress-header">
-                            <h3 class="panel-subtitle">Progression en temps réel</h3>
-                            <div class="pulse-indicator">
-                                <span class="pulse-dot"></span>
-                                <span id="progressStateText">Initialisation du navigateur...</span>
-                            </div>
-                        </div>
-                        <div class="progress-bar-container">
-                            <div class="progress-bar" id="progressBar"></div>
-                        </div>
-
-                        <div class="live-tabs" role="tablist">
-                            <button type="button" class="live-tab active" id="tabBtnConsole" data-tab="console">🖥️ Console</button>
-                            <button type="button" class="live-tab" id="tabBtnLive" data-tab="live">
-                                ⭐ Notations en direct <span class="live-count" id="liveCount">0</span>
-                            </button>
-                        </div>
-
-                        <div class="live-tab-panel" id="consolePanel">
-                            <div class="console-wrapper">
-                                <div class="console-header">
-                                    <span class="console-dot red"></span>
-                                    <span class="console-dot yellow"></span>
-                                    <span class="console-dot green"></span>
-                                    <span class="console-title">Console de sortie</span>
-                                    <button id="btnClearConsole" class="console-btn">Vider</button>
-                                </div>
-                                <div class="console-body" id="consoleLogs">
-                                    <div class="log-line log-system">> Prêt à démarrer le scraping...</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="live-tab-panel hidden" id="livePanel">
-                            <div class="live-grid-scroll">
-                                <div class="grid-container" id="liveResultsGrid"></div>
-                                <div class="live-empty" id="liveEmpty">⏳ En attente des premières notations de l'IA…</div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- VIEW 3: RESULTS SCREEN -->
-                <section class="view-panel hidden" id="resultsView">
-                    <!-- Results Toolbar (Stats & Search/Filter) -->
-                    <div class="results-toolbar card">
-                        <div class="stats-overview">
-                            <div class="stat-item">
-                                <span class="stat-value" id="statTotalCount">0</span>
-                                <span class="stat-label">Annonces retenues</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-value text-gold" id="statBestScore">0/100</span>
-                                <span class="stat-label">Meilleure Note</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-value text-emerald" id="statMinPrice">0 €</span>
-                                <span class="stat-label">Prix minimum</span>
-                            </div>
-                        </div>
-
-                        <div class="filter-controls">
-                            <div class="search-box">
-                                <span class="search-icon">🔍</span>
-                                <input type="text" id="filterSearch" placeholder="Filtrer par titre, spec...">
-                            </div>
-                            <div class="filter-group">
-                                <label for="filterMinScore">Note min :</label>
-                                <select id="filterMinScore">
-                                    <option value="0">Toutes</option>
-                                    <option value="40">>= 40/100</option>
-                                    <option value="60">>= 60/100 (Correctes)</option>
-                                    <option value="75">>= 75/100 (Bonnes affaires)</option>
-                                    <option value="85">>= 85/100 (Super affaires)</option>
-                                </select>
-                            </div>
-                            <div class="filter-group">
-                                <label for="sortSelector">Trier :</label>
-                                <select id="sortSelector">
-                                    <option value="note-desc">Meilleures Notes ⭐</option>
-                                    <option value="price-asc">Prix croissant 📈</option>
-                                    <option value="price-desc">Prix décroissant 📉</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Results Grid -->
-                    <div class="grid-container" id="resultsGrid">
-                        <!-- Cards injected dynamically via app.js -->
-                    </div>
-
-                    <div id="noResultsAlert" class="card empty-state hidden">
-                        <div class="empty-icon">📂</div>
-                        <h3>Aucune annonce correspondante</h3>
-                        <p>Essayez de modifier vos filtres de recherche ou de changer les critères IA.</p>
-                    </div>
-                </section>
-            </main>
-        </div>
+        <main id="appRoot" class="app-body">
+            <!-- Page courante injectée par le router -->
+            <div class="page-loading">⏳ Chargement…</div>
+        </main>
     </div>
 
-    <!-- Warning overlay for file:// protocol direct file double-clicking -->
-    <div id="fileProtocolWarning" class="protocol-warning hidden">
-        <div class="warning-card card">
-            <span class="warning-icon">⚠️</span>
-            <h2>Serveur requis</h2>
-            <p>Il semble que vous ayez ouvert <code>index.html</code> directement en double-cliquant dessus (protocole <code>file://</code>).</p>
-            <p>Pour que l'application puisse lancer Playwright et se connecter à Ollama, elle doit être servie par le serveur Python.</p>
-            <div class="url-box">
-                <span>Adresse à ouvrir :</span>
-                <input type="text" value="http://localhost:8080" readonly id="warningUrlInput">
-                <button id="btnCopyUrl" class="btn btn-primary">Copier l'URL</button>
-            </div>
-            <p class="help-text">Le serveur est déjà lancé en arrière-plan. Copiez simplement cette adresse et collez-la dans un nouvel onglet de votre navigateur.</p>
-        </div>
-    </div>
-
-    <!-- MODALE : PROMPT POUR IA EN LIGNE -->
-    <div id="promptModal" class="modal-overlay hidden">
-        <div class="modal-card card">
-            <div class="modal-header">
-                <div class="modal-title-area">
-                    <span class="modal-icon">🤖</span>
-                    <h2>Utiliser une IA en ligne (Claude.ai, Gemini…)</h2>
-                </div>
-                <button id="btnCloseModal" class="modal-close" title="Fermer">✕</button>
-            </div>
-
-            <div class="modal-body">
-                <div class="modal-steps">
-                    <div class="modal-step">
-                        <span class="step-badge">1</span>
-                        <div class="step-content">
-                            <strong>Scrapez d'abord les annonces</strong> avec le bouton <em>⚡ Lancer l'Analyse</em> (le modèle Ollama peut être n'importe lequel). Une fois terminé, le fichier <code>leboncoin_brut.json</code> est créé dans le dossier de l'application.
-                        </div>
-                    </div>
-                    <div class="modal-step">
-                        <span class="step-badge">2</span>
-                        <div class="step-content">
-                            <strong>Ouvrez</strong> <a href="https://claude.ai" target="_blank" rel="noopener">Claude.ai</a>, Gemini, ChatGPT ou toute IA en ligne.<br>
-                            Créez un nouveau message et <strong>attachez le fichier</strong> <code>leboncoin_brut.json</code>.
-                        </div>
-                    </div>
-                    <div class="modal-step">
-                        <span class="step-badge">3</span>
-                        <div class="step-content">
-                            <strong>Copiez le prompt ci-dessous</strong> (il inclut déjà vos critères) et collez-le dans votre message IA, puis envoyez.
-                        </div>
-                    </div>
-                </div>
-
-                <div class="prompt-box">
-                    <div class="prompt-box-header">
-                        <span class="prompt-box-label">Prompt généré (basé sur vos critères)</span>
-                        <button id="btnCopyPrompt" class="btn-copy-prompt">
-                            <span id="copyPromptIcon">📋</span><span id="copyPromptText"> Copier le prompt</span>
-                        </button>
-                    </div>
-                    <textarea id="generatedPrompt" class="prompt-textarea" readonly spellcheck="false"></textarea>
-                </div>
-
-                <div class="modal-steps" style="margin-top:0">
-                    <div class="modal-step">
-                        <span class="step-badge">4</span>
-                        <div class="step-content">
-                            L'IA va vous retourner un bloc JSON. <strong>Copiez-le dans un fichier texte, renommez-le en <code>.json</code></strong> et sauvegardez-le sur votre disque.
-                        </div>
-                    </div>
-                    <div class="modal-step">
-                        <span class="step-badge">5</span>
-                        <div class="step-content">
-                            Revenez ici et cliquez sur <strong>📥 Importer résultats IA (JSON)</strong> pour charger le fichier et afficher les résultats.
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="app.js"></script>
+    <!-- Supabase SDK self-hébergé : évite que Edge / Firefox bloquent l'accès au
+         localStorage (Tracking Prevention sur un script cross-origin). -->
+    <script src="js/vendor/supabase.min.js"></script>
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>
