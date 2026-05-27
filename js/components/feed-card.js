@@ -47,23 +47,27 @@ export function feedCardHtml(search, profile) {
     const platform = PLATFORM_BADGES[search.platform] || PLATFORM_BADGES.other;
     const platformBadge = `<span class="badge badge-platform">${platform.icon} ${platform.label}</span>`;
 
+    const username = profile?.username || '?';
+    const authorLink = profile?.username
+        ? `<a href="/profile/${encodeURIComponent(profile.username)}" data-link class="feed-author">${avatarHtml(profile, 28)}<span class="feed-author-name">@${escapeHtml(username)}</span></a>`
+        : `<span class="feed-author">${avatarHtml(profile, 28)}<span class="feed-author-name">@${escapeHtml(username)}</span></span>`;
+
     return `
-        <a href="/search/${search.id}" data-link data-search-id="${search.id}" class="feed-card card">
+        <article class="feed-card card" data-search-id="${search.id}">
             ${banner}
             <div class="feed-card-meta">
-                <div class="feed-author">
-                    ${avatarHtml(profile, 28)}
-                    <span class="feed-author-name">@${escapeHtml(profile?.username || '?')}</span>
-                </div>
+                ${authorLink}
                 <span class="feed-date">${dateFr(bestDate(search))}</span>
             </div>
-            <h3 class="feed-title">${escapeHtml(search.title)}</h3>
-            <div class="feed-badges">
-                ${platformBadge}
-                <span class="badge">${search.listing_count} annonces</span>
-                ${search.best_score !== null && search.best_score !== undefined ? `<span class="badge badge-gold">⭐ ${Math.round(search.best_score)}/100</span>` : ''}
-                ${search.min_price !== null && search.min_price !== undefined ? `<span class="badge badge-emerald">💰 ${Math.round(search.min_price)} €</span>` : ''}
-            </div>
-        </a>
+            <a href="/search/${search.id}" data-link class="feed-card-body">
+                <h3 class="feed-title">${escapeHtml(search.title)}</h3>
+                <div class="feed-badges">
+                    ${platformBadge}
+                    <span class="badge">${search.listing_count} annonces</span>
+                    ${search.best_score !== null && search.best_score !== undefined ? `<span class="badge badge-gold">⭐ ${Math.round(search.best_score)}/100</span>` : ''}
+                    ${search.min_price !== null && search.min_price !== undefined ? `<span class="badge badge-emerald">💰 ${Math.round(search.min_price)} €</span>` : ''}
+                </div>
+            </a>
+        </article>
     `;
 }

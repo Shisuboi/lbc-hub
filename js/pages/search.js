@@ -77,7 +77,9 @@ export async function render({ id }) {
                     <h2>${escapeHtml(search.title)}</h2>
                     <div class="search-author">
                         ${avatarHtml(author, 32)}
-                        <span>par <strong>@${escapeHtml(author?.username || '?')}</strong></span>
+                        ${author?.username
+                            ? `<span>par <a href="/profile/${encodeURIComponent(author.username)}" data-link class="author-link"><strong>@${escapeHtml(author.username)}</strong></a></span>`
+                            : `<span>par <strong>@?</strong></span>`}
                         <span class="muted">·</span>
                         <span class="muted">${platform}</span>
                         <span class="muted">·</span>

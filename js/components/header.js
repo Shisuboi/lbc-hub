@@ -47,6 +47,7 @@ export async function renderHeader() {
                     <span class="user-name">@${profile?.username || '...'}</span>
                 </button>
                 <div class="user-menu-dropdown hidden" id="userDropdown">
+                    <a href="/profile/${profile?.username || ''}" data-link>Mon profil</a>
                     <button id="btnLogout" type="button">Déconnexion</button>
                 </div>
             </div>
