@@ -40,13 +40,13 @@ export async function renderHeader() {
         <nav class="header-nav">
             <a href="/hub" data-link class="nav-link">🏠 Hub</a>
             <a href="/scraper" data-link class="nav-link">🔍 Scraper</a>
+            ${profile?.role === 'admin' ? '<a href="/admin" data-link class="nav-link">🛠️ Admin</a>' : ''}
             <div class="user-menu" id="userMenu">
                 <button class="user-menu-trigger" id="userMenuBtn" type="button">
                     <span class="user-avatar" style="background:${color}">${initial}</span>
                     <span class="user-name">@${profile?.username || '...'}</span>
                 </button>
                 <div class="user-menu-dropdown hidden" id="userDropdown">
-                    <a href="/profile/${profile?.username || ''}" data-link>Mon profil</a>
                     <button id="btnLogout" type="button">Déconnexion</button>
                 </div>
             </div>

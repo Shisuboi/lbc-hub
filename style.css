@@ -1887,3 +1887,116 @@ input[disabled] {
     text-decoration: none;
 }
 .small { font-size: 12px; }
+
+/* ===== ADMIN PAGE ===== */
+.admin-page {
+    padding: 24px;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+.admin-header {
+    margin-bottom: 24px;
+}
+.admin-header h2 { margin: 0 0 4px; }
+.admin-card {
+    padding: 24px;
+    margin-bottom: 20px;
+}
+.admin-card h3 {
+    margin: 0 0 12px;
+}
+.admin-steps {
+    padding-left: 20px;
+    margin: 0 0 18px;
+    color: var(--text-muted, #aaa);
+    line-height: 1.7;
+}
+.admin-steps li { margin-bottom: 6px; }
+.admin-steps a {
+    color: var(--accent-blue, #a855f7);
+    text-decoration: none;
+}
+.admin-steps a:hover { text-decoration: underline; }
+.gen-result {
+    margin-top: 18px;
+    padding: 16px;
+    border-radius: 10px;
+    background: rgba(168, 85, 247, 0.08);
+    border: 1px solid rgba(168, 85, 247, 0.3);
+}
+.gen-result.error {
+    background: rgba(252, 165, 165, 0.08);
+    border-color: rgba(252, 165, 165, 0.3);
+    color: #fca5a5;
+}
+.gen-result p { margin: 0 0 10px; }
+.copy-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+    margin-bottom: 8px;
+}
+.copy-row input[type=text] {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color, rgba(255,255,255,0.1));
+    background: var(--input-bg, rgba(255,255,255,0.04));
+    color: var(--text-color, #fff);
+    font-family: monospace;
+    font-size: 13px;
+    min-width: 0;
+}
+.copy-row .btn { white-space: nowrap; flex-shrink: 0; }
+.invitations-list {
+    width: 100%;
+    border-collapse: collapse;
+}
+.invitations-list th,
+.invitations-list td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.08));
+    font-size: 14px;
+}
+.invitations-list th {
+    color: var(--text-muted, #aaa);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.invitations-list td code {
+    background: rgba(255,255,255,0.05);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+.status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.status-active {
+    background: rgba(52, 211, 153, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(52, 211, 153, 0.3);
+}
+.status-used {
+    background: rgba(96, 165, 250, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(96, 165, 250, 0.3);
+}
+.status-expired {
+    background: rgba(252, 165, 165, 0.15);
+    color: #fca5a5;
+    border: 1px solid rgba(252, 165, 165, 0.3);
+}
+@media (max-width: 560px) {
+    .copy-row { flex-direction: column; }
+    .copy-row .btn { width: 100%; }
+    .invitations-list th:nth-child(2),
+    .invitations-list td:nth-child(2) { display: none; }
+}

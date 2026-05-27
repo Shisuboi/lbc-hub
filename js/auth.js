@@ -29,7 +29,7 @@ export async function getProfile(force = false) {
  *  - Connecté mais sans profil → redirige vers /onboarding
  * Lève une Error que le router intercepte pour stopper le rendu.
  */
-export async function requireAuth({ requireProfile = true } = {}) {
+export async function requireAuth({ requireProfile = true, requireRole = null } = {}) {
     const { data: { session } } = await supa.auth.getSession();
     const user = session?.user;
     if (!user) {
@@ -41,6 +41,10 @@ export async function requireAuth({ requireProfile = true } = {}) {
         if (!profile) {
             navigate('/onboarding');
             throw new Error('Profile not yet created');
+        }
+        if (requireRole && profile.role !== requireRole) {
+            navigate('/hub');
+            throw new Error(`Insufficient role: needs ${requireRole}`);
         }
     }
 }

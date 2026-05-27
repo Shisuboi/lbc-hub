@@ -13,6 +13,7 @@ route('/onboarding',        () => import('./pages/invite.js').then(m => m.render
 route('/hub',               () => import('./pages/hub.js').then(m => m.render()));
 route('/scraper',           () => import('./pages/scraper.js').then(m => m.render()));
 route('/search/:id',        (p) => import('./pages/search.js').then(m => m.render(p)));
+route('/admin',             () => import('./pages/admin.js').then(m => m.render()));
 
 notFound(async () => {
     document.getElementById('appRoot').innerHTML = `
