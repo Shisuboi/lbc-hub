@@ -10,7 +10,8 @@ Outil local de scraping Leboncoin → transformation en **plateforme communautai
 
 ## Stack validée
 - **Frontend** : Vanilla JS (ES6 modules), SPA history API, Supabase SDK v2
-- **Hébergement** : GitHub Pages (`https://<user>.github.io/lbc-hub`)
+- **Hébergement** : GitHub Pages (`https://shisuboi.github.io/lbc-hub`)
+- **Repo GitHub** : `https://github.com/Shisuboi/lbc-hub`
 - **Base de données** : Supabase (PostgreSQL + Auth + Realtime) — free tier
 - **Scraping local** : Python 3.11 + aiohttp + Playwright (server.py port 8080)
 - **IA locale** : Ollama
@@ -47,6 +48,8 @@ server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK J
 - Avertissement bas de page : "modèle cloud = précision élevée"
 - Routing SPA : 404.html → index.html fallback pour GitHub Pages
 - Prefix router `/lbc-hub` (= nom du repo GitHub)
+- GitHub username : `Shisuboi`
+- GitHub Pages URL finale : `https://shisuboi.github.io/lbc-hub`
 
 ## Multi-plateforme (future-proof)
 - `searches.source_url` (générique, pas `url_lbc`)
