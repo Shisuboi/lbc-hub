@@ -179,4 +179,31 @@ export async function render({ id }) {
     sortByEl.addEventListener('change', renderListings);
     minScoreEl.addEventListener('change', renderListings);
     renderListings();
+
+    // === Toggle "annonce expirée" via délégation ===
+    gridEl.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.expire-btn');
+        if (!btn) return;
+        const listingId = btn.dataset.expireId;
+        const wasExpired = btn.dataset.expired === '1';
+        const listing = listings.find(l => l.id === listingId);
+        if (!listing) return;
+        btn.disabled = true;
+        const original = btn.innerHTML;
+        btn.innerHTML = '⏳…';
+        const newValue = wasExpired ? null : new Date().toISOString();
+        const { error } = await supa
+            .from('listings')
+            .update({ expired_at: newValue })
+            .eq('id', listingId);
+        if (error) {
+            console.error('mark expired failed', error);
+            btn.innerHTML = original;
+            btn.disabled = false;
+            alert('Échec de la mise à jour : ' + error.message);
+            return;
+        }
+        listing.expired_at = newValue;
+        renderListings();
+    });
 }

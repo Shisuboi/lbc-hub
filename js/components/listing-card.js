@@ -26,9 +26,11 @@ export function listingCardHtml(listing) {
     const scoreClass = scoreClassFor(note);
     const prix = listing.prix != null ? `${Math.round(listing.prix)} €` : 'N/A';
     const matchIcon = listing.match_criteres ? '✅' : '⚠️';
+    const isExpired = !!listing.expired_at;
 
     return `
-        <div class="result-card">
+        <div class="result-card ${isExpired ? 'is-expired' : ''}" data-listing-id="${listing.id}">
+            ${isExpired ? '<div class="expired-banner">🚫 Annonce expirée / supprimée</div>' : ''}
             <div class="card-top">
                 <div class="card-price">${prix}</div>
                 <div class="card-score ${scoreClass}">${matchIcon} ${Math.round(note)}/100</div>
@@ -43,7 +45,12 @@ export function listingCardHtml(listing) {
                     <span class="analysis-label">🤖 Justification IA</span>
                     ${escapeHtml(listing.explication)}
                 </div>` : ''}
-            ${listing.url ? `<a href="${listing.url}" target="_blank" rel="noopener" class="btn-card">Voir l'annonce 🔗</a>` : ''}
+            <div class="card-actions">
+                ${listing.url ? `<a href="${listing.url}" target="_blank" rel="noopener" class="btn-card">Voir l'annonce 🔗</a>` : ''}
+                <button type="button" class="btn-card-mini expire-btn" data-expire-id="${listing.id}" data-expired="${isExpired ? '1' : '0'}" title="${isExpired ? 'Marquer comme à nouveau active' : 'Marquer comme expirée'}">
+                    ${isExpired ? '↩️ Réactiver' : '🚫 Marquer expirée'}
+                </button>
+            </div>
         </div>
     `;
 }

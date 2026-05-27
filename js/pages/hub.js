@@ -52,6 +52,7 @@ export async function render() {
                     </div>
                     <div class="hub-chip-row" id="hubFavChips">
                         <button type="button" class="hub-chip hub-chip-fav" data-fav-filter="off" title="Filtrer sur mes favoris">☆ Favoris</button>
+                        <button type="button" id="btnEnableNotif" class="hub-chip hub-chip-notif" title="Recevoir une notification quand quelqu'un publie">🔕 Activer notifications</button>
                     </div>
                 </div>
                 <div class="hub-toolbar-row hub-toolbar-counter">
@@ -198,10 +199,73 @@ export async function render() {
                 document.getElementById('hubToolbar')?.classList.remove('hidden');
                 rebuildChips();
                 renderFeed({ flagNewId: newSearch.id });
+
+                // Notifications : si l'onglet n'est pas focus OU pas celui en avant-plan,
+                // bump le compteur dans le titre + push une notif système si autorisée.
+                // On n'incrémente pas si la nouvelle recherche vient de l'utilisateur courant.
+                if (newSearch.user_id !== me?.id) {
+                    notifyNewSearch(newSearch, state.profileMap.get(newSearch.user_id));
+                }
             })
         .subscribe();
 
     window.__hubChannel = channel;
+
+    // === Notifications : titre + Notification API ===
+    const BASE_TITLE = 'LBC DealFinder Hub';
+    let unreadCount = 0;
+    function updateTitle() {
+        document.title = unreadCount > 0 ? `(${unreadCount}) ${BASE_TITLE}` : BASE_TITLE;
+    }
+    function resetUnread() {
+        if (unreadCount > 0) {
+            unreadCount = 0;
+            updateTitle();
+        }
+    }
+    function notifyNewSearch(search, profile) {
+        if (!document.hidden && document.hasFocus()) return; // déjà sur la page : pas besoin
+        unreadCount += 1;
+        updateTitle();
+        if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+                new Notification(`Nouvelle recherche sur le hub`, {
+                    body: `${profile ? '@' + profile.username : 'Quelqu\'un'} a publié "${search.title}"`,
+                    icon: '/lbc-hub/favicon.ico',
+                    tag: 'lbc-hub-' + search.id, // évite les duplicates si un user re-fire
+                });
+            } catch (_) { /* ignore : Safari fallback */ }
+        }
+    }
+    document.addEventListener('visibilitychange', resetUnread);
+    window.addEventListener('focus', resetUnread);
+    resetUnread();
+
+    // Bouton activation notifications système (toolbar)
+    const btnNotif = document.getElementById('btnEnableNotif');
+    if (btnNotif) {
+        function refreshNotifBtn() {
+            const perm = 'Notification' in window ? Notification.permission : 'denied';
+            btnNotif.classList.toggle('is-active', perm === 'granted');
+            btnNotif.textContent = perm === 'granted'
+                ? '🔔 Notifications ON'
+                : perm === 'denied'
+                ? '🔕 Notifications bloquées'
+                : '🔕 Activer notifications';
+            btnNotif.disabled = perm === 'denied';
+            btnNotif.title = perm === 'denied'
+                ? 'Bloqué dans les paramètres du navigateur — autorise les notifications pour ce site.'
+                : '';
+        }
+        refreshNotifBtn();
+        btnNotif.addEventListener('click', async () => {
+            if (!('Notification' in window) || Notification.permission === 'denied') return;
+            if (Notification.permission === 'default') {
+                await Notification.requestPermission();
+            }
+            refreshNotifBtn();
+        });
+    }
 
     // === Helpers ===
     function rebuildChips() {

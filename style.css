@@ -2299,3 +2299,60 @@ a.feed-author:hover .feed-author-name {
     gap: 12px;
 }
 .search-title-row h2 { margin: 0; }
+
+/* ===== EXPIRED LISTINGS ===== */
+.result-card.is-expired {
+    opacity: 0.55;
+    filter: grayscale(0.4);
+    border-color: rgba(252, 165, 165, 0.35);
+}
+.result-card.is-expired:hover {
+    opacity: 0.85;
+}
+.expired-banner {
+    background: linear-gradient(90deg, rgba(252, 165, 165, 0.2), rgba(239, 68, 68, 0.15));
+    color: #fca5a5;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    letter-spacing: 0.03em;
+    margin: -16px -16px 12px;
+    border-bottom: 1px solid rgba(252, 165, 165, 0.25);
+}
+.card-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+.card-actions .btn-card { flex: 1; min-width: 140px; }
+.btn-card-mini {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color, rgba(255,255,255,0.08));
+    color: var(--text-secondary, #94a3b8);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+.btn-card-mini:hover {
+    background: rgba(252, 165, 165, 0.12);
+    color: #fca5a5;
+    border-color: rgba(252, 165, 165, 0.4);
+}
+.btn-card-mini:disabled { opacity: 0.5; cursor: wait; }
+
+/* Hub chip notifications */
+.hub-chip-notif.is-active {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.20), rgba(168, 85, 247, 0.18));
+    border-color: var(--accent-blue, #38bdf8);
+    color: #fff;
+}
+.hub-chip-notif:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
