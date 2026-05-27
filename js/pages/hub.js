@@ -6,7 +6,9 @@ import { requireAuth } from '../auth.js';
 import { feedCardHtml } from '../components/feed-card.js';
 
 export async function render() {
+    console.log('[hub] render start');
     await requireAuth();
+    console.log('[hub] requireAuth OK');
 
     const root = document.getElementById('appRoot');
     root.innerHTML = `
@@ -26,11 +28,13 @@ export async function render() {
     `;
 
     // === Fetch initial ===
+    console.log('[hub] before fetch searches');
     const { data: searches, error } = await supa
         .from('searches')
         .select('id, user_id, title, platform, model_name, model_type, listing_count, best_score, min_price, scraped_at, created_at')
         .order('created_at', { ascending: false })
         .limit(50);
+    console.log('[hub] fetch searches done, error =', error, 'count =', searches?.length);
 
     if (error) {
         document.getElementById('feedGrid').innerHTML =

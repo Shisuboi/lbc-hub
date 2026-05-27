@@ -26,18 +26,13 @@ export async function render() {
                         <p>Double-clic sur <code>install.bat</code> (Windows) ou exécute <code>./install.sh</code> (Mac/Linux). Ça installe Playwright + aiohttp et télécharge un Chromium léger pour le scraping.</p>
                     </li>
                     <li>
-                        <h3>Installer Ollama (optionnel mais recommandé)</h3>
-                        <p>Pour analyser les annonces avec une IA locale, télécharge <a href="https://ollama.com/download" target="_blank" rel="noopener">Ollama</a> puis dans un terminal :</p>
-                        <p><code>ollama pull qwen2.5:0.5b</code> <em>(modèle léger pour commencer)</em></p>
-                        <p class="muted small">Tu peux aussi utiliser <strong>Claude.ai / ChatGPT</strong> via l'export JSON, mais Ollama permet l'analyse 100% locale.</p>
-                    </li>
-                    <li>
                         <h3>Lancer le serveur</h3>
                         <p>Double-clic sur <code>server.py</code> ou dans un terminal : <code>python server.py</code>. <strong>Garde la fenêtre ouverte</strong> tant que tu scrapes.</p>
                     </li>
                     <li>
                         <h3>Se connecter au hub</h3>
                         <p>Reviens sur ce site et connecte-toi avec ton compte (créé via le lien d'invitation que tu as reçu). Ton scraper local est détecté automatiquement.</p>
+                        <p class="muted small">L'analyse des annonces se fait via <strong>Claude.ai</strong> : depuis la page Scraper, clique sur <em>"📋 Générer le Prompt pour Claude.ai"</em>, colle-le dans une conversation Claude, puis importe le JSON renvoyé.</p>
                     </li>
                 </ol>
 

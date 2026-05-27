@@ -4,11 +4,16 @@ import { supa } from '../supabase-client.js';
 import { getProfile, logout } from '../auth.js';
 
 export async function renderHeader() {
+    console.log('[header] renderHeader start');
     const el = document.getElementById('appHeader');
     if (!el) return;
 
-    const { data: { user } } = await supa.auth.getUser();
+    console.log('[header] before getSession');
+    const { data: { session } } = await supa.auth.getSession();
+    console.log('[header] after getSession, session =', !!session);
+    const user = session?.user;
     const profile = user ? await getProfile() : null;
+    console.log('[header] profile =', profile?.username);
 
     if (!user) {
         el.innerHTML = `

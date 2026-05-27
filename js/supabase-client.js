@@ -10,17 +10,25 @@ if (!window.supabase) {
     throw new Error('Supabase SDK not loaded. Check the <script> tag in index.html.');
 }
 
+console.log('[supa-client] before createClient');
 export const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
         persistSession: true,
-        autoRefreshToken: true,
+        autoRefreshToken: false,           // désactivé : déclenche un appel HTTP bloquant au boot sur certains navigateurs
+        detectSessionInUrl: false,         // pas de magic link → désactiver évite un parse URL au boot
         storage: window.localStorage,
+        // No-op lock : évite que getUser/getSession reste bloqué sur navigator.locks
+        // si un onglet "zombie" a gardé un lock (problème reproduit sur Edge & Firefox).
+        lock: async (_name, _timeout, fn) => await fn(),
     },
 });
+console.log('[supa-client] after createClient');
 
 export async function currentUser() {
-    const { data: { user } } = await supa.auth.getUser();
-    return user;
+    // getSession() lit localStorage sans appel réseau (≠ getUser() qui valide côté serveur).
+    // Suffisant pour les guards d'auth ; les requêtes DB échoueront proprement si le token est invalide.
+    const { data: { session } } = await supa.auth.getSession();
+    return session?.user || null;
 }
 
 export async function currentProfile() {

@@ -92,6 +92,16 @@ function scraperMarkup() {
                     <button type="button" id="btnImportResults" class="btn btn-secondary">
                         <span class="btn-icon">📥</span> Importer résultats IA (JSON)
                     </button>
+
+                    <!-- Panneau de publication : reste dans la sidebar de config (proche des actions)
+                         pour être visible sans devoir scroller dans la grille de résultats. -->
+                    <div id="publishArea" class="publish-area hidden">
+                        <h3>📤 Publier ces résultats sur le hub</h3>
+                        <p class="muted">Ta recherche apparaîtra sur le feed pour tous les membres du groupe.</p>
+                        <input type="text" id="publishTitle" placeholder="Titre de la recherche (ex: Laptops gaming RTX 4060)" maxlength="120">
+                        <button id="btnPublish" class="btn btn-primary">📤 Publier sur le hub</button>
+                        <div id="publishStatus" class="publish-status"></div>
+                    </div>
                 </div>
             </form>
         </aside>
@@ -222,14 +232,6 @@ function scraperMarkup() {
                     <p>Essayez de modifier vos filtres de recherche ou de changer les critères IA.</p>
                 </div>
 
-                <!-- Bouton "Publier sur le hub" -->
-                <div id="publishArea" class="publish-area hidden">
-                    <h3>📤 Publier ces résultats sur le hub</h3>
-                    <p class="muted">Ta recherche apparaîtra sur le feed pour tous les membres du groupe.</p>
-                    <input type="text" id="publishTitle" placeholder="Titre de la recherche (ex: Laptops gaming RTX 4060)" maxlength="120">
-                    <button id="btnPublish" class="btn btn-primary">📤 Publier sur le hub</button>
-                    <div id="publishStatus" class="publish-status"></div>
-                </div>
             </section>
         </main>
     </div>

@@ -19,6 +19,17 @@
         }(window.location));
     </script>
 
+    <!-- Base href dynamique : assure que style.css / js/main.js se chargent correctement
+         même quand on rafraîchit sur une route SPA (/hub, /search/:id, etc.).
+         Prod GitHub Pages : base = /lbc-hub/  |  Dev server.py : base = / -->
+    <script>
+        (function () {
+            var p = window.location.pathname;
+            var basePath = p.indexOf('/lbc-hub') === 0 ? '/lbc-hub/' : '/';
+            document.write('<base href="' + basePath + '">');
+        })();
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -39,8 +50,9 @@
         </main>
     </div>
 
-    <!-- Supabase SDK via CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <!-- Supabase SDK self-hébergé : évite que Edge / Firefox bloquent l'accès au
+         localStorage (Tracking Prevention sur un script cross-origin). -->
+    <script src="js/vendor/supabase.min.js"></script>
     <script type="module" src="js/main.js"></script>
 </body>
 </html>

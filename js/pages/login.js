@@ -5,8 +5,8 @@ import { navigate } from '../router.js';
 
 export async function render() {
     // Si déjà connecté → redirige vers /hub
-    const { data: { user } } = await supa.auth.getUser();
-    if (user) { navigate('/hub', true); return; }
+    const { data: { session } } = await supa.auth.getSession();
+    if (session?.user) { navigate('/hub', true); return; }
 
     document.getElementById('appRoot').innerHTML = `
         <section class="auth-panel">

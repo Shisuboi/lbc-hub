@@ -907,6 +907,8 @@ def create_app() -> web.Application:
                           show_index=False, follow_symlinks=False)
     # Catch-all OPTIONS pour les preflights CORS
     app.router.add_route('OPTIONS', '/{path:.*}', options_handler)
+    # SPA fallback : toute route GET non matchée renvoie index.html (le router JS prend le relais)
+    app.router.add_get('/{path:.*}', index_handler)
     return app
 
 

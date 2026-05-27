@@ -17,7 +17,7 @@ IMPORTANT
 ---------
 - Garde la fenêtre du serveur OUVERTE tant que tu utilises le scraper
 - Chrome ou Edge uniquement pour le scraping (Firefox/Safari bloquent localhost)
-- Pour l'analyse IA locale, installe aussi Ollama : https://ollama.com/download
+- L'analyse des annonces passe par Claude.ai : sur la page Scraper, "Générer le Prompt pour Claude.ai" → coller dans une conversation Claude → importer le JSON renvoyé
 
 Problème ?
 ----------

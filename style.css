@@ -190,20 +190,15 @@ body {
 }
 
 /* APP BODY WRAPPER */
+/* Block layout : chaque page (login, hub, install, search, invite) rend une seule section
+   qui prend toute la largeur. Le scraper a son propre grid interne (`.scraper-grid`). */
 .app-body {
-    display: grid;
-    grid-template-columns: 380px 1fr;
-    gap: 1.5rem;
+    display: block;
     flex-grow: 1;
-    align-items: start;
 }
 
-/* RESPONSIVE LAYOUT FOR MIDDLE-SIZED SCREENS */
-@media (max-width: 1024px) {
-    .app-body {
-        grid-template-columns: 1fr;
-    }
-}
+/* Note : pas de media query globale ici — chaque page (.hub-panel, .install-page, .scraper-grid, etc.)
+   gère son propre responsive via ses propres règles. */
 
 /* GENERAL GLASS CARD */
 .card {
@@ -1805,6 +1800,7 @@ input[disabled] {
     font-size: 14px;
     box-sizing: border-box;
 }
+.publish-area .btn { width: 100%; }
 .publish-status {
     margin-top: 12px;
     font-size: 14px;

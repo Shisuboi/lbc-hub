@@ -30,7 +30,8 @@ export async function getProfile(force = false) {
  * Lève une Error que le router intercepte pour stopper le rendu.
  */
 export async function requireAuth({ requireProfile = true } = {}) {
-    const { data: { user } } = await supa.auth.getUser();
+    const { data: { session } } = await supa.auth.getSession();
+    const user = session?.user;
     if (!user) {
         navigate('/');
         throw new Error('Not authenticated');

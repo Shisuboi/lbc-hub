@@ -12,7 +12,8 @@ import { navigate } from '../router.js';
 import { getProfile } from '../auth.js';
 
 export async function render({ token }) {
-    const { data: { user } } = await supa.auth.getUser();
+    const { data: { session } } = await supa.auth.getSession();
+    const user = session?.user;
     if (!user) {
         sessionStorage.setItem('pendingInvite', token);
         navigate('/', true);
