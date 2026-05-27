@@ -1813,3 +1813,81 @@ input[disabled] {
 .publish-status.warn    { color: #fbbf24; }
 .publish-status.error   { color: #fca5a5; }
 .publish-status a { color: var(--accent-blue, #a855f7); }
+
+/* ===== INSTALL PAGE ===== */
+.install-page {
+    padding: 32px 20px;
+    display: flex;
+    justify-content: center;
+}
+.install-card {
+    max-width: 720px;
+    width: 100%;
+    padding: 40px;
+}
+.install-card h1 { margin: 0 0 16px; }
+.install-card .lead {
+    font-size: 16px;
+    color: var(--text-muted, #aaa);
+    margin-bottom: 32px;
+    line-height: 1.5;
+}
+.install-steps {
+    padding-left: 0;
+    list-style: none;
+    counter-reset: step;
+}
+.install-steps li {
+    counter-increment: step;
+    padding-left: 48px;
+    position: relative;
+    margin-bottom: 24px;
+}
+.install-steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 32px;
+    height: 32px;
+    line-height: 32px;
+    text-align: center;
+    border-radius: 50%;
+    background: rgba(168, 85, 247, 0.2);
+    color: #c084fc;
+    font-weight: 700;
+}
+.install-steps h3 { margin: 4px 0 8px; }
+.install-steps p {
+    margin: 0 0 4px;
+    color: var(--text-muted, #bbb);
+    line-height: 1.5;
+}
+.install-steps code {
+    background: rgba(255, 255, 255, 0.08);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Space Grotesk', monospace;
+    font-size: 13px;
+}
+.install-warning {
+    margin-top: 32px;
+    padding: 20px;
+    background: rgba(234, 179, 8, 0.06);
+    border-left: 4px solid #eab308;
+}
+.install-warning h3 { margin: 0 0 8px; }
+.install-warning p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+}
+.install-footer {
+    margin-top: 32px;
+    text-align: center;
+}
+.install-footer a {
+    color: var(--accent-blue, #a855f7);
+    text-decoration: none;
+}
+.small { font-size: 12px; }
