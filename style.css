@@ -1563,3 +1563,103 @@ input[disabled] {
     font-weight: 600;
     vertical-align: middle;
 }
+
+/* ===== HUB / FEED ===== */
+.hub-panel {
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+.hub-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.hub-header h2 { margin: 0; }
+
+.feed-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+}
+.feed-card {
+    display: block;
+    padding: 0;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    text-decoration: none;
+    color: inherit;
+}
+.feed-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+/* Animation d'apparition pour les cartes Realtime */
+@keyframes feedCardSlideIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.feed-card-new { animation: feedCardSlideIn 0.4s ease-out; }
+
+.model-banner {
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+}
+.model-banner.cloud { background: rgba(168, 85, 247, 0.85); }
+.model-banner.local { background: rgba(100, 100, 100, 0.6); }
+
+.feed-card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px 4px;
+    font-size: 13px;
+    color: var(--text-muted, #aaa);
+}
+.feed-author { display: flex; align-items: center; gap: 8px; }
+.feed-author-name {
+    font-weight: 500;
+    color: var(--text-color, #fff);
+}
+.feed-title {
+    padding: 0 16px;
+    margin: 8px 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+.feed-badges {
+    padding: 8px 16px 16px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    font-size: 12px;
+    font-weight: 500;
+}
+.badge-gold    { background: rgba(234, 179, 8, 0.15); color: #fbbf24; }
+.badge-emerald { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+.badge-platform { background: rgba(255, 255, 255, 0.08); }
+
+.hub-disclaimer {
+    margin-top: 32px;
+    text-align: center;
+    color: var(--text-muted, #888);
+    font-size: 13px;
+}
+
+.empty-state {
+    padding: 48px 24px;
+    text-align: center;
+}
+.empty-state h3 { margin: 0 0 8px; }
+.empty-state p { color: var(--text-muted, #aaa); margin: 0 0 16px; }
