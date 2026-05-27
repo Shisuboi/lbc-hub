@@ -107,8 +107,11 @@ server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK J
 - Database → Replication → cocher la table `searches` (pour Realtime)
 
 ### Phases futures
-- Phase 2 = profils, admin UI, tri feed, Realtime amélioré
-- Phase 3 = favoris, notifications, badge "annonce expirée"
+- ~~Phase 2 = profils, admin UI, tri feed, Realtime amélioré~~ ✅ LIVRÉ (v1.1.0–v1.4.0)
+- ~~Phase 3 = favoris, notifications, badge "annonce expirée"~~ ✅ LIVRÉ (v1.5.0–v1.6.0)
+- Phase 4 (idées) : auto-détection annonces expirées (HEAD check côté server.py),
+  recherches "sauvegardées" (re-run du même scrape sur planning), commentaires
+  sous une recherche, modération admin (delete search/listing/user)
 
 ### Décisions notées pour Phase 2 (voir `docs/superpowers/plans/2026-05-27-lbc-hub-mvp-phase1.md` § Décisions / Évolutions)
 - **D-01** : ✅ APPLIQUÉ — l'analyse Ollama locale a été retirée. server.py se contente de scraper Leboncoin et d'écrire `leboncoin_brut.json`. L'analyse passe par Claude.ai via le workflow "Générer le prompt + import JSON". Page `/scraper` simplifiée en conséquence.
