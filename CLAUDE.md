@@ -14,8 +14,7 @@ Outil local de scraping Leboncoin → transformation en **plateforme communautai
 - **Repo GitHub** : `https://github.com/Shisuboi/lbc-hub`
 - **Base de données** : Supabase (PostgreSQL + Auth + Realtime) — free tier
 - **Scraping local** : Python 3.11 + aiohttp + Playwright (server.py port 8080)
-- **IA locale** : ~~Ollama~~ (code encore présent mais retiré de la doc user-facing — sera nettoyé en Phase 2, cf [D-01](docs/superpowers/plans/2026-05-27-lbc-hub-mvp-phase1.md#d-01--retirer-lanalyse-ollama-locale-date-décision--2026-05-27))
-- **IA cloud** : Claude.ai (import JSON manuel — workflow officiel)
+- **IA** : Claude.ai (workflow "Générer le prompt + import JSON" — D-01 appliqué, plus de dépendance Ollama)
 - **Tests** : pytest pour endpoints server.py uniquement (pas de tests frontend)
 
 ## Architecture clé
@@ -71,7 +70,6 @@ server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK J
 
 ## Ce qui NE change PAS
 - Scraping Playwright reste identique
-- Analyse Ollama locale reste identique
 - Workflow import JSON Claude.ai reste identique
 - Dark theme UI reste identique
 - server.py reste optionnel (uniquement pour scraper)
@@ -113,4 +111,4 @@ server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK J
 - Phase 3 = favoris, notifications, badge "annonce expirée"
 
 ### Décisions notées pour Phase 2 (voir `docs/superpowers/plans/2026-05-27-lbc-hub-mvp-phase1.md` § Décisions / Évolutions)
-- **D-01** : retirer l'analyse Ollama locale (workflow forcé Claude.ai + import JSON pour simplifier l'onboarding des amis). server.py garde uniquement le scraping Playwright.
+- **D-01** : ✅ APPLIQUÉ — l'analyse Ollama locale a été retirée. server.py se contente de scraper Leboncoin et d'écrire `leboncoin_brut.json`. L'analyse passe par Claude.ai via le workflow "Générer le prompt + import JSON". Page `/scraper` simplifiée en conséquence.

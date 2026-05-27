@@ -2000,3 +2000,29 @@ input[disabled] {
     .invitations-list th:nth-child(2),
     .invitations-list td:nth-child(2) { display: none; }
 }
+
+/* ===== SCRAPER : panneau "étape suivante Claude.ai" ===== */
+.claude-step {
+    margin-top: 18px;
+    padding: 18px;
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(99, 102, 241, 0.08));
+    border: 1px solid rgba(168, 85, 247, 0.3);
+    border-radius: 10px;
+}
+.claude-step h3 {
+    margin: 0 0 10px;
+    font-size: 16px;
+}
+.claude-steps {
+    padding-left: 20px;
+    margin: 0 0 14px;
+    font-size: 13px;
+    color: var(--text-muted, #aaa);
+    line-height: 1.7;
+}
+.claude-steps a {
+    color: var(--accent-blue, #a855f7);
+    text-decoration: none;
+}
+.claude-steps a:hover { text-decoration: underline; }
+.claude-step .btn { width: 100%; margin-bottom: 8px; }

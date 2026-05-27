@@ -46,52 +46,37 @@ function scraperMarkup() {
                 </div>
 
                 <div class="form-group">
-                    <label for="modelSelect">Modèle IA (Ollama)</label>
-                    <div class="select-wrapper-row">
-                        <div class="select-wrapper">
-                            <select id="modelSelect" required>
-                                <option value="" disabled selected>Chargement...</option>
-                            </select>
-                        </div>
-                        <button type="button" id="btnRefreshModels" class="btn-icon-only" title="Rafraîchir la liste des modèles Ollama">🔄</button>
-                    </div>
-                    <small class="help-text" id="modelsStatus"></small>
-                </div>
-
-                <div class="form-group">
-                    <label for="criteresInput">Critères Précis de Recherche (IA)</label>
+                    <label for="criteresInput">Critères de recherche</label>
                     <textarea id="criteresInput" rows="4" placeholder="Ex: Ordinateur portable avec au moins 16 Go de RAM, processeur i7 récent ou Ryzen 7, carte graphique dédiée RTX..." required></textarea>
-                    <small class="help-text">Décrivez précisément ce que vous recherchez. L'IA filtrera les annonces et calculera le rapport qualité/prix sur cette base.</small>
-                </div>
-
-                <div class="form-group">
-                    <label class="checkbox-tile">
-                        <input type="checkbox" id="reuseScrapedInput">
-                        <span class="checkbox-content">
-                            <span class="checkbox-title">♻️ Ré-analyser les annonces déjà scrapées</span>
-                            <span class="checkbox-desc" id="reuseScrapedHint">Ne re-scrape pas : ré-utilise le dernier lot téléchargé et applique tes nouveaux critères / réglages IA.</span>
-                        </span>
-                    </label>
-                    <small class="help-text">Le tri (note, prix croissant, prix décroissant) se choisit à la fin, directement sur les résultats.</small>
+                    <small class="help-text">Ces critères seront utilisés par Claude.ai pour analyser les annonces et calculer le rapport qualité/prix.</small>
                 </div>
 
                 <div class="actions-area">
                     <button type="submit" id="btnStart" class="btn btn-primary">
-                        <span class="btn-icon">⚡</span> Lancer l'Analyse
+                        <span class="btn-icon">⚡</span> Lancer le scraping
                     </button>
                     <button type="button" id="btnStop" class="btn btn-danger" disabled>
                         <span class="btn-icon">🛑</span> Arrêter
                     </button>
 
-                    <div class="actions-divider">— ou via IA en ligne —</div>
-
-                    <button type="button" id="btnShowPrompt" class="btn btn-ghost">
-                        <span class="btn-icon">📋</span> Générer le Prompt pour Claude.ai
-                    </button>
-                    <input type="file" id="importJsonFile" accept=".json" style="display:none">
-                    <button type="button" id="btnImportResults" class="btn btn-secondary">
-                        <span class="btn-icon">📥</span> Importer résultats IA (JSON)
-                    </button>
+                    <!-- Étape post-scrape : invite à utiliser Claude.ai puis importer le JSON -->
+                    <div id="claudeStepArea" class="claude-step hidden">
+                        <h3>🤖 Étape suivante : analyser via Claude.ai</h3>
+                        <ol class="claude-steps">
+                            <li>Clique <strong>Copier le prompt</strong> ci-dessous</li>
+                            <li>Ouvre <a href="https://claude.ai" target="_blank" rel="noopener">claude.ai</a>, colle le prompt</li>
+                            <li>Joins le fichier <code>leboncoin_brut.json</code> (<a href="#" id="downloadRawLink">télécharger</a>)</li>
+                            <li>Récupère le JSON renvoyé par Claude</li>
+                            <li>Clique <strong>Importer le JSON</strong> ci-dessous</li>
+                        </ol>
+                        <button type="button" id="btnShowPrompt" class="btn btn-primary">
+                            <span class="btn-icon">📋</span> Copier le prompt pour Claude.ai
+                        </button>
+                        <input type="file" id="importJsonFile" accept=".json" style="display:none">
+                        <button type="button" id="btnImportResults" class="btn btn-secondary">
+                            <span class="btn-icon">📥</span> Importer le JSON Claude.ai
+                        </button>
+                    </div>
 
                     <!-- Panneau de publication : reste dans la sidebar de config (proche des actions)
                          pour être visible sans devoir scroller dans la grille de résultats. -->
@@ -122,7 +107,7 @@ function scraperMarkup() {
                 <div class="welcome-card card">
                     <div class="welcome-hero">🔍🤖💸</div>
                     <h2>Bienvenue sur Leboncoin DealFinder AI</h2>
-                    <p>Cet outil utilise <strong>Playwright</strong> pour extraire les annonces de recherche Leboncoin et fait analyser leur description par votre <strong>modèle d'intelligence artificielle local (via Ollama)</strong> pour dénicher les meilleures affaires du marché.</p>
+                    <p>Cet outil utilise <strong>Playwright</strong> pour extraire les annonces de recherche Leboncoin, puis tu fais analyser leur description par <strong>Claude.ai</strong> (workflow copier-coller du prompt) pour dénicher les meilleures affaires du marché.</p>
                     <div class="steps-guide">
                         <div class="guide-step">
                             <div class="step-num">1</div>
@@ -131,13 +116,13 @@ function scraperMarkup() {
                         </div>
                         <div class="guide-step">
                             <div class="step-num">2</div>
-                            <h4>Configurez l'IA</h4>
-                            <p>Déterminez vos critères d'exigence (RAM, état, modèle exact) et choisissez le modèle Ollama local.</p>
+                            <h4>Précisez vos critères</h4>
+                            <p>Décrivez ce que vous voulez (RAM, état, modèle exact). Claude.ai s'en servira pour noter les annonces.</p>
                         </div>
                         <div class="guide-step">
                             <div class="step-num">3</div>
-                            <h4>Laissez faire la magie</h4>
-                            <p>L'IA va filtrer les mauvaises annonces et attribuer une note précise de rapport qualité/prix sur 100.</p>
+                            <h4>Lancez le scraping</h4>
+                            <p>Le serveur récupère les annonces, puis vous les passez à Claude.ai via le prompt fourni, et vous importez le JSON renvoyé.</p>
                         </div>
                     </div>
                 </div>
@@ -251,7 +236,7 @@ function scraperMarkup() {
                     <div class="modal-step">
                         <span class="step-badge">1</span>
                         <div class="step-content">
-                            <strong>Scrapez d'abord les annonces</strong> avec le bouton <em>⚡ Lancer l'Analyse</em> (le modèle Ollama peut être n'importe lequel). Une fois terminé, le fichier <code>leboncoin_brut.json</code> est créé dans le dossier de l'application.
+                            <strong>Scrapez d'abord les annonces</strong> avec le bouton <em>⚡ Lancer le scraping</em>. Une fois terminé, le fichier <code>leboncoin_brut.json</code> est créé dans le dossier de l'application.
                         </div>
                     </div>
                     <div class="modal-step">
@@ -348,10 +333,7 @@ function initScraperLogic() {
     const urlInput = document.getElementById('urlInput');
     const pagesInput = document.getElementById('pagesInput');
     const delayInput = document.getElementById('delayInput');
-    const modelSelect = document.getElementById('modelSelect');
     const criteresInput = document.getElementById('criteresInput');
-    const reuseScrapedInput = document.getElementById('reuseScrapedInput');
-    const reuseScrapedHint = document.getElementById('reuseScrapedHint');
     const btnStart = document.getElementById('btnStart');
     const btnStop = document.getElementById('btnStop');
     const btnResume = document.getElementById('btnResume');
@@ -384,70 +366,28 @@ function initScraperLogic() {
     const statBestScore = document.getElementById('statBestScore');
     const statMinPrice = document.getElementById('statMinPrice');
 
-    const btnRefreshModels = document.getElementById('btnRefreshModels');
-    const modelsStatus = document.getElementById('modelsStatus');
+    const claudeStepArea = document.getElementById('claudeStepArea');
+    const downloadRawLink = document.getElementById('downloadRawLink');
 
-    // --- Init models + SSE + scraped info ---
-    async function loadModels() {
-        modelSelect.innerHTML = '<option value="" disabled selected>Chargement...</option>';
-        if (btnRefreshModels) btnRefreshModels.disabled = true;
-        if (modelsStatus) modelsStatus.textContent = '';
-        try {
-            const response = await fetch(`${API}/api/models`);
-            const data = await response.json();
-            modelSelect.innerHTML = '';
-            if (data.models && data.models.length > 0 && !data.fallback) {
-                data.models.forEach(model => {
-                    const option = document.createElement('option');
-                    option.value = model;
-                    option.textContent = model;
-                    modelSelect.appendChild(option);
-                });
-                if (modelsStatus) modelsStatus.textContent = `✅ ${data.models.length} modèle(s) Ollama chargé(s).`;
-            } else if (data.fallback) {
-                modelSelect.innerHTML = '<option value="">⚠️ Ollama inaccessible — sélectionnez un modèle manuellement</option>';
-                if (modelsStatus) modelsStatus.innerHTML = '⚠️ Ollama n\'est pas joignable. Lancez Ollama puis cliquez 🔄 pour recharger.';
-            } else {
-                modelSelect.innerHTML = '<option value="">Aucun modèle trouvé</option>';
-                if (modelsStatus) modelsStatus.textContent = 'Aucun modèle installé dans Ollama.';
-            }
-        } catch (error) {
-            console.error('Erreur chargement modèles Ollama:', error);
-            modelSelect.innerHTML = '<option value="">⚠️ Serveur local injoignable</option>';
-            if (modelsStatus) modelsStatus.innerHTML = '⚠️ Lance <code>server.py</code> sur ton PC puis clique 🔄.';
-        } finally {
-            if (btnRefreshModels) btnRefreshModels.disabled = false;
-        }
+    // --- Download brut.json ---
+    if (downloadRawLink) {
+        downloadRawLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.open(`${API}/api/raw-ads`, '_blank');
+        });
     }
-    if (btnRefreshModels) btnRefreshModels.addEventListener('click', loadModels);
 
+    // --- Détection scrape déjà existant (au load de la page) ---
     async function refreshScrapedInfo() {
-        let count = 0;
         try {
             const response = await fetch(`${API}/api/scraped-info`);
             const data = await response.json();
-            count = data.count || 0;
-        } catch (error) { /* serveur local off, count reste 0 */ }
-
-        if (count > 0) {
-            reuseScrapedInput.disabled = false;
-            reuseScrapedHint.textContent = `Ne re-scrape pas : ré-utilise les ${count} annonces du dernier lot et applique tes nouveaux critères / réglages IA.`;
-        } else {
-            reuseScrapedInput.disabled = true;
-            reuseScrapedInput.checked = false;
-            reuseScrapedHint.textContent = 'Aucun lot déjà scrapé pour le moment. Lance d\'abord une recherche complète.';
-        }
-        applyReuseState();
+            if (data.count > 0) {
+                // Un brut.json existe déjà → affiche le panneau Claude.ai pour qu'on puisse importer
+                claudeStepArea.classList.remove('hidden');
+            }
+        } catch (error) { /* serveur local off */ }
     }
-
-    function applyReuseState() {
-        const reuse = reuseScrapedInput.checked && !reuseScrapedInput.disabled;
-        urlInput.required = !reuse;
-        urlInput.disabled = reuse;
-        pagesInput.disabled = reuse;
-        delayInput.disabled = reuse;
-    }
-    reuseScrapedInput.addEventListener('change', applyReuseState);
 
     // --- SSE ---
     function connectSSE() {
@@ -492,20 +432,26 @@ function initScraperLogic() {
                 btnStart.disabled = true; btnStop.disabled = false; captchaBanner.classList.remove('hidden');
                 showView('progress');
                 break;
-            case 'analyzing':
-                statusDot.classList.add('status-running'); statusLabel.textContent = 'Analyse IA...';
-                progressStateText.textContent = 'Analyse des descriptions par l\'IA locale...';
-                btnStart.disabled = true; btnStop.disabled = false; captchaBanner.classList.add('hidden');
-                showView('progress'); switchLiveTab('live');
+            case 'scraped':
+                // Scrape terminé, brut.json prêt → invite à utiliser Claude.ai
+                statusDot.classList.add('status-done'); statusLabel.textContent = 'Scrape terminé';
+                progressBar.style.width = '70%';
+                progressStateText.textContent = 'Annonces scrapées, prêtes pour Claude.ai';
+                btnStart.disabled = false; btnStop.disabled = true; captchaBanner.classList.add('hidden');
+                claudeStepArea.classList.remove('hidden');
+                window.__scraperState.scrapedAt = new Date().toISOString();
                 break;
             case 'completed':
+                // JSON Claude.ai importé → résultats analysés affichés + publish dispo
                 statusDot.classList.add('status-done'); statusLabel.textContent = 'Terminé';
                 progressBar.style.width = '100%';
                 btnStart.disabled = false; btnStop.disabled = true; captchaBanner.classList.add('hidden');
-                showView('results'); refreshScrapedInfo();
-                // Marquer le scrapedAt et révéler publish
-                window.__scraperState.scrapedAt = new Date().toISOString();
+                showView('results');
+                claudeStepArea.classList.remove('hidden'); // garde l'option de réimporter
                 publishArea?.classList.remove('hidden');
+                if (!window.__scraperState.scrapedAt) {
+                    window.__scraperState.scrapedAt = new Date().toISOString();
+                }
                 break;
             case 'error':
                 statusDot.classList.add('status-error'); statusLabel.textContent = 'Erreur fatale';
@@ -561,28 +507,25 @@ function initScraperLogic() {
     // --- Form actions ---
     configForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (['scraping', 'captcha_required', 'analyzing'].includes(activeJobStatus)) return;
-        const reuse = reuseScrapedInput.checked && !reuseScrapedInput.disabled;
+        if (['scraping', 'captcha_required'].includes(activeJobStatus)) return;
         const payload = {
             url: urlInput.value.trim(),
             pages: parseInt(pagesInput.value, 10) || 1,
             delay: parseInt(delayInput.value, 10) || 1500,
             criteres: criteresInput.value.trim(),
-            model: modelSelect.value,
-            reuseScraped: reuse,
         };
-        if (!reuse && !payload.url) {
-            addLogLine('🔴 Erreur : l\'URL de recherche est obligatoire (ou cochez la ré-analyse).', 'log-error');
+        if (!payload.url) {
+            addLogLine('🔴 Erreur : l\'URL de recherche est obligatoire.', 'log-error');
             return;
         }
         if (!payload.criteres) {
             addLogLine('🔴 Erreur : les critères de recherche sont obligatoires.', 'log-error');
             return;
         }
-        // Capturer les méta-données pour le publish ultérieur
-        window.__scraperState.modelUsed = payload.model;
+        // Capturer les méta-données pour le publish ultérieur (D-01 : toujours cloud via Claude.ai)
+        window.__scraperState.modelUsed = 'claude-3.5-sonnet';
         window.__scraperState.criteria = payload.criteres;
-        window.__scraperState.sourceUrl = payload.url || null;
+        window.__scraperState.sourceUrl = payload.url;
 
         progressBar.style.width = '0%';
         consoleLogs.innerHTML = '';
@@ -824,7 +767,7 @@ Format exact attendu (renvoie directement le tableau, commence par [ sans introd
                 addLogLine(`🔴 Erreur lors de l'import : ${error.message}`, 'log-error');
             } finally {
                 btnImportResults.disabled = false;
-                btnImportResults.innerHTML = '<span class="btn-icon">📥</span> Importer résultats IA (JSON)';
+                btnImportResults.innerHTML = '<span class="btn-icon">📥</span> Importer le JSON Claude.ai';
             }
         });
     }
@@ -832,12 +775,11 @@ Format exact attendu (renvoie directement le tableau, commence par [ sans introd
     // === BOOTSTRAP ===
     window.__scraperState = {
         allResults: [],
-        modelUsed: null,
+        modelUsed: 'claude-3.5-sonnet',  // D-01 : workflow forcé Claude.ai
         criteria: '',
         sourceUrl: null,
         scrapedAt: null,
     };
-    loadModels();
     connectSSE();
     refreshScrapedInfo();
 }

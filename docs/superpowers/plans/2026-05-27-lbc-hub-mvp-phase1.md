@@ -2840,7 +2840,7 @@ Aucun `.env` requis pour la Phase 1 (frontend pur côté hébergé, server.py re
 
 > Section ajoutée pendant l'exécution de la Phase 1 — à transformer en tâches concrètes lors du plan Phase 2.
 
-### D-01 — Retirer l'analyse Ollama locale (date décision : 2026-05-27)
+### D-01 — Retirer l'analyse Ollama locale (date décision : 2026-05-27 — ✅ APPLIQUÉ le 2026-05-27)
 
 **Contexte** : pour faciliter l'onboarding des amis dans le hub, Tristan veut éliminer la dépendance à Ollama. L'install reste légère (Python + Playwright pour le scraping), mais l'IA d'analyse passe systématiquement par Claude.ai via le workflow "Générer le Prompt" → copie-colle dans Claude.ai → import du JSON.
 
