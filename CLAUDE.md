@@ -76,6 +76,10 @@ server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK J
 - Dark theme UI reste identique
 - server.py reste optionnel (uniquement pour scraper)
 
+## Tokens d'invitation actifs
+- `32d878a6-1ac8-40d0-8e53-f7f2980f4b44` — premier token (non utilisé, expire dans 7 jours à partir du 27/05/2026)
+- URL d'invitation : `https://shisuboi.github.io/lbc-hub/invite/32d878a6-1ac8-40d0-8e53-f7f2980f4b44`
+
 ## Phase actuelle
 **Phase 1 — Hub MVP** (en cours)
 Phase 2 = profils, admin UI, tri feed, Realtime amélioré
