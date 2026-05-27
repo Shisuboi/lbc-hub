@@ -1391,3 +1391,175 @@ input[disabled] {
     padding: 0.5rem 1rem;
     font-size: 0.85rem;
 }
+
+/* ===== AUTH PAGES (login, invite, onboarding) ===== */
+.auth-panel {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 70vh;
+    padding: 40px 20px;
+}
+.auth-card {
+    max-width: 420px;
+    width: 100%;
+    padding: 32px;
+}
+.auth-card h2 { margin: 0 0 8px; }
+.auth-card .muted {
+    color: var(--text-muted, #888);
+    margin-bottom: 24px;
+    font-size: 14px;
+}
+.auth-form .form-group { margin-bottom: 16px; }
+.auth-form label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    font-size: 14px;
+}
+.auth-form input[type=email],
+.auth-form input[type=password],
+.auth-form input[type=text] {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color, rgba(255,255,255,0.1));
+    background: var(--input-bg, rgba(255,255,255,0.04));
+    color: var(--text-color, #fff);
+    font-size: 14px;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+.auth-form input:focus {
+    outline: none;
+    border-color: var(--accent-blue, #a855f7);
+}
+.auth-form .btn {
+    width: 100%;
+    margin-top: 8px;
+}
+.form-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+    padding: 10px;
+    border-radius: 6px;
+    margin-top: 12px;
+    font-size: 13px;
+}
+.auth-footer {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted, #888);
+}
+.auth-footer a {
+    color: var(--accent-blue, #a855f7);
+    text-decoration: none;
+}
+
+/* ===== HEADER NAV (SPA) ===== */
+.header-nav {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.nav-link {
+    color: var(--text-color, #fff);
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 14px;
+}
+.nav-link:hover { background: rgba(255, 255, 255, 0.06); }
+
+.logo-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    color: inherit;
+}
+
+.user-menu { position: relative; }
+.user-menu-trigger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: 1px solid var(--border-color, rgba(255,255,255,0.1));
+    padding: 6px 14px 6px 6px;
+    border-radius: 24px;
+    color: var(--text-color, #fff);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+}
+.user-menu-trigger:hover { background: rgba(255, 255, 255, 0.04); }
+.user-avatar {
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    line-height: 28px;
+    text-align: center;
+    border-radius: 50%;
+    color: #fff;
+    font-weight: 600;
+    font-size: 13px;
+}
+.user-name { font-weight: 500; }
+.user-menu-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: var(--card-bg, #1e1e1e);
+    border: 1px solid var(--border-color, rgba(255,255,255,0.1));
+    border-radius: 8px;
+    padding: 8px;
+    min-width: 180px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    z-index: 100;
+}
+.user-menu-dropdown a,
+.user-menu-dropdown button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 12px;
+    color: var(--text-color, #fff);
+    text-decoration: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: inherit;
+}
+.user-menu-dropdown a:hover,
+.user-menu-dropdown button:hover { background: rgba(255, 255, 255, 0.06); }
+
+.hidden { display: none !important; }
+
+/* ===== SPA STATES ===== */
+.page-loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted, #888);
+    font-size: 16px;
+}
+.error-panel {
+    padding: 32px;
+    text-align: center;
+}
+
+/* ===== AVATAR (composant générique) ===== */
+.avatar {
+    display: inline-block;
+    border-radius: 50%;
+    color: #fff;
+    text-align: center;
+    font-weight: 600;
+    vertical-align: middle;
+}
