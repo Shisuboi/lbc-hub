@@ -25,7 +25,7 @@ export function listingCardHtml(listing) {
     const note = parseFloat(listing.note_sur_100) || 0;
     const scoreClass = scoreClassFor(note);
     const prix = listing.prix != null ? `${Math.round(listing.prix)} €` : 'N/A';
-    const matchIcon = listing.match_criteres ? '✅' : '⚠️';
+    const matchIcon = note >= 80 ? '👑' : (listing.match_criteres ? '✅' : '⚠️');
     const isExpired = !!listing.expired_at;
 
     return `
@@ -33,7 +33,7 @@ export function listingCardHtml(listing) {
             ${isExpired ? '<div class="expired-banner">🚫 Annonce expirée / supprimée</div>' : ''}
             <div class="card-top">
                 <div class="card-price">${prix}</div>
-                <div class="card-score ${scoreClass}">${matchIcon} ${Math.round(note)}/100</div>
+                <div class="card-score ${scoreClass}">${matchIcon} ${note % 1 === 0 ? note : note.toFixed(1)}/100</div>
             </div>
             <div class="card-title" title="${escapeAttr(listing.titre || '')}">${escapeHtml(listing.titre || '')}</div>
             ${listing.caracteristiques ? `
