@@ -11,7 +11,7 @@ export async function render() {
         <section class="install-page">
             <div class="install-card card">
                 <h1>📦 Installation de LBC DealFinder Hub</h1>
-                <p class="lead">Pour scraper Leboncoin, tu dois lancer un petit serveur Python sur ton ordi (le scraping ne marche pas depuis le cloud — Leboncoin bloque les serveurs distants). Une fois le serveur lancé, tout le reste fonctionne depuis ce site.</p>
+                <p class="lead">Pour scraper Leboncoin, tu dois lancer un petit serveur Python sur ton ordi (le scraping ne marche pas depuis le cloud, Leboncoin bloque les serveurs distants). Une fois le serveur lancé, tout le reste fonctionne depuis ce site.</p>
 
                 <ol class="install-steps">
                     <li>

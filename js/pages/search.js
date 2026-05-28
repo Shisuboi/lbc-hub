@@ -83,7 +83,7 @@ export async function render({ id }) {
 
             <div class="search-header card">
                 <div class="model-banner ${isCloud ? 'cloud' : 'local'}">
-                    ${isCloud ? '✨' : '⚡'} ${escapeHtml(search.model_name)} — modèle ${isCloud ? 'cloud (précision élevée)' : 'local'}
+                    ${isCloud ? '✨' : '⚡'} ${escapeHtml(search.model_name)} · modèle ${isCloud ? 'cloud (précision élevée)' : 'local'}
                 </div>
                 <div class="search-header-body">
                     <div class="search-title-row">

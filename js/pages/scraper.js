@@ -400,7 +400,7 @@ function initScraperLogic() {
                 // pour que la console soit visible (messages import OK/erreur)
                 claudeStepArea.classList.remove('hidden');
                 showView('progress');
-                progressStateText.textContent = `Scrape précédent détecté (${data.count} annonces) — prêt à importer le JSON Claude.ai`;
+                progressStateText.textContent = `Scrape précédent détecté (${data.count} annonces) · prêt à importer le JSON Claude.ai`;
             }
         } catch (error) { /* serveur local off */ }
     }
@@ -686,20 +686,20 @@ function initScraperLogic() {
     const copyPromptText  = document.getElementById('copyPromptText');
 
     function buildPromptText(criteres) {
-        const criteresText = criteres.trim() || '(aucun critère saisi — renseignez vos critères dans le formulaire avant d\'ouvrir cette fenêtre)';
+        const criteresText = criteres.trim() || '(aucun critère saisi, renseignez vos critères dans le formulaire avant d\'ouvrir cette fenêtre)';
         return `Tu es un expert intraitable en évaluation d'annonces de seconde main.
 Je te fournis un fichier JSON (leboncoin_brut.json) contenant des annonces Leboncoin scrapées.
 
 Mes critères de recherche : ${criteresText}
 
 RÈGLES IMPORTANTES :
-1. Analyse TOUTES les annonces du fichier sans exception. Les annonces qui ne correspondent pas aux critères reçoivent une note proche de 0 — elles ne sont pas ignorées.
+1. Analyse TOUTES les annonces du fichier sans exception. Les annonces qui ne correspondent pas aux critères reçoivent une note proche de 0, elles ne sont pas ignorées.
 2. Pour chaque annonce, identifie le modèle exact du produit et déduis les caractéristiques manquantes grâce à tes connaissances (fiches techniques constructeur). N'écris jamais "inconnu" ou "non précisé" si le modèle te permet de le déduire.
-3. Attribue une note décimale de 0 à 100 au rapport qualité/prix. Utilise des décimales (ex : 84.5, 91.2, 78.7) pour différencier finement les annonces — évite absolument les notes rondes identiques.
+3. Attribue une note décimale de 0 à 100 au rapport qualité/prix. Utilise des décimales (ex : 84.5, 91.2, 78.7) pour différencier finement les annonces, évite absolument les notes rondes identiques.
 4. Dans les valeurs texte du JSON, n'utilise JAMAIS de vrais retours à la ligne (touche Entrée). Écris \\n si tu veux en simuler un.
-5. Pour les tailles d'écran, écris "pouces" ou '' (double apostrophe) — JAMAIS le symbole " (guillemet) qui casse le JSON. Exemple : 15.6 pouces ou 15.6''.
+5. Pour les tailles d'écran, écris "pouces" ou '' (double apostrophe). JAMAIS le symbole " (guillemet) qui casse le JSON. Exemple : 15.6 pouces ou 15.6''.
 6. INTERDIT : ne génère PAS de code Python, shell, ou tout autre langage de programmation. Ne mets PAS le JSON dans un bloc de code (\`\`\`json ou autre). N'utilise PAS de heredoc (<<EOF). N'écris PAS de texte avant ou après le tableau.
-7. Ta réponse doit commencer IMMÉDIATEMENT par [ et se terminer par ] — rien d'autre.
+7. Ta réponse doit commencer IMMÉDIATEMENT par [ et se terminer par ]. Rien d'autre.
 
 Format exact attendu (ta réponse entière, du premier au dernier caractère) :
 [

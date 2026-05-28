@@ -105,11 +105,11 @@ export async function render({ username }) {
                         <span class="profile-stat-label">Annonce${totalListings > 1 ? 's' : ''} analysée${totalListings > 1 ? 's' : ''}</span>
                     </div>
                     <div class="profile-stat">
-                        <span class="profile-stat-value text-gold">${bestScore ? Math.round(bestScore) + '/100' : '—'}</span>
+                        <span class="profile-stat-value text-gold">${bestScore ? Math.round(bestScore) + '/100' : '·'}</span>
                         <span class="profile-stat-label">Meilleure note</span>
                     </div>
                     <div class="profile-stat">
-                        <span class="profile-stat-value">${lastActivity ? dateFr(lastActivity) : '—'}</span>
+                        <span class="profile-stat-value">${lastActivity ? dateFr(lastActivity) : '·'}</span>
                         <span class="profile-stat-label">Dernière activité</span>
                     </div>
                 </div>

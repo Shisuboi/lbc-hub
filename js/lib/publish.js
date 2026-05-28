@@ -18,7 +18,7 @@ import { supa } from '../supabase-client.js';
 export async function publishSearch(payload) {
     const { data: { session } } = await supa.auth.getSession();
     const user = session?.user;
-    if (!user) throw new Error('Non authentifié — reconnecte-toi.');
+    if (!user) throw new Error('Non authentifié. Reconnecte-toi.');
 
     const listings = payload.listings || [];
 

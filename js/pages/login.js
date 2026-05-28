@@ -12,11 +12,11 @@ export async function render() {
         <section class="auth-panel">
             <div class="auth-card card">
                 <h2>Connexion</h2>
-                <p class="muted">Plateforme privée — accès sur invitation uniquement.</p>
+                <p class="muted">Plateforme privée · accès sur invitation uniquement.</p>
                 <form id="loginForm" class="auth-form">
                     <div class="form-group">
                         <label for="emailInput">Identifiant</label>
-                        <input type="text" id="emailInput" required autocomplete="username" placeholder="thomas  —  ou email complet">
+                        <input type="text" id="emailInput" required autocomplete="username" placeholder="thomas ou email complet">
                     </div>
                     <div class="form-group">
                         <label for="passwordInput">Mot de passe</label>

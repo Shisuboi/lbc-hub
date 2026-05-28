@@ -16,7 +16,7 @@
     --accent-amber: #f59e0b;
     --accent-rose: #f43f5e;
     
-    --font-heading: 'Space Grotesk', system-ui, sans-serif;
+    --font-heading: 'Bricolage Grotesque', 'Space Grotesk', system-ui, sans-serif;
     --font-body: 'Outfit', system-ui, sans-serif;
     
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -2390,4 +2390,175 @@ a.feed-author:hover .feed-author-name {
 .hub-chip-notif:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+}
+
+/* ============================================================
+   UI POLISH v1.9 — raffinement visuel (bloc ADDITIF, non destructif)
+   Conserve l'identité dark/néon, ajoute personnalité + accessibilité.
+   Tout est surchargeable/réversible en supprimant ce seul bloc.
+   ============================================================ */
+
+/* --- Atmosphère de fond : voile radial coloré + grain très fin --- */
+/* Posés derrière les .bg-glow (z-index:-1) et tout le contenu. */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -3;
+    pointer-events: none;
+    background:
+        radial-gradient(1100px 620px at 88% -12%, rgba(56, 189, 248, 0.07), transparent 60%),
+        radial-gradient(950px 700px at -12% 112%, rgba(168, 85, 247, 0.07), transparent 60%);
+}
+body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    opacity: 0.022;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* --- Header : logo un poil plus vivant --- */
+.logo-text h1 { letter-spacing: -0.8px; }
+
+/* --- Feed /hub (écran prioritaire) --- */
+.feed-grid { gap: 18px; }
+
+.feed-card {
+    position: relative;
+    border-radius: 16px;
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.18s ease,
+                border-color 0.18s ease;
+}
+/* Liseré d'accent qui s'allume au survol */
+.feed-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    pointer-events: none;
+}
+.feed-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--border-hover);
+    box-shadow: 0 18px 44px -14px rgba(0, 0, 0, 0.6);
+}
+.feed-card:hover::before { opacity: 0.55; }
+
+/* Bandeau modèle : typo titre + lettrage, dégradé cloud plus net */
+.model-banner {
+    font-family: var(--font-heading);
+    letter-spacing: 0.01em;
+}
+.model-banner.cloud {
+    background: linear-gradient(90deg, rgba(168, 85, 247, 0.92), rgba(56, 189, 248, 0.82));
+}
+
+/* Titre de carte : police de titre, interlignage resserré */
+.feed-title {
+    font-family: var(--font-heading);
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+}
+
+/* Badges : fine bordure pour les détacher du fond */
+.badge { border: 1px solid rgba(255, 255, 255, 0.06); }
+
+/* Étoile favori : feedback plus net */
+.fav-btn { transition: transform 0.12s ease, color 0.15s ease; }
+.fav-btn:hover { transform: scale(1.15); }
+.fav-btn.is-fav { filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.45)); }
+
+/* --- Entrée en cascade du feed (one-shot, posée par hub.js via .is-entering) --- */
+@keyframes feedEnter {
+    from { opacity: 0; transform: translateY(14px) scale(0.985); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.feed-grid.is-entering .feed-card {
+    animation: feedEnter 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.feed-grid.is-entering .feed-card:nth-child(1)  { animation-delay: 0.02s; }
+.feed-grid.is-entering .feed-card:nth-child(2)  { animation-delay: 0.06s; }
+.feed-grid.is-entering .feed-card:nth-child(3)  { animation-delay: 0.10s; }
+.feed-grid.is-entering .feed-card:nth-child(4)  { animation-delay: 0.14s; }
+.feed-grid.is-entering .feed-card:nth-child(5)  { animation-delay: 0.18s; }
+.feed-grid.is-entering .feed-card:nth-child(6)  { animation-delay: 0.22s; }
+.feed-grid.is-entering .feed-card:nth-child(7)  { animation-delay: 0.26s; }
+.feed-grid.is-entering .feed-card:nth-child(8)  { animation-delay: 0.30s; }
+.feed-grid.is-entering .feed-card:nth-child(n+9) { animation-delay: 0.34s; }
+
+/* --- Accessibilité clavier : focus visible cohérent --- */
+:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
+}
+.btn:focus-visible,
+.hub-chip:focus-visible,
+.fav-btn:focus-visible { outline-offset: 3px; }
+
+/* --- Respect du réglage système "réduire les animations" --- */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ============================================================
+   UI POLISH v1.9 — extension : détail /search + login + glows
+   (toujours additif / réversible)
+   ============================================================ */
+
+/* --- Cartes d'annonces (/search) : même langage que le feed --- */
+.result-card {
+    position: relative;
+}
+.result-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    pointer-events: none;
+}
+.result-card:hover::before { opacity: 0.45; }
+/* Ombre teintée au survol (au lieu d'un halo bleu saturé) */
+.result-card:hover {
+    box-shadow: 0 16px 36px -14px rgba(0, 0, 0, 0.55);
+}
+
+/* --- Carte de connexion : entrée douce (1ère impression) --- */
+.auth-card {
+    animation: feedEnter 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.auth-card h2 {
+    font-family: var(--font-heading);
+    letter-spacing: -0.4px;
+}
+
+/* --- Halos néon : désaturés avec intention (skill §9.A), marque gardée --- */
+/* On réduit l'intensité des glows sans retirer l'identité bleu/violet. */
+.logo-icon { filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.28)); }
+.welcome-hero { filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.20)); }
+.btn-primary { box-shadow: 0 4px 14px -2px rgba(168, 85, 247, 0.28); }
+.btn-primary:hover:not(:disabled) {
+    box-shadow: 0 8px 22px -4px rgba(56, 189, 248, 0.32);
 }

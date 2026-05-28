@@ -41,8 +41,8 @@ const PLATFORM_BADGES = {
 export function feedCardHtml(search, profile, opts = {}) {
     const isCloud = search.model_type === 'cloud';
     const banner = isCloud
-        ? `<div class="model-banner cloud">✨ ${escapeHtml(search.model_name)} — modèle cloud (précision élevée)</div>`
-        : `<div class="model-banner local">⚡ ${escapeHtml(search.model_name)} — modèle local</div>`;
+        ? `<div class="model-banner cloud">✨ ${escapeHtml(search.model_name)} · modèle cloud (précision élevée)</div>`
+        : `<div class="model-banner local">⚡ ${escapeHtml(search.model_name)} · modèle local</div>`;
 
     const platform = PLATFORM_BADGES[search.platform] || PLATFORM_BADGES.other;
     const platformBadge = `<span class="badge badge-platform">${platform.icon} ${platform.label}</span>`;

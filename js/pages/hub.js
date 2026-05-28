@@ -59,7 +59,7 @@ export async function render() {
                     </div>
                 </div>
                 <div class="hub-toolbar-row hub-toolbar-counter">
-                    <span id="hubResultCount" class="muted small">— recherches</span>
+                    <span id="hubResultCount" class="muted small">… recherches</span>
                 </div>
             </div>
 
@@ -121,7 +121,7 @@ export async function render() {
         if (navState.token !== myToken) return;
         state.profileMap = new Map((profiles || []).map(p => [p.id, p]));
         rebuildChips();
-        renderFeed();
+        renderFeed({ enter: true });
     }
 
     // === Filtres & tri : événements UI ===
@@ -284,7 +284,7 @@ export async function render() {
             btnNotif.disabled = perm === 'denied';
             if (perm === 'denied') {
                 btnNotif.textContent = '🔕 Notifications bloquées';
-                btnNotif.title = 'Bloqué dans les paramètres du navigateur — autorise les notifications pour ce site.';
+                btnNotif.title = 'Bloqué dans les paramètres du navigateur. Autorise les notifications pour ce site.';
             } else if (perm === 'default') {
                 btnNotif.textContent = '🔕 Activer notifications';
                 btnNotif.title = 'Cliquer pour autoriser les notifications système.';
@@ -376,12 +376,17 @@ export async function render() {
         return list;
     }
 
-    function renderFeed({ flagNewId = null } = {}) {
+    function renderFeed({ flagNewId = null, enter = false } = {}) {
         const list = filterAndSort();
         const grid = document.getElementById('feedGrid');
         const counter = document.getElementById('hubResultCount');
         const noMatch = document.getElementById('feedNoMatch');
         if (!grid || !counter || !noMatch) return; // navigated away — bail out
+
+        // Animation d'entrée en cascade : UNIQUEMENT au 1er rendu (enter:true).
+        // Les re-rendus (filtres, tri, realtime) la désactivent pour ne pas
+        // rejouer l'effet à chaque frappe dans le champ de recherche.
+        grid.classList.toggle('is-entering', enter);
 
         if (list.length === 0) {
             grid.innerHTML = '';

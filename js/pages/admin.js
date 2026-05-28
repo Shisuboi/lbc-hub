@@ -46,7 +46,7 @@ export async function render() {
                         </ul>
                     </li>
                 </ol>
-                <p class="muted small">Au 1er login, il sera invité à choisir son pseudo public — il atterrit direct sur le hub ensuite.</p>
+                <p class="muted small">Au 1er login, il sera invité à choisir son pseudo public, puis il atterrit direct sur le hub.</p>
             </div>
         </section>
     `;
