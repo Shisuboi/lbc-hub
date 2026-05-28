@@ -383,8 +383,11 @@ function initScraperLogic() {
             const response = await fetch(`${API}/api/scraped-info`);
             const data = await response.json();
             if (data.count > 0) {
-                // Un brut.json existe déjà → affiche le panneau Claude.ai pour qu'on puisse importer
+                // Un brut.json existe déjà → affiche le panneau Claude.ai + bascule sur progressView
+                // pour que la console soit visible (messages import OK/erreur)
                 claudeStepArea.classList.remove('hidden');
+                showView('progress');
+                progressStateText.textContent = `Scrape précédent détecté (${data.count} annonces) — prêt à importer le JSON Claude.ai`;
             }
         } catch (error) { /* serveur local off */ }
     }
