@@ -740,7 +740,11 @@ Format exact attendu (renvoie directement le tableau, commence par [ sans introd
             btnImportResults.disabled = true;
             btnImportResults.innerHTML = '<span class="btn-icon">⏳</span> Import en cours...';
             try {
-                const text = await file.text();
+                let text = await file.text();
+                // Normalise les booléens/null Python (True→true, False→false, None→null)
+                text = text.replace(/:\s*True([,\s\}\]])/g, ': true$1')
+                           .replace(/:\s*False([,\s\}\]])/g, ': false$1')
+                           .replace(/:\s*None([,\s\}\]])/g, ': null$1');
                 let data;
                 try { data = JSON.parse(text); }
                 catch (_) {
