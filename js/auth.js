@@ -37,7 +37,10 @@ export async function requireAuth({ requireProfile = true, requireRole = null } 
         throw new Error('Not authenticated');
     }
     if (requireProfile) {
-        const profile = await getProfile(true);
+        // Pas de force=true : le cache est invalidé au login/logout, donc safe.
+        // Forcer un fetch HTTP à chaque navigation causait un hang intermittent sur Firefox
+        // (spinner ⏳ Chargement… figé) — voir CLAUDE.md "Bugs / pièges connus".
+        const profile = await getProfile();
         if (!profile) {
             navigate('/onboarding');
             throw new Error('Profile not yet created');

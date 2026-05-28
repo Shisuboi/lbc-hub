@@ -192,6 +192,7 @@ Sans elles, les boutons ⭐ et 🚫 affichent l'UI mais ne persistent rien (try/
 4. **`<base href>` dynamique** dans `index.html` : prod `/lbc-hub/`, dev `/`. Sans ça, les chemins relatifs cassent au refresh sur SPA route.
 5. **Cross-tab `sessionStorage`** : l'invitation flow utilise `sessionStorage.pendingInvite` qui est PAR ONGLET — il faut faire le flow dans un seul onglet, sinon le token est perdu.
 6. **`onAuthChange` AVANT `renderHeader`** = deadlock du SDK. L'ordre dans `main.js` doit rester : `await renderHeader()` → `initRouter()` → `onAuthChange(...)`.
+7. **`requireAuth({ force })` à chaque navigation = hang Firefox**. Forcer `getProfile(true)` dans `requireAuth` déclenche un fetch HTTP `from('profiles').select().single()` à chaque clic de lien. Sur Firefox, ce fetch hang par intermittence (spinner `⏳ Chargement…` figé jusqu'au F5). Mitigation = `getProfile()` sans `force`, le cache est déjà invalidé au login/logout. Voir `js/auth.js` ligne 40.
 
 ### Prochaine étape pour Claude (reprise PC fixe)
 
