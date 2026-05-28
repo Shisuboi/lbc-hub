@@ -752,7 +752,7 @@ Format exact attendu (ta réponse entière, du premier au dernier caractère) :
                     .replace(/:\s*True([,\s\}\]])/g, ': true$1')
                     .replace(/:\s*False([,\s\}\]])/g, ': false$1')
                     .replace(/:\s*None([,\s\}\]])/g, ': null$1')
-                    .replace(/(\d)"/g, '$1\\"');
+                    .replace(/(\d)"(?=\s)/g, '$1\\"');
                 let data;
                 // Tente un parse direct, puis essaie chaque position '[' dans le fichier
                 // (Claude.ai renvoie parfois le JSON après du code Python ou du texte)
