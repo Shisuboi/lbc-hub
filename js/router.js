@@ -41,6 +41,7 @@ export async function navigate(path, replace = false) {
 export async function render() {
     const path = stripPrefix(location.pathname) || '/';
     const root = document.getElementById('appRoot');
+    window.scrollTo(0, 0); // Remonte en haut à chaque changement de page
     for (const r of routes) {
         const m = path.match(r.regex);
         if (m) {
