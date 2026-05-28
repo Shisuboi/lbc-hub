@@ -13,7 +13,12 @@ export async function loginWithPassword(email, password) {
 }
 
 export async function logout() {
-    await supa.auth.signOut();
+    // scope: 'local' évite le POST /auth/v1/logout qui hang sur Firefox
+    // (même classe de bug que le hang sur requireAuth — voir CLAUDE.md piège #7).
+    // La session côté serveur expire naturellement, c'est suffisant pour notre usage.
+    try {
+        await supa.auth.signOut({ scope: 'local' });
+    } catch (_) { /* on continue le logout local même si l'API casse */ }
     cachedProfile = null;
     navigate('/');
 }
