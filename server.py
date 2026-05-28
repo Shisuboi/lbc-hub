@@ -303,7 +303,6 @@ async def run_pipeline_task(base_url: str, max_pages: int, delay: int = 1500):
         json.dump(scraped_ads, f, ensure_ascii=False, indent=2)
 
     job_state.results = []  # pas de résultats analysés ; ils arriveront via /api/import-results
-    job_state.criteria = criteres  # mémo pour la génération du prompt côté frontend
     job_state.set_status("scraped")
     job_state.broadcast({"type": "scraped", "count": len(scraped_ads)})
     job_state.log(f"🎉 Scraping terminé ! {len(scraped_ads)} annonces prêtes à être analysées via Claude.ai.")
