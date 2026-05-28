@@ -745,33 +745,10 @@ Format exact attendu (ta réponse entière, du premier au dernier caractère) :
             btnImportResults.disabled = true;
             btnImportResults.innerHTML = '<span class="btn-icon">⏳</span> Import en cours...';
             try {
-                const rawText = await file.text();
-                // Normalise les booléens/null Python (True→true, False→false, None→null)
-                // et échappe les guillemets symbole pouce (ex: 15.6" → 15.6\")
-                const text = rawText
-                    .replace(/:\s*True([,\s\}\]])/g, ': true$1')
-                    .replace(/:\s*False([,\s\}\]])/g, ': false$1')
-                    .replace(/:\s*None([,\s\}\]])/g, ': null$1')
-                    .replace(/(\d)"(?=\s)/g, '$1\\"');
+                const text = await file.text();
                 let data;
-                // Tente un parse direct, puis essaie chaque position '[' dans le fichier
-                // (Claude.ai renvoie parfois le JSON après du code Python ou du texte)
                 try { data = JSON.parse(text); }
-                catch (_) {
-                    data = null;
-                    let idx = -1;
-                    while (data === null) {
-                        idx = text.indexOf('[', idx + 1);
-                        if (idx === -1) break;
-                        const lastClose = text.lastIndexOf(']');
-                        if (lastClose <= idx) break;
-                        try {
-                            const candidate = JSON.parse(text.slice(idx, lastClose + 1));
-                            if (Array.isArray(candidate)) data = candidate;
-                        } catch(_) { /* essaie la prochaine position '[' */ }
-                    }
-                    if (!data) throw new Error('Aucun tableau JSON valide trouvé. Vérifiez que Claude.ai a bien renvoyé le JSON demandé.');
-                }
+                catch (parseErr) { throw new Error(`Fichier JSON invalide : ${parseErr.message}`); }
                 if (!Array.isArray(data)) {
                     throw new Error('Le fichier doit contenir un tableau JSON d\'annonces ([ { ... }, ... ]).');
                 }
