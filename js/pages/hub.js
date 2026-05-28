@@ -104,8 +104,8 @@ export async function render() {
     state.searches = searches || [];
 
     if (state.searches.length === 0) {
-        document.getElementById('feedEmpty').classList.remove('hidden');
-        document.getElementById('hubToolbar').classList.add('hidden');
+        document.getElementById('feedEmpty')?.classList.remove('hidden');
+        document.getElementById('hubToolbar')?.classList.add('hidden');
     } else {
         const userIds = [...new Set(state.searches.map(s => s.user_id))];
         const { data: profiles } = await supa
@@ -269,10 +269,12 @@ export async function render() {
 
     // === Helpers ===
     function rebuildChips() {
+        const platBar = document.getElementById('hubPlatformChips');
+        const authBar0 = document.getElementById('hubAuthorChips');
+        if (!platBar || !authBar0) return; // navigated away — bail out
         // Platforms : conserve l'ordre LBC/eBay/Vinted/Other et ne montre que celles présentes
         const platforms = new Set(state.searches.map(s => s.platform || 'other'));
         const platOrder = ['leboncoin', 'ebay', 'vinted', 'other'].filter(p => platforms.has(p));
-        const platBar = document.getElementById('hubPlatformChips');
         const platHtml = ['<span class="hub-chip-label">Plateforme :</span>',
             `<button type="button" class="hub-chip ${state.platform === 'all' ? 'is-active' : ''}" data-platform="all">Toutes</button>`,
             ...platOrder.map(p =>
@@ -336,7 +338,7 @@ export async function render() {
         const grid = document.getElementById('feedGrid');
         const counter = document.getElementById('hubResultCount');
         const noMatch = document.getElementById('feedNoMatch');
-        if (!grid) return;
+        if (!grid || !counter || !noMatch) return; // navigated away — bail out
 
         if (list.length === 0) {
             grid.innerHTML = '';

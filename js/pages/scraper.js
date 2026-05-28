@@ -84,14 +84,19 @@ function scraperMarkup() {
                         <h3>📤 Publier ces résultats sur le hub</h3>
                         <p class="muted">Ta recherche apparaîtra sur le feed pour tous les membres du groupe.</p>
                         <input type="text" id="publishTitle" placeholder="Titre de la recherche (ex: Laptops gaming RTX 4060)" maxlength="120">
-                        <select id="publishModel" class="publish-model-select" title="Modèle IA utilisé pour l'analyse">
-                            <option value="claude-opus-4">✨ claude-opus-4</option>
-                            <option value="claude-sonnet-4">✨ claude-sonnet-4</option>
-                            <option value="claude-3-5-sonnet" selected>✨ claude-3-5-sonnet</option>
-                            <option value="claude-3-5-haiku">✨ claude-3-5-haiku</option>
-                            <option value="claude-3-opus">✨ claude-3-opus</option>
-                            <option value="gpt-4o">✨ gpt-4o</option>
-                            <option value="gemini-2.0-flash">✨ gemini-2.0-flash</option>
+                        <input type="text" id="publishModel" list="publishModelList" placeholder="Modèle IA utilisé (ex: claude-3-5-sonnet)" value="claude-3-5-sonnet" autocomplete="off">
+                        <datalist id="publishModelList">
+                            <option value="claude-opus-4">
+                            <option value="claude-sonnet-4">
+                            <option value="claude-3-5-sonnet">
+                            <option value="claude-3-5-haiku">
+                            <option value="claude-3-opus">
+                            <option value="gpt-4o">
+                            <option value="gemini-2.0-flash">
+                        </datalist>
+                        <select id="publishModelType" class="publish-model-select">
+                            <option value="cloud">☁️ Cloud (précision élevée)</option>
+                            <option value="local">⚡ Local</option>
                         </select>
                         <button id="btnPublish" class="btn btn-primary">📤 Publier sur le hub</button>
                         <div id="publishStatus" class="publish-status"></div>
@@ -761,22 +766,14 @@ Format exact attendu (ta réponse entière, du premier au dernier caractère) :
                 if (!Array.isArray(data)) {
                     throw new Error('Le fichier doit contenir un tableau JSON d\'annonces ([ { ... }, ... ]).');
                 }
-                const response = await fetch(`${API}/api/import-results`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data),
-                });
-                if (response.ok) {
-                    const result = await response.json();
-                    addLogLine(`✅ Import réussi : ${result.count} annonces chargées depuis "${file.name}"`, 'log-success');
-                    // Pour un import direct, on présume modèle cloud (l'user vient de coller du Claude.ai en général)
-                    window.__scraperState.modelUsed = window.__scraperState.modelUsed || 'claude-3-5-sonnet';
-                    window.__scraperState.criteria = (criteresInput?.value || '').trim() || '(import JSON)';
-                    window.__scraperState.scrapedAt = new Date().toISOString();
-                } else {
-                    const err = await response.json();
-                    throw new Error(err.error || 'Erreur serveur inconnue');
-                }
+                // Charger les résultats directement côté client — server.py non requis pour cette étape
+                allResults = data;
+                window.__scraperState.allResults = allResults;
+                window.__scraperState.criteria = (criteresInput?.value || '').trim() || '(import JSON)';
+                window.__scraperState.scrapedAt = new Date().toISOString();
+                displayResults();
+                updateUIState('completed');
+                addLogLine(`✅ Import réussi : ${data.length} annonces chargées depuis "${file.name}"`, 'log-success');
             } catch (error) {
                 addLogLine(`🔴 Erreur lors de l'import : ${error.message}`, 'log-error');
             } finally {
@@ -817,8 +814,8 @@ function initPublishButton() {
         }
 
         const title = titleEl.value.trim() || `Recherche du ${new Date().toLocaleDateString('fr-FR')}`;
-        const modelSelectEl = document.getElementById('publishModel');
-        const modelName = modelSelectEl?.value || state.modelUsed || 'claude-3-5-sonnet';
+        const modelName = (document.getElementById('publishModel')?.value || '').trim() || state.modelUsed || 'claude-3-5-sonnet';
+        const modelType = document.getElementById('publishModelType')?.value || inferModelType(modelName);
 
         btn.disabled = true;
         statusEl.textContent = '⏳ Publication…';
@@ -831,7 +828,7 @@ function initPublishButton() {
                 source_url: state.sourceUrl || null,
                 platform: 'leboncoin',
                 model_name: modelName,
-                model_type: inferModelType(modelName),
+                model_type: modelType,
                 scraped_at: state.scrapedAt,
                 listings: results,
             });
