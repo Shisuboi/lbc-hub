@@ -13,14 +13,26 @@ export async function loginWithPassword(email, password) {
 }
 
 export async function logout() {
-    // scope: 'local' évite le POST /auth/v1/logout qui hang sur Firefox
-    // (même classe de bug que le hang sur requireAuth — voir CLAUDE.md piège #7).
-    // La session côté serveur expire naturellement, c'est suffisant pour notre usage.
-    try {
-        await supa.auth.signOut({ scope: 'local' });
-    } catch (_) { /* on continue le logout local même si l'API casse */ }
+    // Le SDK Supabase peut hang sur Firefox (POST /auth/v1/logout) ET peut garder
+    // la session en mémoire même après un scope:'local'. On utilise une approche
+    // bulletproof : best-effort SDK avec timeout, clear manuel du localStorage,
+    // puis full reload pour purger toute state SDK en mémoire.
     cachedProfile = null;
-    navigate('/');
+    try {
+        await Promise.race([
+            supa.auth.signOut({ scope: 'local' }),
+            new Promise(resolve => setTimeout(resolve, 600)),
+        ]);
+    } catch (_) { /* peu importe, on clear manuellement ensuite */ }
+    // Clear sync des clés Supabase en storage (au cas où le SDK n'a rien fait)
+    try {
+        Object.keys(localStorage).forEach(k => {
+            if (k.startsWith('sb-')) localStorage.removeItem(k);
+        });
+    } catch (_) { /* localStorage peut throw en mode privé */ }
+    // Full reload vers la racine de l'app : purge tout in-memory + rend login
+    const base = location.pathname.startsWith('/lbc-hub') ? '/lbc-hub/' : '/';
+    location.href = base;
 }
 
 export async function getProfile(force = false) {
