@@ -29,7 +29,7 @@ export async function render() {
                     </li>
                     <li>
                         <h3>Lancer le serveur</h3>
-                        <p>Double-clic sur <code>server.py</code> ou dans un terminal : <code>python server.py</code>. <strong>Garde la fenêtre ouverte</strong> tant que tu scrapes.</p>
+                        <p>Écrit dans un terminal : <code>python server.py</code>. <strong>Garde la fenêtre ouverte</strong> tant que tu scrapes.</p>
                     </li>
                     <li>
                         <h3>Se connecter au hub</h3>
