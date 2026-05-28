@@ -318,9 +318,8 @@ export async function render() {
 
     // Banner si server.py n'est pas joignable
     const localOk = await checkLocalServer();
-    if (!localOk) {
-        document.getElementById('serverStatusBanner').classList.remove('hidden');
-    }
+    // Guard : l'utilisateur a pu naviguer ailleurs pendant le ping → DOM remplacé
+    document.getElementById('serverStatusBanner')?.classList.toggle('hidden', localOk);
 
     // Brancher la logique d'origine
     initScraperLogic();

@@ -7,6 +7,11 @@ const ROUTE_PREFIX = '/lbc-hub';
 const routes = [];
 let notFoundHandler = null;
 
+// Token incrémenté à chaque navigation. Permet à un render() en cours d'abandonner
+// silencieusement si une navigation plus récente l'a remplacé pendant un await
+// (ex: scraper attendait checkLocalServer() pendant que le user cliquait Hub).
+let currentNavToken = 0;
+
 export function route(pattern, loader) {
     // pattern: '/hub' ou '/search/:id'
     const paramNames = [];
@@ -39,6 +44,7 @@ export async function navigate(path, replace = false) {
 }
 
 export async function render() {
+    const myToken = ++currentNavToken;
     const path = stripPrefix(location.pathname) || '/';
     const root = document.getElementById('appRoot');
     window.scrollTo(0, 0); // Remonte en haut à chaque changement de page
@@ -55,6 +61,9 @@ export async function render() {
             } catch (e) {
                 if (e && e.message === 'Not authenticated') return; // requireAuth a déjà redirigé
                 if (e && e.message === 'Profile not yet created') return;
+                // Une navigation plus récente a démarré pendant qu'on chargeait : on abandonne
+                // silencieusement pour ne pas écraser la nouvelle page avec un panel d'erreur.
+                if (myToken !== currentNavToken) return;
                 console.error('[router] page load failed', e);
                 root.innerHTML = `<div class="error-panel card">❌ Erreur de chargement : ${e.message}</div>`;
             }
