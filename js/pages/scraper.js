@@ -743,7 +743,14 @@ Format exact attendu (renvoie directement le tableau, commence par [ sans introd
                 const text = await file.text();
                 let data;
                 try { data = JSON.parse(text); }
-                catch (parseErr) { throw new Error(`Fichier JSON invalide : ${parseErr.message}`); }
+                catch (_) {
+                    // Claude.ai renvoie parfois le JSON dans un bloc ```json ... ``` ou précédé de texte.
+                    // On tente d'extraire le premier tableau JSON du fichier.
+                    const match = text.match(/(\[[\s\S]*\])/);
+                    if (!match) throw new Error('Aucun tableau JSON trouvé dans le fichier. Vérifiez que Claude.ai a bien renvoyé le JSON demandé.');
+                    try { data = JSON.parse(match[1]); }
+                    catch (parseErr) { throw new Error(`Fichier JSON invalide : ${parseErr.message}`); }
+                }
                 if (!Array.isArray(data)) {
                     throw new Error('Le fichier doit contenir un tableau JSON d\'annonces ([ { ... }, ... ]).');
                 }
