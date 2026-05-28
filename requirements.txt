@@ -1,5 +1,5 @@
 playwright
-aiohttp
+aiohttp>=3.10
 pytest>=8.0
 pytest-asyncio>=0.23
 pytest-aiohttp>=1.0

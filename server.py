@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import re
 import os
 import sys
@@ -523,6 +524,21 @@ def create_app() -> web.Application:
 
 
 def main():
+    # Supprime les messages de shutdown inoffensifs sur Windows Python 3.12+
+    # (race condition aiohttp/asyncio ProactorEventLoop au moment du CTRL+C)
+    if sys.platform == 'win32':
+        _orig_hook = sys.unraisablehook
+        def _quiet_shutdown(args):
+            if args.exc_type in (asyncio.InvalidStateError, ValueError):
+                return
+            _orig_hook(args)
+        sys.unraisablehook = _quiet_shutdown
+
+        class _IgnoreInvalidState(logging.Filter):
+            def filter(self, record):
+                return 'invalid state' not in record.getMessage().lower()
+        logging.getLogger('aiohttp.server').addFilter(_IgnoreInvalidState())
+
     app = create_app()
     print("✨ Le serveur Leboncoin Scraper & IA est lancé !")
     print("👉 Ouvrez votre navigateur sur : http://localhost:8080")
