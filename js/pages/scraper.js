@@ -84,6 +84,15 @@ function scraperMarkup() {
                         <h3>📤 Publier ces résultats sur le hub</h3>
                         <p class="muted">Ta recherche apparaîtra sur le feed pour tous les membres du groupe.</p>
                         <input type="text" id="publishTitle" placeholder="Titre de la recherche (ex: Laptops gaming RTX 4060)" maxlength="120">
+                        <select id="publishModel" class="publish-model-select" title="Modèle IA utilisé pour l'analyse">
+                            <option value="claude-opus-4">✨ claude-opus-4</option>
+                            <option value="claude-sonnet-4">✨ claude-sonnet-4</option>
+                            <option value="claude-3-5-sonnet" selected>✨ claude-3-5-sonnet</option>
+                            <option value="claude-3-5-haiku">✨ claude-3-5-haiku</option>
+                            <option value="claude-3-opus">✨ claude-3-opus</option>
+                            <option value="gpt-4o">✨ gpt-4o</option>
+                            <option value="gemini-2.0-flash">✨ gemini-2.0-flash</option>
+                        </select>
                         <button id="btnPublish" class="btn btn-primary">📤 Publier sur le hub</button>
                         <div id="publishStatus" class="publish-status"></div>
                     </div>
@@ -526,7 +535,7 @@ function initScraperLogic() {
             return;
         }
         // Capturer les méta-données pour le publish ultérieur (D-01 : toujours cloud via Claude.ai)
-        window.__scraperState.modelUsed = 'claude-3.5-sonnet';
+        window.__scraperState.modelUsed = 'claude-3-5-sonnet';
         window.__scraperState.criteria = payload.criteres;
         window.__scraperState.sourceUrl = payload.url;
 
@@ -761,7 +770,7 @@ Format exact attendu (ta réponse entière, du premier au dernier caractère) :
                     const result = await response.json();
                     addLogLine(`✅ Import réussi : ${result.count} annonces chargées depuis "${file.name}"`, 'log-success');
                     // Pour un import direct, on présume modèle cloud (l'user vient de coller du Claude.ai en général)
-                    window.__scraperState.modelUsed = window.__scraperState.modelUsed || 'claude-3.5-sonnet';
+                    window.__scraperState.modelUsed = window.__scraperState.modelUsed || 'claude-3-5-sonnet';
                     window.__scraperState.criteria = (criteresInput?.value || '').trim() || '(import JSON)';
                     window.__scraperState.scrapedAt = new Date().toISOString();
                 } else {
@@ -780,7 +789,7 @@ Format exact attendu (ta réponse entière, du premier au dernier caractère) :
     // === BOOTSTRAP ===
     window.__scraperState = {
         allResults: [],
-        modelUsed: 'claude-3.5-sonnet',  // D-01 : workflow forcé Claude.ai
+        modelUsed: 'claude-3-5-sonnet',  // D-01 : workflow forcé Claude.ai
         criteria: '',
         sourceUrl: null,
         scrapedAt: null,
@@ -808,7 +817,8 @@ function initPublishButton() {
         }
 
         const title = titleEl.value.trim() || `Recherche du ${new Date().toLocaleDateString('fr-FR')}`;
-        const modelName = state.modelUsed || 'inconnu';
+        const modelSelectEl = document.getElementById('publishModel');
+        const modelName = modelSelectEl?.value || state.modelUsed || 'claude-3-5-sonnet';
 
         btn.disabled = true;
         statusEl.textContent = '⏳ Publication…';
