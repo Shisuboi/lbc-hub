@@ -15,8 +15,8 @@ export async function render() {
                 <p class="muted">Plateforme privée — inscription sur invitation uniquement.</p>
                 <form id="loginForm" class="auth-form">
                     <div class="form-group">
-                        <label for="emailInput">Email</label>
-                        <input type="email" id="emailInput" required autocomplete="email">
+                        <label for="emailInput">Identifiant</label>
+                        <input type="text" id="emailInput" required autocomplete="username" placeholder="thomas  —  ou email complet">
                     </div>
                     <div class="form-group">
                         <label for="passwordInput">Mot de passe</label>
@@ -32,7 +32,9 @@ export async function render() {
 
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const email = document.getElementById('emailInput').value.trim();
+        // Si l'identifiant ne contient pas "@", on ajoute le domaine convention du hub
+        const raw = document.getElementById('emailInput').value.trim();
+        const email = raw.includes('@') ? raw : `${raw}@lbc-hub.local`;
         const password = document.getElementById('passwordInput').value;
         const errorEl = document.getElementById('loginError');
         errorEl.classList.add('hidden');

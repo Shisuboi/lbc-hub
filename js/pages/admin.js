@@ -33,10 +33,10 @@ export async function render() {
                     <li>
                         <strong>Crée son compte auth</strong> dans le
                         <a href="https://supabase.com/dashboard/project/pfkuphmpzhdmfwaifywj/auth/users" target="_blank" rel="noopener">Supabase Dashboard</a>
-                        (bouton "Add user" → email + mdp temporaire + ✅ Auto Confirm Email).
+                        — bouton "Add user" → email : <code>prenom@lbc-hub.local</code> (ou n'importe quoi, pas besoin d'un vrai email) + mdp temporaire + ✅ Auto Confirm Email.
                     </li>
                     <li>
-                        <strong>Génère un lien d'invitation</strong> ci-dessous, puis envoie-lui l'URL + ses identifiants.
+                        <strong>Génère un lien d'invitation</strong> ci-dessous, puis envoie-lui le lien + son identifiant (<code>prenom</code> ou email complet) + le mdp temporaire.
                     </li>
                 </ol>
                 <button id="btnGenerate" class="btn btn-primary">✨ Générer un lien d'invitation</button>
