@@ -743,20 +743,30 @@ Format exact attendu (renvoie directement le tableau, commence par [ sans introd
             btnImportResults.disabled = true;
             btnImportResults.innerHTML = '<span class="btn-icon">⏳</span> Import en cours...';
             try {
-                let text = await file.text();
+                const rawText = await file.text();
                 // Normalise les booléens/null Python (True→true, False→false, None→null)
-                text = text.replace(/:\s*True([,\s\}\]])/g, ': true$1')
-                           .replace(/:\s*False([,\s\}\]])/g, ': false$1')
-                           .replace(/:\s*None([,\s\}\]])/g, ': null$1');
+                const text = rawText
+                    .replace(/:\s*True([,\s\}\]])/g, ': true$1')
+                    .replace(/:\s*False([,\s\}\]])/g, ': false$1')
+                    .replace(/:\s*None([,\s\}\]])/g, ': null$1');
                 let data;
+                // Tente un parse direct, puis essaie chaque position '[' dans le fichier
+                // (Claude.ai renvoie parfois le JSON après du code Python ou du texte)
                 try { data = JSON.parse(text); }
                 catch (_) {
-                    // Claude.ai renvoie parfois le JSON dans un bloc ```json ... ``` ou précédé de texte.
-                    // On tente d'extraire le premier tableau JSON du fichier.
-                    const match = text.match(/(\[[\s\S]*\])/);
-                    if (!match) throw new Error('Aucun tableau JSON trouvé dans le fichier. Vérifiez que Claude.ai a bien renvoyé le JSON demandé.');
-                    try { data = JSON.parse(match[1]); }
-                    catch (parseErr) { throw new Error(`Fichier JSON invalide : ${parseErr.message}`); }
+                    data = null;
+                    let idx = -1;
+                    while (data === null) {
+                        idx = text.indexOf('[', idx + 1);
+                        if (idx === -1) break;
+                        const lastClose = text.lastIndexOf(']');
+                        if (lastClose <= idx) break;
+                        try {
+                            const candidate = JSON.parse(text.slice(idx, lastClose + 1));
+                            if (Array.isArray(candidate)) data = candidate;
+                        } catch(_) { /* essaie la prochaine position '[' */ }
+                    }
+                    if (!data) throw new Error('Aucun tableau JSON valide trouvé. Vérifiez que Claude.ai a bien renvoyé le JSON demandé.');
                 }
                 if (!Array.isArray(data)) {
                     throw new Error('Le fichier doit contenir un tableau JSON d\'annonces ([ { ... }, ... ]).');
