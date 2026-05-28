@@ -205,7 +205,9 @@ Sans elles, les boutons ⭐ et 🚫 affichent l'UI mais ne persistent rien (try/
 - ~~Phase 3 = favoris, notifications, badge "annonce expirée"~~ ✅ LIVRÉ (v1.5.0–v1.6.0)
 - Phase 4 (idées) : auto-détection annonces expirées (HEAD check côté server.py),
   recherches "sauvegardées" (re-run du même scrape sur planning), commentaires
-  sous une recherche, modération admin (delete search/listing/user)
+  sous une recherche, modération admin (delete search/listing/user),
+  sélecteur de modèle IA sur le scraper (dropdown prédéfini claude-3-5-sonnet / claude-3-opus / etc.
+  au lieu du champ texte libre, pour garantir que le bon nom de modèle est stocké et affiché)
 
 ### Décisions notées pour Phase 2 (voir `docs/superpowers/plans/2026-05-27-lbc-hub-mvp-phase1.md` § Décisions / Évolutions)
 - **D-01** : ✅ APPLIQUÉ — l'analyse Ollama locale a été retirée. server.py se contente de scraper Leboncoin et d'écrire `leboncoin_brut.json`. L'analyse passe par Claude.ai via le workflow "Générer le prompt + import JSON". Page `/scraper` simplifiée en conséquence.
