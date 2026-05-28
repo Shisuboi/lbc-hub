@@ -510,9 +510,11 @@ def create_app() -> web.Application:
     app.router.add_get('/api/events', events_handler)
     app.router.add_post('/api/import-results', import_handler)
     app.router.add_get('/api/ping', ping_handler)
-    # Sert tous les modules ES6 sous /js/ (main.js, router.js, pages/, etc.)
-    app.router.add_static('/js/', path=os.path.join(os.path.dirname(__file__), 'js'),
-                          show_index=False, follow_symlinks=False)
+    # Sert tous les modules ES6 sous /js/ uniquement si le dossier existe localement
+    # (dev uniquement — en distribution, le frontend est sur GitHub Pages)
+    js_path = os.path.join(os.path.dirname(__file__), 'js')
+    if os.path.isdir(js_path):
+        app.router.add_static('/js/', path=js_path, show_index=False, follow_symlinks=False)
     # Catch-all OPTIONS pour les preflights CORS
     app.router.add_route('OPTIONS', '/{path:.*}', options_handler)
     # SPA fallback : toute route GET non matchée renvoie index.html (le router JS prend le relais)

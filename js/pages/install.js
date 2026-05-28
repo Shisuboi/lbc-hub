@@ -4,7 +4,7 @@
 
 // URL de téléchargement direct (uc?export=download&id=...) — bypasse la preview Drive
 // pour déclencher le download immédiatement au clic.
-const DRIVE_ZIP_URL = 'https://drive.google.com/uc?export=download&id=1RRjOaBdu7QG0HJaPHOfYJ-6kLVDuQLPq';
+const DRIVE_ZIP_URL = 'https://drive.google.com/uc?export=download&id=1RepbQqKB_eqB5eRd3ooWmQOSnr7RsyCR';
 
 export async function render() {
     document.getElementById('appRoot').innerHTML = `
