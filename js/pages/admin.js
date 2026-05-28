@@ -151,10 +151,12 @@ async function loadInvitations() {
             statusClass = 'status-active';
         }
         const createdAt = new Date(inv.created_at).toLocaleString('fr-FR');
+        const expiresAt = new Date(inv.expires_at).toLocaleString('fr-FR');
         return `
             <tr>
                 <td><code>${tokenShort}</code></td>
                 <td>${createdAt}</td>
+                <td>${expiresAt}</td>
                 <td><span class="status-badge ${statusClass}">${status}</span></td>
             </tr>
         `;
@@ -166,6 +168,7 @@ async function loadInvitations() {
                 <tr>
                     <th>Token</th>
                     <th>Créée</th>
+                    <th>Expire</th>
                     <th>Statut</th>
                 </tr>
             </thead>
