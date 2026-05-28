@@ -684,8 +684,9 @@ RÈGLES IMPORTANTES :
 2. Pour chaque annonce, identifie le modèle exact du produit et déduis les caractéristiques manquantes grâce à tes connaissances (fiches techniques constructeur). N'écris jamais "inconnu" ou "non précisé" si le modèle te permet de le déduire.
 3. Attribue une note décimale de 0 à 100 au rapport qualité/prix. Utilise des décimales (ex : 84.5, 91.2, 78.7) pour différencier finement les annonces — évite absolument les notes rondes identiques.
 4. Dans les valeurs texte du JSON, n'utilise JAMAIS de vrais retours à la ligne (touche Entrée). Écris \\n si tu veux en simuler un.
-5. INTERDIT : ne génère PAS de code Python, shell, ou tout autre langage de programmation. Ne mets PAS le JSON dans un bloc de code (\`\`\`json ou autre). N'utilise PAS de heredoc (<<EOF). N'écris PAS de texte avant ou après le tableau.
-6. Ta réponse doit commencer IMMÉDIATEMENT par [ et se terminer par ] — rien d'autre.
+5. Pour les tailles d'écran, écris "pouces" ou '' (double apostrophe) — JAMAIS le symbole " (guillemet) qui casse le JSON. Exemple : 15.6 pouces ou 15.6''.
+6. INTERDIT : ne génère PAS de code Python, shell, ou tout autre langage de programmation. Ne mets PAS le JSON dans un bloc de code (\`\`\`json ou autre). N'utilise PAS de heredoc (<<EOF). N'écris PAS de texte avant ou après le tableau.
+7. Ta réponse doit commencer IMMÉDIATEMENT par [ et se terminer par ] — rien d'autre.
 
 Format exact attendu (ta réponse entière, du premier au dernier caractère) :
 [
@@ -746,10 +747,12 @@ Format exact attendu (ta réponse entière, du premier au dernier caractère) :
             try {
                 const rawText = await file.text();
                 // Normalise les booléens/null Python (True→true, False→false, None→null)
+                // et échappe les guillemets symbole pouce (ex: 15.6" → 15.6\")
                 const text = rawText
                     .replace(/:\s*True([,\s\}\]])/g, ': true$1')
                     .replace(/:\s*False([,\s\}\]])/g, ': false$1')
-                    .replace(/:\s*None([,\s\}\]])/g, ': null$1');
+                    .replace(/:\s*None([,\s\}\]])/g, ': null$1')
+                    .replace(/(\d)"/g, '$1\\"');
                 let data;
                 // Tente un parse direct, puis essaie chaque position '[' dans le fichier
                 // (Claude.ai renvoie parfois le JSON après du code Python ou du texte)
