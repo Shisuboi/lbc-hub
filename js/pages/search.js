@@ -216,10 +216,22 @@ export async function render({ id }) {
         const original = btn.innerHTML;
         btn.innerHTML = '⏳…';
         const newValue = wasExpired ? null : new Date().toISOString();
-        const { error } = await supa
-            .from('listings')
-            .update({ expired_at: newValue })
-            .eq('id', listingId);
+        // .select('id') force Prefer:return=representation (réponse 200 JSON)
+        // au lieu du 204 No Content par défaut — le SDK résout plus fiablement.
+        let error;
+        try {
+            ({ error } = await supa
+                .from('listings')
+                .update({ expired_at: newValue })
+                .eq('id', listingId)
+                .select('id'));
+        } catch (err) {
+            console.error('mark expired threw', err);
+            btn.innerHTML = original;
+            btn.disabled = false;
+            alert('Erreur réseau : ' + err.message);
+            return;
+        }
         if (error) {
             console.error('mark expired failed', error);
             btn.innerHTML = original;
