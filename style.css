@@ -2562,3 +2562,32 @@ body::after {
 .btn-primary:hover:not(:disabled) {
     box-shadow: 0 8px 22px -4px rgba(56, 189, 248, 0.32);
 }
+
+/* ============================================================
+   UI POLISH v1.9 — audit redesign-existing-projects (taste-skill)
+   Corrections ciblées issues de la checklist d'audit, additives.
+   ============================================================ */
+
+/* --- Chiffres alignés (prix, notes, dates) : tabular-nums --- */
+.card-price, .card-score, .feed-date,
+.badge-gold, .badge-emerald,
+.profile-stat-value, .hub-toolbar-counter {
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- Titres équilibrés : pas de mot orphelin en dernière ligne --- */
+.feed-title, .card-title, .section-title,
+.hub-header h2, .welcome-card h2, .auth-card h2,
+.search-header-body h2 {
+    text-wrap: balance;
+}
+
+/* --- Hauteur viewport stable sur mobile (bug barre d'adresse iOS) --- */
+.app-container { min-height: 100dvh; }
+.protocol-warning { height: 100dvh; }
+
+/* --- Actions des cartes d'annonces alignées en bas (ligne propre) --- */
+.result-card .card-actions { margin-top: auto; }
+
+/* --- Défilement doux (ancres) ; neutralisé par prefers-reduced-motion --- */
+html { scroll-behavior: smooth; }
