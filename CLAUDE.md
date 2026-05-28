@@ -31,8 +31,9 @@ server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK J
 
 ## Auth / accès
 - Inscriptions publiques **OFF** dans Supabase
-- Invitations gérées par l'admin via **la page `/admin`** (UI livrée en v1.1.0)
-- Flow actuel : admin crée user auth dans Dashboard Supabase + génère token via `/admin` → communique credentials + URL → user va sur `/invite/:token` et choisit son pseudo (RPC `consume_invitation`)
+- **Depuis v1.8.0** : self-service onboarding. L'admin crée juste le user auth dans le Dashboard Supabase et envoie identifiant + mdp à l'invité. Au 1er login, l'invité atterrit sur `/onboarding` et choisit son pseudo lui-même (RPC `create_self_profile`).
+- La page `/admin` ne montre plus la génération de lien d'invitation, juste les instructions de création d'un user.
+- Rétro-compat : le RPC `consume_invitation` + la route `/invite/:token` restent actifs pour les liens déjà envoyés avant v1.8.0.
 
 ## Schéma DB important (versions cibles)
 - `profiles` : id, username, avatar_color, role ('user'|'admin'), created_at
@@ -77,10 +78,10 @@ server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK J
 - Dark theme UI reste identique
 - server.py reste optionnel (uniquement pour scraper)
 
-## Invitations
-- Génération via `/admin` (réservé `role = 'admin'`).
-- L'admin doit aussi créer le user `auth.users` dans le Supabase Dashboard (la frontend ne peut pas le faire sans `service_role`).
-- Les tokens expirent à 7 jours (default DB).
+## Invitations (legacy)
+- Le flow par token est **déprécié depuis v1.8.0** mais reste fonctionnel pour les liens déjà envoyés.
+- Plus aucune génération de nouveau token côté UI (le bouton a été retiré de `/admin`). Les tables `invitations` + RPC `consume_invitation` + route `/invite/:token` restent en DB / code pour la rétro-compat.
+- Nouveau flow : voir section "Auth / accès" ci-dessus.
 
 ## Supabase Auth — config URL
 - Pendant le dev local : Site URL = `http://localhost:8080`
@@ -166,8 +167,10 @@ listings_expired_idx (partial), favorites_user_idx, favorites_search_idx
 Dans `supabase/migrations/` :
 1. `2026-05-27-favorites.sql` — table `favorites` + RLS
 2. `2026-05-27-listings-expired.sql` — colonne `listings.expired_at` + UPDATE RLS
+3. `2026-05-28-self-onboarding.sql` — RPC `create_self_profile` (Option B, v1.8.0)
 
-Sans elles, les boutons ⭐ et 🚫 affichent l'UI mais ne persistent rien (try/catch silencieux).
+Sans la #1/#2 : les boutons ⭐ et 🚫 affichent l'UI mais ne persistent rien (try/catch silencieux).
+Sans la #3 : `/onboarding` plante quand l'invité valide son pseudo (RPC absent).
 
 ### Architecture frontend
 - `js/main.js` — entrypoint SPA, routes lazy-load, onAuthChange registered APRÈS premier renderHeader (sinon SDK deadlock)
