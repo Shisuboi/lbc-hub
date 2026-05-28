@@ -81,7 +81,12 @@ export async function render({ id }) {
                 <div class="search-header-body">
                     <div class="search-title-row">
                         <h2>${escapeHtml(search.title)}</h2>
-                        <button type="button" id="btnSearchFav" class="fav-btn fav-btn-lg ${fav ? 'is-fav' : ''}" title="${fav ? 'Retirer des favoris' : 'Ajouter aux favoris'}" aria-label="favori">${fav ? '⭐' : '☆'}</button>
+                        <div class="search-title-actions">
+                            <button type="button" id="btnSearchFav" class="fav-btn fav-btn-lg ${fav ? 'is-fav' : ''}" title="${fav ? 'Retirer des favoris' : 'Ajouter aux favoris'}" aria-label="favori">${fav ? '⭐' : '☆'}</button>
+                            ${(me?.id === search.user_id || me?.role === 'admin') ? `
+                            <button type="button" id="btnDeleteSearch" class="btn btn-danger-sm" title="Supprimer cette recherche">🗑️ Supprimer</button>
+                            ` : ''}
+                        </div>
                     </div>
                     <div class="search-author">
                         ${avatarHtml(author, 32)}
@@ -138,6 +143,25 @@ export async function render({ id }) {
                 console.error('toggleFavorite failed', err);
             } finally {
                 btnFav.disabled = false;
+            }
+        });
+    }
+
+    // Bouton suppression (owner ou admin seulement)
+    const btnDelete = document.getElementById('btnDeleteSearch');
+    if (btnDelete) {
+        btnDelete.addEventListener('click', async () => {
+            if (!confirm(`Supprimer définitivement "${search.title}" et toutes ses annonces ? Cette action est irréversible.`)) return;
+            btnDelete.disabled = true;
+            btnDelete.textContent = '⏳ Suppression…';
+            const { error } = await supa.from('searches').delete().eq('id', search.id);
+            if (error) {
+                alert(`Erreur lors de la suppression : ${error.message}`);
+                btnDelete.disabled = false;
+                btnDelete.textContent = '🗑️ Supprimer';
+            } else {
+                window.history.pushState({}, '', '/lbc-hub/hub');
+                window.dispatchEvent(new PopStateEvent('popstate'));
             }
         });
     }

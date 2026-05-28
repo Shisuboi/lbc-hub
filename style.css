@@ -2299,6 +2299,27 @@ a.feed-author:hover .feed-author-name {
     gap: 12px;
 }
 .search-title-row h2 { margin: 0; }
+.search-title-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.btn-danger-sm {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    border-radius: 8px;
+    border: 1px solid rgba(244, 63, 94, 0.35);
+    background: rgba(244, 63, 94, 0.1);
+    color: #fda4af;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+.btn-danger-sm:hover:not(:disabled) {
+    background: var(--accent-rose);
+    color: #fff;
+}
+.btn-danger-sm:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ===== EXPIRED LISTINGS ===== */
 .result-card.is-expired {
