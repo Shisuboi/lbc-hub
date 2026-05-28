@@ -212,8 +212,24 @@ export async function render() {
     window.__hubChannel = channel;
 
     // === Notifications : titre + Notification API ===
+    // La permission browser, une fois accordée, n'est pas révocable depuis JS.
+    // On ajoute donc un toggle "soft" en localStorage qui mute l'app sans toucher la permission.
     const BASE_TITLE = 'LBC DealFinder Hub';
+    const NOTIF_PREF_KEY = 'hub-notif-enabled';
     let unreadCount = 0;
+    function isSoftEnabled() {
+        // null = jamais set → par défaut ON quand la permission est granted, OFF sinon
+        const v = localStorage.getItem(NOTIF_PREF_KEY);
+        if (v === 'true') return true;
+        if (v === 'false') return false;
+        return ('Notification' in window) && Notification.permission === 'granted';
+    }
+    function setSoftEnabled(on) {
+        localStorage.setItem(NOTIF_PREF_KEY, on ? 'true' : 'false');
+    }
+    function notifActive() {
+        return ('Notification' in window) && Notification.permission === 'granted' && isSoftEnabled();
+    }
     function updateTitle() {
         document.title = unreadCount > 0 ? `(${unreadCount}) ${BASE_TITLE}` : BASE_TITLE;
     }
@@ -225,43 +241,53 @@ export async function render() {
     }
     function notifyNewSearch(search, profile) {
         if (!document.hidden && document.hasFocus()) return; // déjà sur la page : pas besoin
+        if (!notifActive()) return; // toggle OFF ou permission absente → on ignore complètement
         unreadCount += 1;
         updateTitle();
-        if ('Notification' in window && Notification.permission === 'granted') {
-            try {
-                new Notification(`Nouvelle recherche sur le hub`, {
-                    body: `${profile ? '@' + profile.username : 'Quelqu\'un'} a publié "${search.title}"`,
-                    icon: '/lbc-hub/favicon.ico',
-                    tag: 'lbc-hub-' + search.id, // évite les duplicates si un user re-fire
-                });
-            } catch (_) { /* ignore : Safari fallback */ }
-        }
+        try {
+            new Notification(`Nouvelle recherche sur le hub`, {
+                body: `${profile ? '@' + profile.username : 'Quelqu\'un'} a publié "${search.title}"`,
+                icon: '/lbc-hub/favicon.ico',
+                tag: 'lbc-hub-' + search.id, // évite les duplicates si un user re-fire
+            });
+        } catch (_) { /* ignore : Safari fallback */ }
     }
     document.addEventListener('visibilitychange', resetUnread);
     window.addEventListener('focus', resetUnread);
     resetUnread();
 
-    // Bouton activation notifications système (toolbar)
+    // Bouton toggle notifications (toolbar)
     const btnNotif = document.getElementById('btnEnableNotif');
     if (btnNotif) {
         function refreshNotifBtn() {
             const perm = 'Notification' in window ? Notification.permission : 'denied';
-            btnNotif.classList.toggle('is-active', perm === 'granted');
-            btnNotif.textContent = perm === 'granted'
-                ? '🔔 Notifications ON'
-                : perm === 'denied'
-                ? '🔕 Notifications bloquées'
-                : '🔕 Activer notifications';
+            const soft = isSoftEnabled();
+            const active = perm === 'granted' && soft;
+            btnNotif.classList.toggle('is-active', active);
             btnNotif.disabled = perm === 'denied';
-            btnNotif.title = perm === 'denied'
-                ? 'Bloqué dans les paramètres du navigateur — autorise les notifications pour ce site.'
-                : '';
+            if (perm === 'denied') {
+                btnNotif.textContent = '🔕 Notifications bloquées';
+                btnNotif.title = 'Bloqué dans les paramètres du navigateur — autorise les notifications pour ce site.';
+            } else if (perm === 'default') {
+                btnNotif.textContent = '🔕 Activer notifications';
+                btnNotif.title = 'Cliquer pour autoriser les notifications système.';
+            } else if (active) {
+                btnNotif.textContent = '🔔 Notifications ON';
+                btnNotif.title = 'Cliquer pour couper les notifications.';
+            } else {
+                btnNotif.textContent = '🔕 Notifications OFF';
+                btnNotif.title = 'Cliquer pour réactiver les notifications.';
+            }
         }
         refreshNotifBtn();
         btnNotif.addEventListener('click', async () => {
             if (!('Notification' in window) || Notification.permission === 'denied') return;
             if (Notification.permission === 'default') {
-                await Notification.requestPermission();
+                const result = await Notification.requestPermission();
+                if (result === 'granted') setSoftEnabled(true);
+            } else {
+                // permission granted : toggle soft
+                setSoftEnabled(!isSoftEnabled());
             }
             refreshNotifBtn();
         });
