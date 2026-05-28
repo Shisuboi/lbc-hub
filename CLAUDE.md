@@ -91,17 +91,18 @@ server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK J
   - `http://localhost:8080/**`
 
 ## Phase actuelle
-**Phases 1 → 3 entièrement livrées.** Code stable, déployé en prod, jamais testé E2E pour les Phase 2+3.
+**Phases 1 → 4 (partiel) livrées et testées E2E.** Code stable, déployé en prod.
 
-### État au 27/05/2026 — récap complet pour reprise (laptop)
+### État au 28/05/2026 — récap complet pour reprise (PC fixe)
 
-**Branche** : `master` (Phase 1 a été mergée depuis `feature/hub-phase1` puis cette dernière n'est plus utilisée).
-**Tag courant** : `v1.6.0-phase3`.
+**Branche** : `master`.
+**Tag courant** : `v1.7.0-stable` (testé E2E complet le 28/05/2026).
 **Prod en ligne** : https://shisuboi.github.io/lbc-hub/ (déploiement auto sur push master via GH Actions).
 **Tests pytest backend** : ✅ 3/3 passent (`python -m pytest tests/ -v`).
 **Tests E2E manuels** :
-- Phase 1 (v1.0.0) : ✅ déroulés section par section (cf. `TESTING.md`)
-- Phases 2-3 (v1.1.0 → v1.6.0) : ⚠️ **PAS ENCORE FAITS** — check-list complète dans `TESTING-phase2-3.md`
+- Phase 1 (v1.0.0) : ✅ validés
+- Phases 2-3 (v1.1.0 → v1.6.0) : ✅ validés le 28/05/2026 (cf. `TESTING-phase2-3.md`)
+- Phase 4 partielle (v1.7.x) : ✅ validée le 28/05/2026
 
 ### Historique des tags (du plus ancien au plus récent)
 
@@ -114,6 +115,7 @@ server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK J
 | `v1.4.0-profiles` | 27/05 | Pages publiques `/profile/:username` + @username cliquable |
 | `v1.5.0-favorites` | 27/05 | Star ⭐ + chip "Favoris" sur `/hub` |
 | `v1.6.0-phase3` | 27/05 | Notifications (title-badge + Notification API) + badge "annonce expirée" |
+| `v1.7.0-stable` | 28/05 | Bugfixes session (expire btn, scroll SPA, hub classList), dropdown modèle IA, import JSON sans server.py, login sans email réel (convention @lbc-hub.local) |
 
 ### Routes SPA actives (`js/main.js`)
 - `/` — login
@@ -191,23 +193,19 @@ Sans elles, les boutons ⭐ et 🚫 affichent l'UI mais ne persistent rien (try/
 5. **Cross-tab `sessionStorage`** : l'invitation flow utilise `sessionStorage.pendingInvite` qui est PAR ONGLET — il faut faire le flow dans un seul onglet, sinon le token est perdu.
 6. **`onAuthChange` AVANT `renderHeader`** = deadlock du SDK. L'ordre dans `main.js` doit rester : `await renderHeader()` → `initRouter()` → `onAuthChange(...)`.
 
-### Prochaine étape pour Claude (reprise laptop)
+### Prochaine étape pour Claude (reprise PC fixe)
 
 1. **Pull le repo** : `git pull --tags` sur `master`
-2. **Vérifier les migrations Supabase** sont appliquées (favorites + expired)
-3. **Proposer à Tristan de dérouler `TESTING-phase2-3.md`** section par section
-4. Si tout passe, taguer une version "stable testée" (ex : `v1.6.0-tested` ou `v1.6.1`)
-5. Sinon, débugger ce qui casse en s'aidant des "Bugs / pièges connus" ci-dessus
-6. Quand stable et testé → discuter d'idées Phase 4 (auto-détection expirées, recherches planifiées, commentaires, modération admin)
+2. Tout est stable et testé — reprendre directement sur les idées Phase 4
+3. Phase 4 restante : auto-détection annonces expirées, recherches planifiées, commentaires, modération admin
 
 ### Phases futures
 - ~~Phase 2 = profils, admin UI, tri feed, Realtime amélioré~~ ✅ LIVRÉ (v1.1.0–v1.4.0)
 - ~~Phase 3 = favoris, notifications, badge "annonce expirée"~~ ✅ LIVRÉ (v1.5.0–v1.6.0)
-- Phase 4 (idées) : auto-détection annonces expirées (HEAD check côté server.py),
+- ~~Phase 4 partielle = bugfixes (expire btn, scroll SPA, hub null), sélecteur modèle IA (input libre + datalist + cloud/local), import JSON sans server.py, login sans email réel (@lbc-hub.local)~~ ✅ LIVRÉ (v1.7.x)
+- Phase 4 suite (idées) : auto-détection annonces expirées (HEAD check côté server.py),
   recherches "sauvegardées" (re-run du même scrape sur planning), commentaires
-  sous une recherche, modération admin (delete search/listing/user),
-  sélecteur de modèle IA sur le scraper (dropdown prédéfini claude-3-5-sonnet / claude-3-opus / etc.
-  au lieu du champ texte libre, pour garantir que le bon nom de modèle est stocké et affiché)
+  sous une recherche, modération admin (delete search/listing/user)
 
 ### Décisions notées pour Phase 2 (voir `docs/superpowers/plans/2026-05-27-lbc-hub-mvp-phase1.md` § Décisions / Évolutions)
 - **D-01** : ✅ APPLIQUÉ — l'analyse Ollama locale a été retirée. server.py se contente de scraper Leboncoin et d'écrire `leboncoin_brut.json`. L'analyse passe par Claude.ai via le workflow "Générer le prompt + import JSON". Page `/scraper` simplifiée en conséquence.

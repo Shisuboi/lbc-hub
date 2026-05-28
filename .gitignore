@@ -17,6 +17,8 @@ leboncoin_ia_results.html
 debug_lbc.html
 server_out.txt
 server_err.txt
+server.out.log
+server.err.log
 
 # Backup files
 *.scraper-backup
