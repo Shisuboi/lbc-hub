@@ -6,6 +6,7 @@ import { supa } from '../supabase-client.js';
 import { requireAuth, getProfile } from '../auth.js';
 import { feedCardHtml } from '../components/feed-card.js';
 import { loadFavorites, toggleFavorite, isFavorite } from '../lib/favorites.js';
+import { navState } from '../router.js';
 
 const PLATFORM_LABELS = {
     leboncoin: '🟠 LBC',
@@ -15,7 +16,9 @@ const PLATFORM_LABELS = {
 };
 
 export async function render() {
+    const myToken = navState.token;
     await requireAuth();
+    if (navState.token !== myToken) return;
 
     const root = document.getElementById('appRoot');
     root.innerHTML = `
@@ -86,7 +89,9 @@ export async function render() {
 
     // === Charge les favoris du user courant ===
     const me = await getProfile();
+    if (navState.token !== myToken) return;
     await loadFavorites(me?.id);
+    if (navState.token !== myToken) return;
 
     // === Fetch initial ===
     const { data: searches, error } = await supa
@@ -95,6 +100,7 @@ export async function render() {
         .order('created_at', { ascending: false })
         .limit(50);
 
+    if (navState.token !== myToken) return;
     if (error) {
         document.getElementById('feedGrid').innerHTML =
             `<div class="error-panel card">Erreur de chargement : ${error.message}</div>`;
@@ -112,6 +118,7 @@ export async function render() {
             .from('profiles')
             .select('id, username, avatar_color')
             .in('id', userIds);
+        if (navState.token !== myToken) return;
         state.profileMap = new Map((profiles || []).map(p => [p.id, p]));
         rebuildChips();
         renderFeed();
@@ -152,23 +159,32 @@ export async function render() {
     // Délégation : toggle favori au clic sur un bouton .fav-btn dans la grille
     document.getElementById('feedGrid').addEventListener('click', async (e) => {
         const btn = e.target.closest('.fav-btn');
-        if (!btn) return;
+        if (!btn || btn.dataset.pending) return;
         e.preventDefault();
         e.stopPropagation();
         const searchId = btn.dataset.favId;
         if (!me?.id) return;
-        btn.disabled = true;
+
+        const wasFav = isFavorite(searchId);
+        const willBeFav = !wasFav;
+
+        // Mise à jour optimiste — feedback visuel immédiat, pas de curseur wait
+        btn.dataset.pending = '1';
+        btn.classList.toggle('is-fav', willBeFav);
+        btn.textContent = willBeFav ? '⭐' : '☆';
+        btn.title = willBeFav ? 'Retirer des favoris' : 'Ajouter aux favoris';
+
         try {
-            const nowFav = await toggleFavorite(me.id, searchId);
-            btn.classList.toggle('is-fav', nowFav);
-            btn.textContent = nowFav ? '⭐' : '☆';
-            btn.title = nowFav ? 'Retirer des favoris' : 'Ajouter aux favoris';
-            // Si le filtre "favoris seulement" est actif, re-render pour faire disparaître la carte
-            if (state.favOnly && !nowFav) renderFeed();
+            await toggleFavorite(me.id, searchId);
+            if (state.favOnly && !willBeFav) renderFeed();
         } catch (err) {
             console.error('toggleFavorite failed', err);
+            // Roll back en cas d'erreur DB
+            btn.classList.toggle('is-fav', wasFav);
+            btn.textContent = wasFav ? '⭐' : '☆';
+            btn.title = wasFav ? 'Retirer des favoris' : 'Ajouter aux favoris';
         } finally {
-            btn.disabled = false;
+            delete btn.dataset.pending;
         }
     });
 
@@ -177,6 +193,7 @@ export async function render() {
         try { await supa.removeChannel(window.__hubChannel); } catch (_) {}
         window.__hubChannel = null;
     }
+    if (navState.token !== myToken) return;
 
     const channel = supa.channel('searches-feed')
         .on('postgres_changes',

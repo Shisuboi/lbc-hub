@@ -9,6 +9,7 @@ import { requireAuth, getProfile } from '../auth.js';
 import { listingCardHtml } from '../components/listing-card.js';
 import { avatarHtml } from '../lib/colors.js';
 import { loadFavorites, toggleFavorite, isFavorite } from '../lib/favorites.js';
+import { navState } from '../router.js';
 
 function escapeHtml(s) {
     if (s == null) return '';
@@ -25,7 +26,9 @@ const PLATFORM_LABEL = {
 };
 
 export async function render({ id }) {
+    const myToken = navState.token;
     await requireAuth();
+    if (navState.token !== myToken) return;
 
     const root = document.getElementById('appRoot');
     root.innerHTML = '<div class="page-loading">⏳ Chargement de la recherche…</div>';
@@ -39,6 +42,7 @@ export async function render({ id }) {
             .order('note_sur_100', { ascending: false }),
     ]);
 
+    if (navState.token !== myToken) return;
     if (searchResp.error || !searchResp.data) {
         root.innerHTML = `
             <div class="error-panel card">
@@ -57,9 +61,12 @@ export async function render({ id }) {
         .select('id, username, avatar_color')
         .eq('id', search.user_id)
         .single();
+    if (navState.token !== myToken) return;
 
     const me = await getProfile();
+    if (navState.token !== myToken) return;
     await loadFavorites(me?.id);
+    if (navState.token !== myToken) return;
     const fav = isFavorite(search.id);
 
     const isCloud = search.model_type === 'cloud';
@@ -133,16 +140,25 @@ export async function render({ id }) {
     const btnFav = document.getElementById('btnSearchFav');
     if (btnFav && me?.id) {
         btnFav.addEventListener('click', async () => {
-            btnFav.disabled = true;
+            if (btnFav.dataset.pending) return;
+            const wasFav = isFavorite(search.id);
+            const willBeFav = !wasFav;
+
+            // Mise à jour optimiste — feedback immédiat
+            btnFav.dataset.pending = '1';
+            btnFav.classList.toggle('is-fav', willBeFav);
+            btnFav.textContent = willBeFav ? '⭐' : '☆';
+            btnFav.title = willBeFav ? 'Retirer des favoris' : 'Ajouter aux favoris';
+
             try {
-                const nowFav = await toggleFavorite(me.id, search.id);
-                btnFav.classList.toggle('is-fav', nowFav);
-                btnFav.textContent = nowFav ? '⭐' : '☆';
-                btnFav.title = nowFav ? 'Retirer des favoris' : 'Ajouter aux favoris';
+                await toggleFavorite(me.id, search.id);
             } catch (err) {
                 console.error('toggleFavorite failed', err);
+                btnFav.classList.toggle('is-fav', wasFav);
+                btnFav.textContent = wasFav ? '⭐' : '☆';
+                btnFav.title = wasFav ? 'Retirer des favoris' : 'Ajouter aux favoris';
             } finally {
-                btnFav.disabled = false;
+                delete btnFav.dataset.pending;
             }
         });
     }
