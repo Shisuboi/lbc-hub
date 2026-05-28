@@ -59,8 +59,8 @@ function scraperMarkup() {
                         <span class="btn-icon">🛑</span> Arrêter
                     </button>
 
-                    <!-- Étape post-scrape : invite à utiliser Claude.ai puis importer le JSON -->
-                    <div id="claudeStepArea" class="claude-step hidden">
+                    <!-- Étape Claude.ai : toujours visible (import possible sans server.py) -->
+                    <div id="claudeStepArea" class="claude-step">
                         <h3>🤖 Étape suivante : analyser via Claude.ai</h3>
                         <ol class="claude-steps">
                             <li>Clique <strong>Copier le prompt</strong> ci-dessous</li>
