@@ -7,6 +7,7 @@ import { supa } from '../supabase-client.js';
 import { requireAuth } from '../auth.js';
 import { feedCardHtml } from '../components/feed-card.js';
 import { avatarHtml } from '../lib/colors.js';
+import { navState } from '../router.js';
 
 function escapeHtml(s) {
     if (s == null) return '';
@@ -23,7 +24,9 @@ function dateFr(iso) {
 }
 
 export async function render({ username }) {
+    const myToken = navState.token;
     await requireAuth();
+    if (navState.token !== myToken) return;
 
     const root = document.getElementById('appRoot');
     const cleanUsername = (username || '').trim().toLowerCase();
@@ -48,6 +51,7 @@ export async function render({ username }) {
         .eq('username', cleanUsername)
         .single();
 
+    if (navState.token !== myToken) return;
     if (pErr || !profile) {
         root.innerHTML = `
             <section class="profile-page">
@@ -68,6 +72,7 @@ export async function render({ username }) {
         .order('created_at', { ascending: false })
         .limit(100);
 
+    if (navState.token !== myToken) return;
     const searchList = searches || [];
 
     // === Statistiques rapides ===

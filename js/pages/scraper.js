@@ -7,6 +7,7 @@
 import { requireAuth, getProfile } from '../auth.js';
 import { checkLocalServer, LOCAL_SERVER_URL } from '../lib/server-ping.js';
 import { publishSearch, inferModelType } from '../lib/publish.js';
+import { navState } from '../router.js';
 
 const API = LOCAL_SERVER_URL;
 
@@ -300,7 +301,9 @@ function scraperMarkup() {
 // ENTRY POINT
 // =========================================================================
 export async function render() {
+    const myToken = navState.token;
     await requireAuth();
+    if (navState.token !== myToken) return;
 
     const root = document.getElementById('appRoot');
     root.innerHTML = `
@@ -318,7 +321,8 @@ export async function render() {
 
     // Banner si server.py n'est pas joignable
     const localOk = await checkLocalServer();
-    // Guard : l'utilisateur a pu naviguer ailleurs pendant le ping → DOM remplacé
+    if (navState.token !== myToken) return;
+
     document.getElementById('serverStatusBanner')?.classList.toggle('hidden', localOk);
 
     // Brancher la logique d'origine
@@ -700,6 +704,7 @@ RÈGLES IMPORTANTES :
 5. Pour les tailles d'écran, écris "pouces" ou '' (double apostrophe). JAMAIS le symbole " (guillemet) qui casse le JSON. Exemple : 15.6 pouces ou 15.6''.
 6. INTERDIT : ne génère PAS de code Python, shell, ou tout autre langage de programmation. Ne mets PAS le JSON dans un bloc de code (\`\`\`json ou autre). N'utilise PAS de heredoc (<<EOF). N'écris PAS de texte avant ou après le tableau.
 7. Ta réponse doit commencer IMMÉDIATEMENT par [ et se terminer par ]. Rien d'autre.
+8. Si le nombre d'annonces est trop grand pour tenir dans une seule réponse, segmente-la en plusieurs messages numérotés. Indique [PARTIE 1/N] avant le premier tableau, [PARTIE 2/N] avant le suivant, etc. Chaque segment est un tableau JSON valide et complet (commence par [ et finit par ]). Ne coupe JAMAIS un objet JSON en plein milieu.
 
 Format exact attendu (ta réponse entière, du premier au dernier caractère) :
 [

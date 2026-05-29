@@ -8,12 +8,16 @@
 // rétro-compat des liens déjà envoyés, mais ne sont plus exposés ici.
 
 import { requireAuth, getProfile } from '../auth.js';
+import { navState } from '../router.js';
 
 const DASHBOARD_USERS_URL = 'https://supabase.com/dashboard/project/pfkuphmpzhdmfwaifywj/auth/users';
 
 export async function render() {
+    const myToken = navState.token;
     await requireAuth({ requireRole: 'admin' });
+    if (navState.token !== myToken) return;
     const me = await getProfile();
+    if (navState.token !== myToken) return;
 
     document.getElementById('appRoot').innerHTML = `
         <section class="admin-page">
