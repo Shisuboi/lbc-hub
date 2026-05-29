@@ -33,6 +33,9 @@ class ScraperJobState:
         self.captcha_event = asyncio.Event()
         self.stop_event = asyncio.Event()
         self.clients = set()  # Active SSE client queues
+        self.pw = None
+        self.browser = None
+        self.context = None
 
     def log(self, message: str):
         print(message)
@@ -51,6 +54,25 @@ class ScraperJobState:
                 pass
 
 job_state = ScraperJobState()
+
+async def ensure_browser():
+    """Réutilise le browser existant s'il est encore ouvert, sinon en lance un nouveau."""
+    if job_state.browser and job_state.browser.is_connected():
+        return
+    if job_state.pw is None:
+        job_state.pw = await async_playwright().start()
+    if job_state.browser:
+        job_state.log("🔄 Navigateur fermé, relancement...")
+    else:
+        job_state.log("🌐 Lancement du navigateur Chromium (mode non-headless)...")
+    job_state.browser = await job_state.pw.chromium.launch(
+        headless=False,
+        args=['--disable-blink-features=AutomationControlled']
+    )
+    job_state.context = await job_state.browser.new_context(
+        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        viewport={'width': 1280, 'height': 800}
+    )
 
 # --- 1. PLAYWRIGHT SCRAPING UTILS ---
 
@@ -188,17 +210,10 @@ async def run_pipeline_task(base_url: str, max_pages: int, delay: int = 1500):
         job_state.set_status("scraping")
         job_state.log("🚀 Démarrage du pipeline de scraping Leboncoin...")
         
-        async with async_playwright() as p:
-            job_state.log("🌐 Lancement du navigateur Chromium (mode non-headless)...")
-            browser = await p.chromium.launch(
-                headless=False, 
-                args=['--disable-blink-features=AutomationControlled']
-            )
-            context = await browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                viewport={'width': 1280, 'height': 800}
-            )
-            page = await context.new_page()
+        await ensure_browser()
+        page = await job_state.context.new_page()
+
+        try:
 
             for page_num in range(1, max_pages + 1):
                 if job_state.stop_event.is_set():
@@ -275,8 +290,9 @@ async def run_pipeline_task(base_url: str, max_pages: int, delay: int = 1500):
                         scraped_ads.append(details)
                     await page.wait_for_timeout(delay)
 
-            await browser.close()
-            
+        finally:
+            await page.close()
+
     except asyncio.CancelledError:
         job_state.log("🛑 Job annulé par l'utilisateur.")
         job_state.set_status("idle")
@@ -494,9 +510,16 @@ async def ping_handler(request):
 
 # --- SERVER BOOT ---
 
+async def on_shutdown(app):
+    if job_state.browser:
+        await job_state.browser.close()
+    if job_state.pw:
+        await job_state.pw.stop()
+
 def create_app() -> web.Application:
     """Construit l'app aiohttp. Utilisée par main() et par les tests pytest."""
     app = web.Application(middlewares=[cors_middleware])
+    app.on_cleanup.append(on_shutdown)
     app.router.add_get('/', index_handler)
     app.router.add_get('/index.html', index_handler)
     app.router.add_get('/style.css', style_handler)
