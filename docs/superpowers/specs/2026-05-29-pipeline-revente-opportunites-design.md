@@ -22,7 +22,7 @@ Transformer le hub d'un outil de **scraping manuel + analyse Claude.ai** en un *
 
 | Paramètre | Décision | Conséquence |
 |---|---|---|
-| **Budget IA** | 100 % gratuit | APIs gratuites (Gemini/Groq), **pas** d'abonnements chat (pas d'API) |
+| **Budget IA** | Gratuit en masse + Pro ciblé | Tri sur Flash API gratuit ; analyse fine des 🔴 sur **Gemini 3.x Pro API**, payée par les **crédits Google Cloud inclus dans l'abo Google AI Pro** de Tristan (→ sept. 2026), fallback Flash ensuite. Abonnements chat perso jamais touchés. |
 | **Échelle** | Large : 10+ amis, 30+ recherches | ~500-1500 annonces neuves/jour potentielles → batch + pré-filtre **obligatoires** |
 | **Parc mobile** | Surtout iPhone | **Telegram** comme canal d'alerte principal (pas de push web iOS en v1) |
 | **GPU du PC** | Bureautique / carte intégrée | **Pas de modèle local** ; plafond dur ≈ 1 000-2 000 appels IA/jour |
@@ -32,14 +32,17 @@ Transformer le hub d'un outil de **scraping manuel + analyse Claude.ai** en un *
 
 | Fournisseur / modèle | Limite gratuite | Reset | Notes |
 |---|---|---|---|
-| **Gemini 2.5 Flash-Lite** | ~15 RPM, **1 000 req/jour** | minuit Pacifique | Meilleur cheval de trait gratuit ; gère la vision |
-| **Gemini 2.5 Flash** | ~10 RPM, 250 req/jour | minuit Pacifique | Pour l'analyse approfondie |
-| **Gemini 2.5 Pro** | ❌ derrière paywall (avril 2026) | — | Indisponible en gratuit |
+| **Gemini 3.1 Flash-Lite** (GA 7 mai 2026) | ~15 RPM, **~1 500 req/jour** | minuit Pacifique | Meilleur cheval de trait gratuit ; gère la vision → tri de masse |
+| **Gemini 3 Flash** (preview) | free tier (quota réduit) | minuit Pacifique | Tri / analyse légère gratuite |
+| **Gemini 3.x Pro** | API **payante** (~$2/$12 le M tokens) | — | Qualité Pro pour l'analyse fine des 🔴 ; financée par crédits Cloud (cf. ci-dessous) |
+| **Gemini 3.5 Flash** (I/O 2026) | API **payante** ($1,50/$9) | — | Hors gratuit ; non requis |
 | **Groq (Llama)** | 30 RPM, ~1 000 req/jour | quotidien | Très rapide ; en réserve / répartition |
 
-⚠️ **Piège** : chez Gemini les quotas sont **par projet/compte, pas par clé** — multiplier les clés n'augmente pas le quota (et Google a baissé le gratuit de 50-80 % en déc. 2025). On combine des **fournisseurs distincts**, pas des clés.
+⚠️ **Piège 1 (clés)** : chez Gemini les quotas gratuits sont **par projet/compte, pas par clé** — multiplier les clés n'augmente pas le quota (et Google a baissé le gratuit de 50-80 % en déc. 2025). On combine des **fournisseurs distincts**, pas des clés.
 
-**Conclusion de faisabilité** : le 100 % gratuit tient à grande échelle **grâce à** (1) un pré-filtre par règles sans IA, (2) le **triage groupé** (10-20 annonces/requête → ÷10-20 d'appels), (3) l'analyse coûteuse réservée aux urgentes, (4) un routeur multi-fournisseurs. 1 000 req/jour batchées ≈ **10 000-20 000 annonces/jour** analysables.
+⚠️ **Piège 2 (abonnement ≠ API)** : les abos **chat** (Google AI Pro, Claude Pro) **ne donnent pas de quota API** automatisable. Pour de l'automatisation 24/7, il faut l'**API** (clé). Claude Code avec abo = usage interactif/codage, **pas** un backend de pipeline. **Mais** : l'abo **Google AI Pro inclut des crédits Google Cloud** utilisables pour payer l'API Gemini → on s'en sert pour financer le **Pro sur les 🔴** sans toucher les tokens de chat perso, jusqu'à la fin de l'abo (sept. 2026).
+
+**Conclusion de faisabilité** : le tri de masse tient en **gratuit** à grande échelle **grâce à** (1) un pré-filtre par règles sans IA, (2) le **triage groupé** (10-20 annonces/requête → ÷10-20 d'appels), (3) l'analyse Pro coûteuse réservée aux 🔴, (4) un routeur multi-fournisseurs. ~1 500 req/jour batchées ≈ **15 000-30 000 annonces/jour** triables gratuitement. L'analyse fine **Pro** des 🔴 (quelques dizaines/jour) ≈ **10-15 €/mois** — **couverts par les crédits Cloud** de l'abo AI Pro jusqu'en septembre, puis fallback Flash ou petit budget.
 
 ---
 
@@ -127,9 +130,9 @@ Le pipeline auto **ne touche jamais `localhost:8080`** : tout passe par **Supaba
 | Étage | Quoi | Modèle | Volume |
 |---|---|---|---|
 | **0 — Pré-filtre règles** | dédup + prix dans fourchette + mots-clés inclus/exclus (blacklist « pour pièces / HS ») + rayon géo. **Zéro IA.** | — | tue le gros du flux |
-| **1 — Triage groupé** | 10-20 annonces/requête (titre+prix+ville+extrait) → catégorie 🔴/🟡/⚫, score 0-100, raison courte, drapeau « creuser ? » | Gemini Flash-Lite / Groq | l'essentiel |
-| **2 — Analyse approfondie** | 1 appel/annonce : score affiné, **prix marché estimé**, **marge € + %**, **prix max d'achat**, **détection de lot** (prix unitaire, rentable à casser ?), signaux d'opportunité | Gemini Flash / Flash-Lite | 🔴 + 🟡 limites |
-| **3 — Analyse photo (vision)** | image téléchargée sur le PC → état réel, incohérences, signaux d'arnaque | Gemini Flash-Lite (vision) | **🔴 uniquement** |
+| **1 — Triage groupé** | 10-20 annonces/requête (titre+prix+ville+extrait) → catégorie 🔴/🟡/⚫, score 0-100, raison courte, drapeau « creuser ? » | **Gemini 3.1 Flash-Lite / Groq** (gratuit) | l'essentiel |
+| **2 — Analyse approfondie** | 1 appel/annonce : score affiné, **prix marché estimé**, **marge € + %**, **prix max d'achat**, **détection de lot** (prix unitaire, rentable à casser ?), signaux d'opportunité | **Gemini 3.x Pro** (crédits Cloud) → fallback Flash | 🔴 + 🟡 limites |
+| **3 — Analyse photo (vision)** | image téléchargée sur le PC → état réel, incohérences, signaux d'arnaque | **Gemini 3.1 Flash-Lite vision** (gratuit) | **🔴 uniquement** |
 
 ### 6.1 Prix marché réel (grounding)
 
@@ -140,7 +143,8 @@ On **ne demande pas** à l'IA de connaître les prix de tête. On la **nourrit**
 ### 6.2 Routeur multi-fournisseurs (`LLMRouter`)
 
 - Connaît les limites de chaque API (RPD/RPM + heure de reset), **compte l'usage du jour** (table SQLite `llm_usage`), route le triage vers le moins cher dispo, **bascule** quand un fournisseur est épuisé.
-- v1 : Gemini + Groq. Extensible (OpenRouter/Cerebras gratuits en réserve). Interface `LLMProvider` (même philosophie que `PlatformScraper`).
+- **Tri** = Flash gratuit (Gemini 3.1 Flash-Lite / Groq). **Analyse fine des 🔴** = Gemini 3.x Pro API avec **plafond mensuel configurable** (financé par crédits Cloud), **fallback automatique sur Flash** quand le plafond/les crédits sont épuisés (ex. après sept. 2026). `llm_usage` suit à la fois le quota gratuit ET la dépense Pro.
+- Extensible (OpenRouter/Cerebras gratuits en réserve). Interface `LLMProvider` (même philosophie que `PlatformScraper`).
 
 ### 6.3 Définition de l'urgence & seuils (validé)
 
@@ -310,7 +314,7 @@ Tout est conçu d'un bloc ; on **construit dans cet ordre**, chaque phase testé
 | Phase | Livrable | Validation |
 |---|---|---|
 | **A — Fondation moteur** | `--auto`, scrape results-only, cerveau SQLite, dédup, baisse de prix, scheduler, pull watchlist, write-path Supabase. **Sans IA** (opportunités brutes). + autostart | Moteur 24/7 stable |
-| **B — Pipeline IA** | pré-filtre, `LLMRouter` (Gemini+Groq), triage batch, analyse approfondie, photo, grounding marché, scoring/marge/prix max/lot/signaux | Coût = 0 + qualité du tri |
+| **B — Pipeline IA** | pré-filtre, `LLMRouter` (Flash gratuit + Pro crédits Cloud), triage batch, analyse approfondie, photo, grounding marché, scoring/marge/prix max/lot/signaux | Coût ~0 (crédits) + qualité Pro sur 🔴 |
 | **C — Hub Opportunités + Telegram** | onglet ①, détail, « Je contacte » + intérêts Realtime, bot Telegram + liaison + push 🔴 | **= MVP complet (détecter + réagir mobile)** |
 | **D — Mon espace** | config watchlists, journal + marges + bilan, favoris, prefs notif, relance 24h | Couche perso |
 | **E — Tendances** | dashboards groupe, stats marché, rapport hebdo, classement | S'appuie sur A-D |
@@ -322,10 +326,10 @@ Tout est conçu d'un bloc ; on **construit dans cet ordre**, chaque phase testé
 
 | # | Décision | Choix |
 |---|---|---|
-| P-01 | Budget IA | 100 % gratuit via APIs gratuites (Gemini+Groq), jamais via abonnements chat |
+| P-01 | Budget IA | Tri de masse sur Flash API **gratuit** ; analyse fine 🔴 sur **Gemini 3.x Pro API**, financée par les **crédits Google Cloud de l'abo AI Pro** (→ sept. 2026), fallback Flash ensuite. Abos chat perso jamais touchés. |
 | P-02 | Échelle | Large (10+ amis, 30+ recherches) → batch + pré-filtre obligatoires |
 | P-03 | Notifications | Telegram (canal principal) ; push web iOS hors v1 |
-| P-04 | Modèle local | Aucun (PC bureautique) |
+| P-04 | Modèle local | Aucun — PC bureautique + qualité jugée très en deçà du Pro (test gemma sur RTX 2070 décevant) |
 | P-05 | Write-path Supabase | `service_role` en `.env` local, REST via aiohttp |
 | P-06 | Anti-Datadome | Gratuit + alerte Telegram manuelle (stealth + back-off) |
 | P-07 | Définition 🔴 | Score élevé + grosse marge (distance non bloquante) |
@@ -345,6 +349,7 @@ Tout est conçu d'un bloc ; on **construit dans cet ordre**, chaque phase testé
 - **IP maison flaggée** à terme (atténué par pacing ; pas de proxy en v1).
 - **Cold-start prix marché** : marges approximatives les premiers jours (base `market_observations` vide).
 - **Quotas gratuits dégressifs** : Google a déjà coupé 50-80 % en déc. 2025 ; le routeur multi-fournisseurs + le batch protègent, mais une nouvelle coupe imposerait d'ajouter des fournisseurs (OpenRouter/Cerebras) ou d'accepter un petit budget.
+- **Falaise de septembre 2026** : les crédits Cloud qui financent le Pro viennent de l'abo Google AI Pro de Tristan (fin sept. 2026). Après : renouveler l'abo, mettre un petit budget API (~10-15 €/mois), ou laisser le routeur **retomber sur Flash gratuit**. Aucune interruption du pipeline (fallback prévu).
 - **CGU LBC** : scraping automatisé en zone grise ; risque inhérent assumé pour un usage privé.
 - **Sécurité service_role** : clé « dieu » sur le PC ; mitigée par `.gitignore` + BitLocker ; révocable si fuite.
 
