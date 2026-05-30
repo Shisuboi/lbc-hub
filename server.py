@@ -10,11 +10,15 @@ import aiohttp
 from aiohttp import web
 from urllib.parse import urljoin, urlparse, parse_qs, urlencode, urlunparse
 from playwright.async_api import async_playwright
-from engine.config import load_config
+from engine.config import load_config, ai_settings
 from engine.db import Brain
 from engine.supa import Supa
+from engine.sink import LocalSink
+from engine.router import LLMRouter
+from engine.llm_client import GeminiClient
+from engine.enrich import enrichment_worker
 from engine.scheduler import run_engine
-from engine.bootstrap import make_scrape_fn
+from engine.bootstrap import make_scrape_fn, build_searches_lookup
 from engine.scraper import extract_ads_from_results, RESULTS_CONTAINER_SELECTOR
 
 # Verrou global : scrape manuel et scrape auto ne naviguent jamais en même temps.
@@ -531,11 +535,13 @@ async def on_shutdown(app):
         await job_state.pw.stop()
 
 async def start_autonomous_engine(app):
-    """Démarre la boucle autonome en tâche de fond (appelée via app.on_startup)."""
+    """Démarre la boucle de scrape autonome + le worker d'enrichissement IA (Phase B)."""
     cfg = load_config()
+    ai = ai_settings(cfg)
     brain = Brain("lbc_brain.sqlite3")
     session = aiohttp.ClientSession()
     supa = Supa(cfg["SUPABASE_URL"], cfg["SUPABASE_SERVICE_KEY"], session)
+    sink = LocalSink(brain)  # le scrape dépose en file locale (PAS Supabase direct)
 
     async def get_context():
         await ensure_browser()
@@ -546,25 +552,50 @@ async def start_autonomous_engine(app):
         ready_selector=RESULTS_CONTAINER_SELECTOR,
     )
     stop_event = asyncio.Event()
-
     app["engine_stop"] = stop_event
     app["engine_session"] = session
     app["engine_brain"] = brain
-    app["engine_task"] = asyncio.create_task(
-        run_engine(brain, supa, scrape_fn, stop_event, cycle_pause=60.0)
-    )
-    print("🤖 Moteur autonome démarré (boucle de scrape 24/7).")
+
+    # Le scrape écrit dans le SINK (file locale) au lieu de Supabase direct.
+    tasks = [asyncio.create_task(run_engine(brain, sink, scrape_fn, stop_event, cycle_pause=60.0))]
+
+    if ai["api_key"]:
+        provider = GeminiClient(ai["api_key"], session)
+        router = LLMRouter(provider, ai, brain)
+
+        async def image_fetch(url):
+            async with session.get(url) as r:
+                return await r.read()
+
+        async def fetch_searches():
+            return await build_searches_lookup(
+                supa,
+                {"min_margin_eur": ai["default_min_margin_eur"],
+                 "min_margin_pct": ai["default_min_margin_pct"]},
+            )
+
+        tasks.append(asyncio.create_task(
+            enrichment_worker(brain, supa, router, ai, fetch_searches, image_fetch, stop_event)
+        ))
+        print("🧠 Worker d'enrichissement IA démarré (cascade).")
+    else:
+        print("⚠️ Pas de GEMINI_API_KEY : enrichissement IA désactivé (opportunités restent en file).")
+
+    app["engine_tasks"] = tasks
+    print("🤖 Moteur autonome démarré (scrape 24/7).")
 
 
 async def stop_autonomous_engine(app):
     if "engine_stop" in app:
         app["engine_stop"].set()
-    if "engine_task" in app:
-        app["engine_task"].cancel()
+    for t in app.get("engine_tasks", []):
+        t.cancel()
         try:
-            await app["engine_task"]
-        except (asyncio.CancelledError, Exception):
+            await t
+        except asyncio.CancelledError:
             pass
+        except Exception as exc:
+            print(f"[stop] tache terminee avec erreur : {type(exc).__name__}: {exc}")
     if "engine_session" in app:
         await app["engine_session"].close()
     if "engine_brain" in app:

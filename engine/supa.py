@@ -41,6 +41,23 @@ def build_opportunity_payload(
     }
 
 
+# Colonnes IA de `opportunities` qu'on autorise à écrire depuis la cascade.
+_AI_COLUMNS = (
+    "category", "resale_score", "est_market_price", "est_margin_eur", "est_margin_pct",
+    "max_buy_price", "is_lot", "lot_unit_price", "lot_notes", "signals", "explanation",
+    "photo_verdict", "model_used",
+)
+
+
+def merge_enrichment(payload: dict, ia: dict) -> dict:
+    """Fusionne les résultats de la cascade dans le payload d'opportunité (colonnes connues only)."""
+    out = dict(payload)
+    for col in _AI_COLUMNS:
+        if col in ia:
+            out[col] = ia[col]
+    return out
+
+
 class Supa:
     """Client REST minimal vers PostgREST (Supabase) avec la clé service_role."""
 

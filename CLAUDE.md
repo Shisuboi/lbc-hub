@@ -52,6 +52,40 @@ server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK J
 - Spec : `docs/superpowers/specs/2026-05-29-pipeline-revente-opportunites-design.md`.
 - Plan : `docs/superpowers/plans/2026-05-29-pipeline-phase-a-fondation-moteur.md`.
 
+## Cascade IA (pipeline de revente — Phase B livrée)
+- **Nouveau flux sous `--auto`** : le scrape ne déverse plus les opportunités brutes
+  dans Supabase. `process_search` (inchangé) écrit dans un **`LocalSink`** qui met les
+  annonces neuves en **file locale SQLite** (`pending_enrichment`). Une **2ᵉ coroutine**,
+  `enrichment_worker`, draine la file, exécute la cascade IA, et **n'écrit dans Supabase
+  que des opportunités notées** (jamais brutes). Les deux coroutines (`run_engine` +
+  `enrichment_worker`) tournent en parallèle, brain SQLite partagé (event loop coopératif,
+  pas de souci de concurrence).
+- **Cascade 3 étages** (`engine/cascade.py`) : ① **triage groupé** (10-20 annonces/appel,
+  `gemini-3.1-flash-lite` gratuit) → catégorie 🟡/⚫ + score, **ne déclare JAMAIS urgent** ;
+  ② **vérification** (1 appel/candidate) → prix marché, marge €/%, prix max, lot, signaux ;
+  ③ **photo** (vision, 🔴 uniquement) → état réel + `scam_risk`.
+- ⚠️ **Gate 🔴 dur** : une opportunité ne devient `urgent` que si le modèle de vérification
+  a un **tier ≥ `MIN_TIER_FOR_URGENT`** (défaut `"pro"`). **Pro SUSPENDU** par défaut
+  (Tristan n'a pas encore accès au compte Pro) → en intérim, enrichissement sur Flash
+  gratuit mais **plafond 🟡**, zéro faux « urgent ». Activable plus tard via `.env`
+  (`GEMINI_PRO_ENABLED=true` + `GEMINI_VERIFY_MODEL=gemini-3.1-pro-preview` + clé du compte
+  Pro), sans réécriture. Un `scam_risk == "high"` à la photo **rétrograde** un 🔴 en 🟡.
+- **Modules `engine/`** : `router` (LLMRouter : route par stage, quotas `llm_usage`,
+  fallback, gate tier — pluggable : provider local Ollama/Groq ajoutable sans réécrire la
+  cascade), `llm_client` (GeminiClient REST `generateContent`, texte + vision, **zéro
+  nouvelle dépendance**), `cascade`, `prompts` (schémas JSON + `responseSchema`), `grounding`
+  (médiane marché locale → vrais comparables), `sink` (LocalSink), `enrich` (worker).
+- **Clés `.env` IA toutes optionnelles** : **sans `GEMINI_API_KEY`, l'enrichissement est
+  désactivé** et le moteur scrape + met en file normalement (opportunités en attente).
+  Voir `.env.example`. Démarrage 100 % gratuit acté.
+- **Résilience** : quota épuisé → on s'arrête, la file est conservée ; réponse LLM malformée
+  → reportée (retry) sans boucler ; garde anti-poison (item échouant ≥ 5 fois abandonné) ;
+  Supabase down → outbox Phase A.
+- **0 migration Supabase** : les colonnes IA d'`opportunities` existent depuis la Phase A.
+- Spec : `docs/superpowers/specs/2026-05-30-pipeline-phase-b-cascade-ia-design.md`.
+- Plan : `docs/superpowers/plans/2026-05-30-pipeline-phase-b-cascade-ia.md`.
+- Validation LIVE (obligatoire) : `docs/TESTING-phase-b-live.md`.
+
 ## Principe CORS critique
 - `server.py` doit renvoyer `Access-Control-Allow-Private-Network: true` sur toutes ses réponses
 - Chrome/Edge supportent HTTPS→localhost (exception mixed content)
