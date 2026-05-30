@@ -40,6 +40,16 @@ CREATE TABLE IF NOT EXISTS outbox (
     created_at INTEGER NOT NULL,
     retries INTEGER DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS pending_enrichment (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ad_id TEXT NOT NULL,
+    search_id TEXT,
+    payload TEXT NOT NULL,
+    queued_at INTEGER NOT NULL,
+    retries INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS pending_ad_idx ON pending_enrichment(ad_id);
 """
 
 
@@ -131,4 +141,33 @@ class Brain:
 
     def delete_outbox(self, outbox_id: int) -> None:
         self.conn.execute("DELETE FROM outbox WHERE id = ?", (outbox_id,))
+        self.conn.commit()
+
+    def queue_pending(self, payload: dict, search_id: str | None, ad_id: str, now: int | None = None) -> None:
+        now = int(now if now is not None else time.time())
+        self.conn.execute(
+            "INSERT INTO pending_enrichment (ad_id, search_id, payload, queued_at, retries) VALUES (?, ?, ?, ?, 0)",
+            (ad_id, search_id, json.dumps(payload), now),
+        )
+        self.conn.commit()
+
+    def peek_pending(self, limit: int = 20) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT id, ad_id, search_id, payload, retries FROM pending_enrichment ORDER BY id ASC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [
+            {"id": r["id"], "ad_id": r["ad_id"], "search_id": r["search_id"],
+             "payload": json.loads(r["payload"]), "retries": r["retries"]}
+            for r in rows
+        ]
+
+    def delete_pending(self, pending_id: int) -> None:
+        self.conn.execute("DELETE FROM pending_enrichment WHERE id = ?", (pending_id,))
+        self.conn.commit()
+
+    def bump_pending_retry(self, pending_id: int) -> None:
+        self.conn.execute(
+            "UPDATE pending_enrichment SET retries = retries + 1 WHERE id = ?", (pending_id,)
+        )
         self.conn.commit()
