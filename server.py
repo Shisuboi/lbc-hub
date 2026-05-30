@@ -592,8 +592,10 @@ async def stop_autonomous_engine(app):
         t.cancel()
         try:
             await t
-        except (asyncio.CancelledError, Exception):
+        except asyncio.CancelledError:
             pass
+        except Exception as exc:
+            print(f"[stop] tache terminee avec erreur : {type(exc).__name__}: {exc}")
     if "engine_session" in app:
         await app["engine_session"].close()
     if "engine_brain" in app:

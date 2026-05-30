@@ -13,6 +13,7 @@ async def test_build_searches_lookup_maps_thresholds():
 
     lookup = await build_searches_lookup(FakeSupa(), defaults={"min_margin_eur": 30, "min_margin_pct": 30})
     assert lookup["s1"]["min_margin_eur"] == 50
+    assert lookup["s1"]["min_margin_pct"] == 40
     # défauts appliqués quand null
     assert lookup["s2"]["min_margin_eur"] == 30
     assert lookup["s2"]["min_margin_pct"] == 30
