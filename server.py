@@ -555,6 +555,10 @@ async def stop_autonomous_engine(app):
         app["engine_stop"].set()
     if "engine_task" in app:
         app["engine_task"].cancel()
+        try:
+            await app["engine_task"]
+        except (asyncio.CancelledError, Exception):
+            pass
     if "engine_session" in app:
         await app["engine_session"].close()
     if "engine_brain" in app:

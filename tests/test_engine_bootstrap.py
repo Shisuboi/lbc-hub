@@ -1,7 +1,9 @@
+import asyncio
+
 from engine.bootstrap import make_scrape_fn
 
 
-async def test_make_scrape_fn_uses_browser_and_extractor(monkeypatch):
+async def test_make_scrape_fn_uses_browser_and_extractor():
     calls = {"goto": [], "extracted": False}
 
     class FakePage:
@@ -23,7 +25,7 @@ async def test_make_scrape_fn_uses_browser_and_extractor(monkeypatch):
         calls["extracted"] = True
         return [{"ad_id": "1", "title": "x", "price": 10.0, "url": "u", "city": None, "image_url": None}]
 
-    lock = __import__("asyncio").Lock()
+    lock = asyncio.Lock()
     scrape_fn = make_scrape_fn(fake_get_context, fake_extract, lock)
     ads = await scrape_fn("https://lbc/u1")
 
