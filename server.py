@@ -221,88 +221,91 @@ async def run_pipeline_task(base_url: str, max_pages: int, delay: int = 1500):
         job_state.set_status("scraping")
         job_state.log("🚀 Démarrage du pipeline de scraping Leboncoin...")
         
-        await ensure_browser()
-        page = await job_state.context.new_page()
+        # Verrou partagé : le scrape manuel et le moteur auto ne naviguent jamais
+        # en même temps sur le seul Chromium (spec §4).
+        async with scrape_lock:
+            await ensure_browser()
+            page = await job_state.context.new_page()
 
-        try:
+            try:
 
-            for page_num in range(1, max_pages + 1):
-                if job_state.stop_event.is_set():
-                    break
-
-                parsed = urlparse(base_url)
-                query = parse_qs(parsed.query)
-                query['sort'] = ['time']
-
-                if page_num > 1:
-                    query['page'] = [str(page_num)]
-
-                new_query = urlencode(query, doseq=True)
-                url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
-
-                job_state.log(f"📄 Scraping de la page de recherche {page_num}/{max_pages}...")
-                await page.goto(url, wait_until="domcontentloaded")
-
-                # Datadome check loop
-                captcha_detected = False
-                while True:
-                    if job_state.stop_event.is_set():
-                        raise asyncio.CancelledError()
-
-                    try:
-                        # Try to detect listing items
-                        await page.wait_for_selector('a[data-qa-id="aditem_container"], a[href*="/ad/"]', timeout=3000)
-                        break  # Found! Break out of captcha wait
-                    except Exception:
-                        if not captcha_detected:
-                            captcha_detected = True
-                            job_state.set_status("captcha_required")
-                            job_state.log("⚠️ [BLOCAGE DATADOME DÉTECTÉ OU PAGE LENTE]")
-                            job_state.log("👉 Veuillez résoudre le Captcha dans la fenêtre Chromium ouverte.")
-                            job_state.log("⏳ Une fois résolu, vous pouvez cliquer sur le bouton 'J'ai résolu le Captcha' dans l'interface ou attendre la détection automatique.")
-
-                        try:
-                            # Wait for click on resume OR timeout and loop check again
-                            await asyncio.wait_for(job_state.captcha_event.wait(), timeout=2.0)
-                            job_state.captcha_event.clear()
-                            captcha_detected = False  # Reset flag to re-evaluate selector
-                        except asyncio.TimeoutError:
-                            pass
-
-                if job_state.status == "captcha_required":
-                    job_state.set_status("scraping")
-                    job_state.log("✅ Captcha passé ou page chargée avec succès !")
-
-                ad_links_elements = await page.query_selector_all('a[data-qa-id="aditem_container"], a[href*="/ad/"]')
-                ad_urls = set()
-                for el in ad_links_elements:
-                    href = await el.get_attribute('href')
-                    if href and '/ad/' in href:
-                        full_url = urljoin("https://www.leboncoin.fr", href)
-                        ad_urls.add(full_url)
-
-                if not ad_urls:
-                    job_state.log("⚠️ Aucune annonce trouvée sur cette page de recherche.")
-                    html_content = await page.content()
-                    with open("debug_lbc.html", "w", encoding="utf-8") as f:
-                        f.write(html_content)
-                    job_state.log("HTML de debug enregistré dans 'debug_lbc.html'. Fin de la recherche.")
-                    break
-
-                ad_urls = list(ad_urls)
-                job_state.log(f"🔎 {len(ad_urls)} annonces trouvées sur la page {page_num}.")
-
-                for idx, ad_url in enumerate(ad_urls):
+                for page_num in range(1, max_pages + 1):
                     if job_state.stop_event.is_set():
                         break
-                    job_state.log(f"  -> [{idx+1}/{len(ad_urls)}] Scraping des détails : {ad_url}")
-                    details = await get_ad_details(page, ad_url)
-                    if details:
-                        scraped_ads.append(details)
-                    await page.wait_for_timeout(delay)
 
-        finally:
-            await page.close()
+                    parsed = urlparse(base_url)
+                    query = parse_qs(parsed.query)
+                    query['sort'] = ['time']
+
+                    if page_num > 1:
+                        query['page'] = [str(page_num)]
+
+                    new_query = urlencode(query, doseq=True)
+                    url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
+
+                    job_state.log(f"📄 Scraping de la page de recherche {page_num}/{max_pages}...")
+                    await page.goto(url, wait_until="domcontentloaded")
+
+                    # Datadome check loop
+                    captcha_detected = False
+                    while True:
+                        if job_state.stop_event.is_set():
+                            raise asyncio.CancelledError()
+
+                        try:
+                            # Try to detect listing items
+                            await page.wait_for_selector('a[data-qa-id="aditem_container"], a[href*="/ad/"]', timeout=3000)
+                            break  # Found! Break out of captcha wait
+                        except Exception:
+                            if not captcha_detected:
+                                captcha_detected = True
+                                job_state.set_status("captcha_required")
+                                job_state.log("⚠️ [BLOCAGE DATADOME DÉTECTÉ OU PAGE LENTE]")
+                                job_state.log("👉 Veuillez résoudre le Captcha dans la fenêtre Chromium ouverte.")
+                                job_state.log("⏳ Une fois résolu, vous pouvez cliquer sur le bouton 'J'ai résolu le Captcha' dans l'interface ou attendre la détection automatique.")
+
+                            try:
+                                # Wait for click on resume OR timeout and loop check again
+                                await asyncio.wait_for(job_state.captcha_event.wait(), timeout=2.0)
+                                job_state.captcha_event.clear()
+                                captcha_detected = False  # Reset flag to re-evaluate selector
+                            except asyncio.TimeoutError:
+                                pass
+
+                    if job_state.status == "captcha_required":
+                        job_state.set_status("scraping")
+                        job_state.log("✅ Captcha passé ou page chargée avec succès !")
+
+                    ad_links_elements = await page.query_selector_all('a[data-qa-id="aditem_container"], a[href*="/ad/"]')
+                    ad_urls = set()
+                    for el in ad_links_elements:
+                        href = await el.get_attribute('href')
+                        if href and '/ad/' in href:
+                            full_url = urljoin("https://www.leboncoin.fr", href)
+                            ad_urls.add(full_url)
+
+                    if not ad_urls:
+                        job_state.log("⚠️ Aucune annonce trouvée sur cette page de recherche.")
+                        html_content = await page.content()
+                        with open("debug_lbc.html", "w", encoding="utf-8") as f:
+                            f.write(html_content)
+                        job_state.log("HTML de debug enregistré dans 'debug_lbc.html'. Fin de la recherche.")
+                        break
+
+                    ad_urls = list(ad_urls)
+                    job_state.log(f"🔎 {len(ad_urls)} annonces trouvées sur la page {page_num}.")
+
+                    for idx, ad_url in enumerate(ad_urls):
+                        if job_state.stop_event.is_set():
+                            break
+                        job_state.log(f"  -> [{idx+1}/{len(ad_urls)}] Scraping des détails : {ad_url}")
+                        details = await get_ad_details(page, ad_url)
+                        if details:
+                            scraped_ads.append(details)
+                        await page.wait_for_timeout(delay)
+
+            finally:
+                await page.close()
 
     except asyncio.CancelledError:
         job_state.log("🛑 Job annulé par l'utilisateur.")
