@@ -8,6 +8,7 @@ def sample_ad():
         "price": 250.0,
         "url": "https://www.leboncoin.fr/ad/consoles_jeux_video/2912345678",
         "city": "Bordeaux",
+        "postal": "33000",
         "image_url": "https://img.leboncoin.fr/x.jpg",
     }
 
@@ -42,8 +43,17 @@ def test_payload_price_drop_event():
     assert p["previous_price"] == 300.0
 
 
+def test_payload_maps_location_postal():
+    p = build_opportunity_payload(sample_ad(), sample_search(), event="new", scraped_at_iso="t")
+    assert p["location_postal"] == "33000"
+
+
 def test_payload_ai_fields_are_null():
     p = build_opportunity_payload(sample_ad(), sample_search(), event="new", scraped_at_iso="t")
-    assert p["category"] is None
-    assert p["resale_score"] is None
-    assert p["est_margin_eur"] is None
+    ai_fields = [
+        "category", "resale_score", "est_market_price", "est_margin_eur",
+        "est_margin_pct", "max_buy_price", "is_lot", "signals",
+        "explanation", "photo_verdict", "model_used",
+    ]
+    for field in ai_fields:
+        assert p[field] is None, f"{field} devrait être null en Phase A"
