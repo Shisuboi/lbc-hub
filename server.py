@@ -1,13 +1,24 @@
 import asyncio
+import argparse
 import json
 import logging
 import re
 import os
 import sys
 import unicodedata
+import aiohttp
 from aiohttp import web
 from urllib.parse import urljoin, urlparse, parse_qs, urlencode, urlunparse
 from playwright.async_api import async_playwright
+from engine.config import load_config
+from engine.db import Brain
+from engine.supa import Supa
+from engine.scheduler import run_engine
+from engine.bootstrap import make_scrape_fn
+from engine.scraper import extract_ads_from_results
+
+# Verrou global : scrape manuel et scrape auto ne naviguent jamais en même temps.
+scrape_lock = asyncio.Lock()
 
 # Force UTF-8 on stdout/stderr to support emojis on Windows terminals
 try:
@@ -516,7 +527,41 @@ async def on_shutdown(app):
     if job_state.pw:
         await job_state.pw.stop()
 
-def create_app() -> web.Application:
+async def start_autonomous_engine(app):
+    """Démarre la boucle autonome en tâche de fond (appelée via app.on_startup)."""
+    cfg = load_config()
+    brain = Brain("lbc_brain.sqlite3")
+    session = aiohttp.ClientSession()
+    supa = Supa(cfg["SUPABASE_URL"], cfg["SUPABASE_SERVICE_KEY"], session)
+
+    async def get_context():
+        await ensure_browser()
+        return job_state.context
+
+    scrape_fn = make_scrape_fn(get_context, extract_ads_from_results, scrape_lock)
+    stop_event = asyncio.Event()
+
+    app["engine_stop"] = stop_event
+    app["engine_session"] = session
+    app["engine_brain"] = brain
+    app["engine_task"] = asyncio.create_task(
+        run_engine(brain, supa, scrape_fn, stop_event, cycle_pause=60.0)
+    )
+    print("🤖 Moteur autonome démarré (boucle de scrape 24/7).")
+
+
+async def stop_autonomous_engine(app):
+    if "engine_stop" in app:
+        app["engine_stop"].set()
+    if "engine_task" in app:
+        app["engine_task"].cancel()
+    if "engine_session" in app:
+        await app["engine_session"].close()
+    if "engine_brain" in app:
+        app["engine_brain"].close()
+
+
+def create_app(auto: bool = False) -> web.Application:
     """Construit l'app aiohttp. Utilisée par main() et par les tests pytest."""
     app = web.Application(middlewares=[cors_middleware])
     app.on_cleanup.append(on_shutdown)
@@ -542,10 +587,17 @@ def create_app() -> web.Application:
     app.router.add_route('OPTIONS', '/{path:.*}', options_handler)
     # SPA fallback : toute route GET non matchée renvoie index.html (le router JS prend le relais)
     app.router.add_get('/{path:.*}', index_handler)
+    if auto:
+        app.on_startup.append(start_autonomous_engine)
+        app.on_cleanup.append(stop_autonomous_engine)
     return app
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Serveur LBC scraper + moteur autonome")
+    parser.add_argument("--auto", action="store_true", help="Démarre le moteur autonome 24/7")
+    args = parser.parse_args()
+
     # Supprime les messages de shutdown inoffensifs sur Windows Python 3.12+
     # (race condition aiohttp/asyncio ProactorEventLoop au moment du CTRL+C)
     if sys.platform == 'win32':
@@ -561,9 +613,11 @@ def main():
                 return 'invalid state' not in record.getMessage().lower()
         logging.getLogger('aiohttp.server').addFilter(_IgnoreInvalidState())
 
-    app = create_app()
+    app = create_app(auto=args.auto)
     print("✨ Le serveur Leboncoin Scraper & IA est lancé !")
     print("👉 Ouvrez votre navigateur sur : http://localhost:8080")
+    if args.auto:
+        print("🤖 Mode autonome ACTIF.")
     web.run_app(app, host='localhost', port=8080)
 
 if __name__ == "__main__":
