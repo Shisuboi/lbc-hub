@@ -98,3 +98,37 @@ class Brain:
             "SELECT prev_price FROM seen_ads WHERE ad_id = ?", (ad_id,)
         ).fetchone()
         return row["prev_price"] if row else None
+
+    def record_market_obs(self, categorie: str, prix: float, ville: str | None, now: int | None = None) -> None:
+        now = int(now if now is not None else time.time())
+        self.conn.execute(
+            "INSERT INTO market_observations (categorie, prix, ville, observed_at) VALUES (?, ?, ?, ?)",
+            (categorie, prix, ville, now),
+        )
+        self.conn.commit()
+
+    def log_scrape(self, search_id: str, status: str, blocked: int = 0, now: int | None = None) -> None:
+        now = int(now if now is not None else time.time())
+        self.conn.execute(
+            "INSERT INTO scrape_log (search_id, last_run_at, status, blocked_count) VALUES (?, ?, ?, ?)",
+            (search_id, now, status, blocked),
+        )
+        self.conn.commit()
+
+    def queue_outbox(self, payload: dict, now: int | None = None) -> None:
+        now = int(now if now is not None else time.time())
+        self.conn.execute(
+            "INSERT INTO outbox (payload, created_at, retries) VALUES (?, ?, 0)",
+            (json.dumps(payload), now),
+        )
+        self.conn.commit()
+
+    def peek_outbox(self, limit: int = 50) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT id, payload, retries FROM outbox ORDER BY id ASC LIMIT ?", (limit,)
+        ).fetchall()
+        return [{"id": r["id"], "payload": json.loads(r["payload"]), "retries": r["retries"]} for r in rows]
+
+    def delete_outbox(self, outbox_id: int) -> None:
+        self.conn.execute("DELETE FROM outbox WHERE id = ?", (outbox_id,))
+        self.conn.commit()
