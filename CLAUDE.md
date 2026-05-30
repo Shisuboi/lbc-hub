@@ -38,6 +38,12 @@ server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK J
   `scheduler` (run_engine round-robin résilient + outbox flush), `scraper`
   (extraction page de résultats Playwright), `bootstrap` (browser partagé + verrou).
 - Un seul Chromium partagé entre scrape manuel et auto (`scrape_lock` dans server.py).
+- ⚠️ **Piège LBC** : `engine/scraper.py` dépend du HTML de Leboncoin, qui change
+  régulièrement (les `data-qa-id` de titre/prix/ville ont disparu en 2026). L'extracteur
+  s'appuie donc sur la **sémantique stable** (`article[aria-label]` = titre,
+  `a[href*="/ad/"]` = URL, `<span>` au texte `…€` = prix, « Située à <ville> » = ville)
+  via un script DOM in-page. Si le scrape sort des prix à 0 / titres vides → LBC a encore
+  changé : ré-inspecter une carte `<article>` et mettre à jour `_EXTRACT_JS`.
 - Secrets dans `.env` (jamais committé — déjà dans `.gitignore`).
 - Migration : `supabase/migrations/2026-05-29-pipeline-foundation.sql`
   (tables `opportunities` + `watchlist_searches` + RLS, à appliquer à la main).
