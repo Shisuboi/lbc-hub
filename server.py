@@ -15,7 +15,7 @@ from engine.db import Brain
 from engine.supa import Supa
 from engine.scheduler import run_engine
 from engine.bootstrap import make_scrape_fn
-from engine.scraper import extract_ads_from_results
+from engine.scraper import extract_ads_from_results, RESULTS_CONTAINER_SELECTOR
 
 # Verrou global : scrape manuel et scrape auto ne naviguent jamais en même temps.
 scrape_lock = asyncio.Lock()
@@ -541,7 +541,10 @@ async def start_autonomous_engine(app):
         await ensure_browser()
         return job_state.context
 
-    scrape_fn = make_scrape_fn(get_context, extract_ads_from_results, scrape_lock)
+    scrape_fn = make_scrape_fn(
+        get_context, extract_ads_from_results, scrape_lock,
+        ready_selector=RESULTS_CONTAINER_SELECTOR,
+    )
     stop_event = asyncio.Event()
 
     app["engine_stop"] = stop_event

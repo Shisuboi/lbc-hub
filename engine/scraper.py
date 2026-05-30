@@ -7,7 +7,10 @@ from engine.parse import extract_ad_id, clean_price
 
 _BASE = "https://www.leboncoin.fr"
 _ALLOWED_HOSTS = {"www.leboncoin.fr", "leboncoin.fr"}
-_CONTAINER_SEL = 'a[data-qa-id="aditem_container"], a[href*="/ad/"]'
+# Sélecteur public : le moteur auto s'en sert pour attendre que la page de résultats
+# soit prête (et pour distinguer un blocage Datadome d'une page chargée).
+RESULTS_CONTAINER_SELECTOR = 'a[data-qa-id="aditem_container"], a[href*="/ad/"]'
+_CONTAINER_SEL = RESULTS_CONTAINER_SELECTOR
 
 
 async def extract_ads_from_results(page) -> list[dict]:
