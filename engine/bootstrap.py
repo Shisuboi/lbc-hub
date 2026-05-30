@@ -25,26 +25,39 @@ def make_scrape_fn(
         async with scrape_lock:
             context = await get_context()
             page = await context.new_page()
+            print(f"🔎 [AUTO] Onglet ouvert, navigation vers : {url[:90]}")
             try:
                 await page.goto(url, wait_until="domcontentloaded")
+                print("🔎 [AUTO] Page chargée (domcontentloaded).")
                 if ready_selector:
                     try:
                         await page.wait_for_selector(ready_selector, timeout=ready_timeout_ms)
-                    except Exception:
+                        print("🔎 [AUTO] Annonces détectées immédiatement.")
+                    except Exception as exc:
                         # Pas d'annonces tout de suite : blocage Datadome probable.
                         # On garde l'onglet ouvert et on laisse à l'humain le temps de résoudre.
                         print(
-                            "⚠️ [AUTO] Blocage/captcha probable — résous-le dans la fenêtre "
-                            "Chromium ouverte (attente jusqu'à 2 min)..."
+                            f"⚠️ [AUTO] Pas d'annonces après {ready_timeout_ms} ms "
+                            f"({type(exc).__name__}). Blocage/captcha probable — résous-le dans "
+                            "la fenêtre Chromium (attente jusqu'à 2 min)..."
                         )
                         try:
                             await page.wait_for_selector(ready_selector, timeout=captcha_wait_ms)
                             print("✅ [AUTO] Page débloquée, extraction en cours.")
-                        except Exception:
-                            print("⏭️ [AUTO] Toujours pas d'annonces — passage à la recherche suivante.")
+                        except Exception as exc2:
+                            print(
+                                f"⏭️ [AUTO] Toujours pas d'annonces ({type(exc2).__name__}) — "
+                                "passage à la recherche suivante."
+                            )
                 else:
                     await page.wait_for_timeout(1500)
-                return await extract_fn(page)
+                ads = await extract_fn(page)
+                print(f"🔎 [AUTO] Extraction terminée : {len(ads)} annonce(s) trouvée(s).")
+                return ads
+            except Exception as exc:
+                print(f"🔴 [AUTO] Erreur pendant le scrape ({type(exc).__name__}): {exc}")
+                raise
             finally:
+                print("🔎 [AUTO] Fermeture de l'onglet.")
                 await page.close()
     return scrape_fn
