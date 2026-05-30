@@ -35,3 +35,14 @@ def test_rejects_above_price_max():
 def test_accepts_below_price_max():
     search = {"price_max": 300}
     assert passes_prefilter(ad(price=200.0), search) is True
+
+
+def test_rejects_missing_price_key():
+    # scraper peut renvoyer une annonce malformée sans clé "price"
+    assert passes_prefilter({"ad_id": "1", "title": "PS5", "url": "u"}, {}) is False
+
+
+def test_accepts_ad_at_exact_price_max():
+    # le plafond price_max est inclusif
+    search = {"price_max": 200}
+    assert passes_prefilter(ad(price=200.0), search) is True
