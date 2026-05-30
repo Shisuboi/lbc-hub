@@ -61,7 +61,7 @@ async def process_search(scrape_fn, brain, supa, search: dict) -> dict:
             continue
         prev = brain.previous_price(ad["ad_id"]) if event == "price_drop" else None
         payload = build_opportunity_payload(ad, search, event, scraped_at_iso, previous_price=prev)
-        await supa.insert_opportunity(payload)
+        await safe_insert(brain, supa, payload)
         counts[event] += 1
 
     brain.log_scrape(search.get("id", "?"), "ok")
@@ -74,6 +74,7 @@ async def run_engine(brain, supa, scrape_fn, stop_event, cycle_pause: float = 60
     while not stop_event.is_set():
         try:
             searches = dedup_searches(await supa.fetch_active_searches())
+            await flush_outbox(brain, supa)
             for s in searches:
                 if stop_event.is_set():
                     break
@@ -89,3 +90,26 @@ async def run_engine(brain, supa, scrape_fn, stop_event, cycle_pause: float = 60
             return
         if cycle_pause:
             await asyncio.sleep(cycle_pause)
+
+
+async def safe_insert(brain, supa, payload: dict) -> bool:
+    """Tente l'upsert ; en cas d'échec réseau, met en file d'attente (outbox). Retourne True si envoyé."""
+    try:
+        await supa.insert_opportunity(payload)
+        return True
+    except Exception:
+        brain.queue_outbox(payload)
+        return False
+
+
+async def flush_outbox(brain, supa) -> int:
+    """Rejoue les opportunités en attente. Retourne le nombre rejoué avec succès."""
+    sent = 0
+    for item in brain.peek_outbox(limit=200):
+        try:
+            await supa.insert_opportunity(item["payload"])
+            brain.delete_outbox(item["id"])
+            sent += 1
+        except Exception:
+            break  # toujours hors ligne : on réessaiera au prochain cycle
+    return sent
