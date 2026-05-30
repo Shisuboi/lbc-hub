@@ -1,4 +1,3 @@
-import json
 import pytest
 from aiohttp import web, ClientSession
 from engine.supa import Supa
@@ -6,7 +5,7 @@ from engine.supa import Supa
 
 @pytest.fixture
 async def mock_supabase(aiohttp_server):
-    captured = {"inserts": [], "headers": []}
+    captured = {"inserts": [], "headers": [], "insert_headers": []}
 
     async def get_searches(request):
         captured["headers"].append(dict(request.headers))
@@ -17,6 +16,7 @@ async def mock_supabase(aiohttp_server):
     async def post_opportunity(request):
         body = await request.json()
         captured["inserts"].append(body)
+        captured["insert_headers"].append(dict(request.headers))
         return web.json_response({}, status=201)
 
     app = web.Application()
@@ -46,3 +46,6 @@ async def test_insert_opportunity_posts_payload(mock_supabase):
         supa = Supa(base, "service-key", session)
         await supa.insert_opportunity({"ad_id": "42", "title": "x"})
     assert mock_supabase.captured["inserts"][-1]["ad_id"] == "42"
+    hdr = mock_supabase.captured["insert_headers"][-1]
+    assert hdr.get("Prefer") == "resolution=merge-duplicates,return=minimal"
+    assert hdr.get("apikey") == "service-key"
