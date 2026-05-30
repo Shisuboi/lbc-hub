@@ -167,3 +167,27 @@ async def test_enrich_once_malformed_triage_bumps_retry():
     assert n == 0
     item = brain.peek_pending(limit=10)[0]
     assert item["retries"] == 1  # lot reporté, retry incrémenté (pas de crash, pas de perte)
+
+
+async def test_enrich_once_unknown_search_uses_default_margins():
+    brain = Brain(":memory:")
+    supa = FakeSupa()
+    queue_ad(brain, "1", price=200.0)
+    # recherche introuvable (searches_by_id vide) → doit retomber sur les défauts de config,
+    # PAS sur 0 (sinon n'importe quelle marge positive promeut en 🔴 une fois le Pro activé).
+    router = ScriptedRouter(
+        triage_items=[{"ad_id": "1", "category": "interesting", "score": 90, "dig_deeper": True}],
+        verify={"refined_score": 90, "est_market_price": 220.0, "signals": [], "is_lot": False,
+                "explanation": "ok"},
+        verify_tier=TIER_RANKS["pro"],   # tier Pro : seule la marge doit pouvoir bloquer le 🔴
+    )
+    await enrich_once(
+        brain, supa, router,
+        settings={"urgent_score_threshold": 75,
+                  "default_min_margin_eur": 30, "default_min_margin_pct": 30},
+        searches_by_id={},   # recherche inconnue
+        image_fetch=None,
+    )
+    # marge 20 € / 10 % < défauts 30/30 → reste 🟡, JAMAIS 🔴 (preuve que les défauts s'appliquent)
+    assert supa.upserts[-1]["category"] == "interesting"
+    assert supa.upserts[-1]["est_margin_eur"] == 20.0

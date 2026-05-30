@@ -74,7 +74,12 @@ async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch
 
         # vérif des candidates
         if t["dig_deeper"] or t["score"] >= threshold:
-            search = searches_by_id.get(item["search_id"]) or {}
+            # Recherche inconnue/supprimée → on retombe sur les seuils par défaut de la
+            # config (PAS sur 0 : sinon toute marge positive promeut en 🔴 une fois Pro activé).
+            search = searches_by_id.get(item["search_id"]) or {
+                "min_margin_eur": settings.get("default_min_margin_eur", 30.0),
+                "min_margin_pct": settings.get("default_min_margin_pct", 30.0),
+            }
             try:
                 ia = await verify_one(ad, search, router, brain, urgent_score_threshold=threshold)
             except QuotaExhausted:
