@@ -39,3 +39,37 @@ def build_opportunity_payload(
         "status": "active",
         "scraped_at": scraped_at_iso,
     }
+
+
+class Supa:
+    """Client REST minimal vers PostgREST (Supabase) avec la clé service_role."""
+
+    def __init__(self, base_url: str, service_key: str, session: aiohttp.ClientSession):
+        self.base = base_url.rstrip("/")
+        self.key = service_key
+        self.session = session
+
+    def _headers(self, extra: dict | None = None) -> dict:
+        h = {
+            "apikey": self.key,
+            "Authorization": f"Bearer {self.key}",
+            "Content-Type": "application/json",
+        }
+        if extra:
+            h.update(extra)
+        return h
+
+    async def fetch_active_searches(self) -> list[dict]:
+        url = f"{self.base}/rest/v1/watchlist_searches"
+        params = {"active": "eq.true", "select": "*"}
+        async with self.session.get(url, params=params, headers=self._headers()) as resp:
+            resp.raise_for_status()
+            return await resp.json()
+
+    async def insert_opportunity(self, payload: dict) -> None:
+        """Upsert sur ad_id (idempotent même si le cerveau SQLite est perdu)."""
+        url = f"{self.base}/rest/v1/opportunities"
+        params = {"on_conflict": "ad_id"}
+        headers = self._headers({"Prefer": "resolution=merge-duplicates,return=minimal"})
+        async with self.session.post(url, params=params, json=payload, headers=headers) as resp:
+            resp.raise_for_status()
