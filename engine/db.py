@@ -2,6 +2,7 @@
 import sqlite3
 import time
 import json
+from datetime import datetime, timezone, timedelta
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS seen_ads (
@@ -50,7 +51,26 @@ CREATE TABLE IF NOT EXISTS pending_enrichment (
     retries INTEGER DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS pending_ad_idx ON pending_enrichment(ad_id);
+
+CREATE TABLE IF NOT EXISTS llm_usage (
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    day TEXT NOT NULL,
+    request_count INTEGER DEFAULT 0,
+    token_count INTEGER DEFAULT 0,
+    PRIMARY KEY (provider, model, day)
+);
 """
+
+# Approximation du reset minuit Pacifique (offset fixe, zéro dépendance tzdata).
+_PACIFIC_OFFSET = timedelta(hours=-8)
+
+
+def quota_day(ts: int | None = None) -> str:
+    """Jour-quota au format 'YYYY-MM-DD' (~minuit Pacifique, offset fixe -8h)."""
+    t = ts if ts is not None else time.time()
+    dt = datetime.fromtimestamp(t, tz=timezone.utc) + _PACIFIC_OFFSET
+    return dt.strftime("%Y-%m-%d")
 
 
 class Brain:
@@ -171,3 +191,20 @@ class Brain:
             "UPDATE pending_enrichment SET retries = retries + 1 WHERE id = ?", (pending_id,)
         )
         self.conn.commit()
+
+    def inc_usage(self, provider: str, model: str, day: str, tokens: int = 0) -> None:
+        self.conn.execute(
+            "INSERT INTO llm_usage (provider, model, day, request_count, token_count) "
+            "VALUES (?, ?, ?, 1, ?) "
+            "ON CONFLICT(provider, model, day) DO UPDATE SET "
+            "request_count = request_count + 1, token_count = token_count + excluded.token_count",
+            (provider, model, day, tokens),
+        )
+        self.conn.commit()
+
+    def usage_count(self, provider: str, model: str, day: str) -> int:
+        row = self.conn.execute(
+            "SELECT request_count FROM llm_usage WHERE provider = ? AND model = ? AND day = ?",
+            (provider, model, day),
+        ).fetchone()
+        return row["request_count"] if row else 0
