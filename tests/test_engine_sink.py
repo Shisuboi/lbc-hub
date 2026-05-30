@@ -1,11 +1,9 @@
 """Tests pour LocalSink (destination locale du scrape)."""
 
-import pytest
 from engine.db import Brain
 from engine.sink import LocalSink
 
 
-@pytest.mark.asyncio
 async def test_sink_queues_payload_into_pending():
     """LocalSink enqueue les payloads bruts dans la file d'enrichissement."""
     brain = Brain(":memory:")
@@ -18,7 +16,6 @@ async def test_sink_queues_payload_into_pending():
     assert items[0]["payload"]["title"] == "PS5"
 
 
-@pytest.mark.asyncio
 async def test_sink_handles_missing_search_id():
     """LocalSink tolère les payloads sans source_search_id."""
     brain = Brain(":memory:")
