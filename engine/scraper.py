@@ -2,10 +2,11 @@
 
 On ne lit que ce que la liste expose déjà : id, titre, prix, ville, miniature, URL.
 """
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 from engine.parse import extract_ad_id, clean_price
 
 _BASE = "https://www.leboncoin.fr"
+_ALLOWED_HOSTS = {"www.leboncoin.fr", "leboncoin.fr"}
 _CONTAINER_SEL = 'a[data-qa-id="aditem_container"], a[href*="/ad/"]'
 
 
@@ -20,6 +21,8 @@ async def extract_ads_from_results(page) -> list[dict]:
         if not href or "/ad/" not in href:
             continue
         url = urljoin(_BASE, href)
+        if urlparse(url).netloc.lower() not in _ALLOWED_HOSTS:
+            continue
         ad_id = extract_ad_id(url)
         if not ad_id or ad_id in seen_ids:
             continue
