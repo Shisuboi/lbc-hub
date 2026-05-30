@@ -1,13 +1,24 @@
 import asyncio
+import argparse
 import json
 import logging
 import re
 import os
 import sys
 import unicodedata
+import aiohttp
 from aiohttp import web
 from urllib.parse import urljoin, urlparse, parse_qs, urlencode, urlunparse
 from playwright.async_api import async_playwright
+from engine.config import load_config
+from engine.db import Brain
+from engine.supa import Supa
+from engine.scheduler import run_engine
+from engine.bootstrap import make_scrape_fn
+from engine.scraper import extract_ads_from_results, RESULTS_CONTAINER_SELECTOR
+
+# Verrou global : scrape manuel et scrape auto ne naviguent jamais en même temps.
+scrape_lock = asyncio.Lock()
 
 # Force UTF-8 on stdout/stderr to support emojis on Windows terminals
 try:
@@ -33,6 +44,9 @@ class ScraperJobState:
         self.captcha_event = asyncio.Event()
         self.stop_event = asyncio.Event()
         self.clients = set()  # Active SSE client queues
+        self.pw = None
+        self.browser = None
+        self.context = None
 
     def log(self, message: str):
         print(message)
@@ -51,6 +65,25 @@ class ScraperJobState:
                 pass
 
 job_state = ScraperJobState()
+
+async def ensure_browser():
+    """Réutilise le browser existant s'il est encore ouvert, sinon en lance un nouveau."""
+    if job_state.browser and job_state.browser.is_connected():
+        return
+    if job_state.pw is None:
+        job_state.pw = await async_playwright().start()
+    if job_state.browser:
+        job_state.log("🔄 Navigateur fermé, relancement...")
+    else:
+        job_state.log("🌐 Lancement du navigateur Chromium (mode non-headless)...")
+    job_state.browser = await job_state.pw.chromium.launch(
+        headless=False,
+        args=['--disable-blink-features=AutomationControlled']
+    )
+    job_state.context = await job_state.browser.new_context(
+        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        viewport={'width': 1280, 'height': 800}
+    )
 
 # --- 1. PLAYWRIGHT SCRAPING UTILS ---
 
@@ -188,95 +221,92 @@ async def run_pipeline_task(base_url: str, max_pages: int, delay: int = 1500):
         job_state.set_status("scraping")
         job_state.log("🚀 Démarrage du pipeline de scraping Leboncoin...")
         
-        async with async_playwright() as p:
-            job_state.log("🌐 Lancement du navigateur Chromium (mode non-headless)...")
-            browser = await p.chromium.launch(
-                headless=False, 
-                args=['--disable-blink-features=AutomationControlled']
-            )
-            context = await browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                viewport={'width': 1280, 'height': 800}
-            )
-            page = await context.new_page()
+        # Verrou partagé : le scrape manuel et le moteur auto ne naviguent jamais
+        # en même temps sur le seul Chromium (spec §4).
+        async with scrape_lock:
+            await ensure_browser()
+            page = await job_state.context.new_page()
 
-            for page_num in range(1, max_pages + 1):
-                if job_state.stop_event.is_set():
-                    break
+            try:
 
-                parsed = urlparse(base_url)
-                query = parse_qs(parsed.query)
-                query['sort'] = ['time']
-
-                if page_num > 1:
-                    query['page'] = [str(page_num)]
-
-                new_query = urlencode(query, doseq=True)
-                url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
-
-                job_state.log(f"📄 Scraping de la page de recherche {page_num}/{max_pages}...")
-                await page.goto(url, wait_until="domcontentloaded")
-
-                # Datadome check loop
-                captcha_detected = False
-                while True:
-                    if job_state.stop_event.is_set():
-                        raise asyncio.CancelledError()
-
-                    try:
-                        # Try to detect listing items
-                        await page.wait_for_selector('a[data-qa-id="aditem_container"], a[href*="/ad/"]', timeout=3000)
-                        break  # Found! Break out of captcha wait
-                    except Exception:
-                        if not captcha_detected:
-                            captcha_detected = True
-                            job_state.set_status("captcha_required")
-                            job_state.log("⚠️ [BLOCAGE DATADOME DÉTECTÉ OU PAGE LENTE]")
-                            job_state.log("👉 Veuillez résoudre le Captcha dans la fenêtre Chromium ouverte.")
-                            job_state.log("⏳ Une fois résolu, vous pouvez cliquer sur le bouton 'J'ai résolu le Captcha' dans l'interface ou attendre la détection automatique.")
-
-                        try:
-                            # Wait for click on resume OR timeout and loop check again
-                            await asyncio.wait_for(job_state.captcha_event.wait(), timeout=2.0)
-                            job_state.captcha_event.clear()
-                            captcha_detected = False  # Reset flag to re-evaluate selector
-                        except asyncio.TimeoutError:
-                            pass
-
-                if job_state.status == "captcha_required":
-                    job_state.set_status("scraping")
-                    job_state.log("✅ Captcha passé ou page chargée avec succès !")
-
-                ad_links_elements = await page.query_selector_all('a[data-qa-id="aditem_container"], a[href*="/ad/"]')
-                ad_urls = set()
-                for el in ad_links_elements:
-                    href = await el.get_attribute('href')
-                    if href and '/ad/' in href:
-                        full_url = urljoin("https://www.leboncoin.fr", href)
-                        ad_urls.add(full_url)
-
-                if not ad_urls:
-                    job_state.log("⚠️ Aucune annonce trouvée sur cette page de recherche.")
-                    html_content = await page.content()
-                    with open("debug_lbc.html", "w", encoding="utf-8") as f:
-                        f.write(html_content)
-                    job_state.log("HTML de debug enregistré dans 'debug_lbc.html'. Fin de la recherche.")
-                    break
-
-                ad_urls = list(ad_urls)
-                job_state.log(f"🔎 {len(ad_urls)} annonces trouvées sur la page {page_num}.")
-
-                for idx, ad_url in enumerate(ad_urls):
+                for page_num in range(1, max_pages + 1):
                     if job_state.stop_event.is_set():
                         break
-                    job_state.log(f"  -> [{idx+1}/{len(ad_urls)}] Scraping des détails : {ad_url}")
-                    details = await get_ad_details(page, ad_url)
-                    if details:
-                        scraped_ads.append(details)
-                    await page.wait_for_timeout(delay)
 
-            await browser.close()
-            
+                    parsed = urlparse(base_url)
+                    query = parse_qs(parsed.query)
+                    query['sort'] = ['time']
+
+                    if page_num > 1:
+                        query['page'] = [str(page_num)]
+
+                    new_query = urlencode(query, doseq=True)
+                    url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
+
+                    job_state.log(f"📄 Scraping de la page de recherche {page_num}/{max_pages}...")
+                    await page.goto(url, wait_until="domcontentloaded")
+
+                    # Datadome check loop
+                    captcha_detected = False
+                    while True:
+                        if job_state.stop_event.is_set():
+                            raise asyncio.CancelledError()
+
+                        try:
+                            # Try to detect listing items
+                            await page.wait_for_selector('a[data-qa-id="aditem_container"], a[href*="/ad/"]', timeout=3000)
+                            break  # Found! Break out of captcha wait
+                        except Exception:
+                            if not captcha_detected:
+                                captcha_detected = True
+                                job_state.set_status("captcha_required")
+                                job_state.log("⚠️ [BLOCAGE DATADOME DÉTECTÉ OU PAGE LENTE]")
+                                job_state.log("👉 Veuillez résoudre le Captcha dans la fenêtre Chromium ouverte.")
+                                job_state.log("⏳ Une fois résolu, vous pouvez cliquer sur le bouton 'J'ai résolu le Captcha' dans l'interface ou attendre la détection automatique.")
+
+                            try:
+                                # Wait for click on resume OR timeout and loop check again
+                                await asyncio.wait_for(job_state.captcha_event.wait(), timeout=2.0)
+                                job_state.captcha_event.clear()
+                                captcha_detected = False  # Reset flag to re-evaluate selector
+                            except asyncio.TimeoutError:
+                                pass
+
+                    if job_state.status == "captcha_required":
+                        job_state.set_status("scraping")
+                        job_state.log("✅ Captcha passé ou page chargée avec succès !")
+
+                    ad_links_elements = await page.query_selector_all('a[data-qa-id="aditem_container"], a[href*="/ad/"]')
+                    ad_urls = set()
+                    for el in ad_links_elements:
+                        href = await el.get_attribute('href')
+                        if href and '/ad/' in href:
+                            full_url = urljoin("https://www.leboncoin.fr", href)
+                            ad_urls.add(full_url)
+
+                    if not ad_urls:
+                        job_state.log("⚠️ Aucune annonce trouvée sur cette page de recherche.")
+                        html_content = await page.content()
+                        with open("debug_lbc.html", "w", encoding="utf-8") as f:
+                            f.write(html_content)
+                        job_state.log("HTML de debug enregistré dans 'debug_lbc.html'. Fin de la recherche.")
+                        break
+
+                    ad_urls = list(ad_urls)
+                    job_state.log(f"🔎 {len(ad_urls)} annonces trouvées sur la page {page_num}.")
+
+                    for idx, ad_url in enumerate(ad_urls):
+                        if job_state.stop_event.is_set():
+                            break
+                        job_state.log(f"  -> [{idx+1}/{len(ad_urls)}] Scraping des détails : {ad_url}")
+                        details = await get_ad_details(page, ad_url)
+                        if details:
+                            scraped_ads.append(details)
+                        await page.wait_for_timeout(delay)
+
+            finally:
+                await page.close()
+
     except asyncio.CancelledError:
         job_state.log("🛑 Job annulé par l'utilisateur.")
         job_state.set_status("idle")
@@ -494,9 +524,57 @@ async def ping_handler(request):
 
 # --- SERVER BOOT ---
 
-def create_app() -> web.Application:
+async def on_shutdown(app):
+    if job_state.browser:
+        await job_state.browser.close()
+    if job_state.pw:
+        await job_state.pw.stop()
+
+async def start_autonomous_engine(app):
+    """Démarre la boucle autonome en tâche de fond (appelée via app.on_startup)."""
+    cfg = load_config()
+    brain = Brain("lbc_brain.sqlite3")
+    session = aiohttp.ClientSession()
+    supa = Supa(cfg["SUPABASE_URL"], cfg["SUPABASE_SERVICE_KEY"], session)
+
+    async def get_context():
+        await ensure_browser()
+        return job_state.context
+
+    scrape_fn = make_scrape_fn(
+        get_context, extract_ads_from_results, scrape_lock,
+        ready_selector=RESULTS_CONTAINER_SELECTOR,
+    )
+    stop_event = asyncio.Event()
+
+    app["engine_stop"] = stop_event
+    app["engine_session"] = session
+    app["engine_brain"] = brain
+    app["engine_task"] = asyncio.create_task(
+        run_engine(brain, supa, scrape_fn, stop_event, cycle_pause=60.0)
+    )
+    print("🤖 Moteur autonome démarré (boucle de scrape 24/7).")
+
+
+async def stop_autonomous_engine(app):
+    if "engine_stop" in app:
+        app["engine_stop"].set()
+    if "engine_task" in app:
+        app["engine_task"].cancel()
+        try:
+            await app["engine_task"]
+        except (asyncio.CancelledError, Exception):
+            pass
+    if "engine_session" in app:
+        await app["engine_session"].close()
+    if "engine_brain" in app:
+        app["engine_brain"].close()
+
+
+def create_app(auto: bool = False) -> web.Application:
     """Construit l'app aiohttp. Utilisée par main() et par les tests pytest."""
     app = web.Application(middlewares=[cors_middleware])
+    app.on_cleanup.append(on_shutdown)
     app.router.add_get('/', index_handler)
     app.router.add_get('/index.html', index_handler)
     app.router.add_get('/style.css', style_handler)
@@ -519,10 +597,17 @@ def create_app() -> web.Application:
     app.router.add_route('OPTIONS', '/{path:.*}', options_handler)
     # SPA fallback : toute route GET non matchée renvoie index.html (le router JS prend le relais)
     app.router.add_get('/{path:.*}', index_handler)
+    if auto:
+        app.on_startup.append(start_autonomous_engine)
+        app.on_cleanup.append(stop_autonomous_engine)
     return app
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Serveur LBC scraper + moteur autonome")
+    parser.add_argument("--auto", action="store_true", help="Démarre le moteur autonome 24/7")
+    args = parser.parse_args()
+
     # Supprime les messages de shutdown inoffensifs sur Windows Python 3.12+
     # (race condition aiohttp/asyncio ProactorEventLoop au moment du CTRL+C)
     if sys.platform == 'win32':
@@ -538,9 +623,11 @@ def main():
                 return 'invalid state' not in record.getMessage().lower()
         logging.getLogger('aiohttp.server').addFilter(_IgnoreInvalidState())
 
-    app = create_app()
+    app = create_app(auto=args.auto)
     print("✨ Le serveur Leboncoin Scraper & IA est lancé !")
     print("👉 Ouvrez votre navigateur sur : http://localhost:8080")
+    if args.auto:
+        print("🤖 Mode autonome ACTIF.")
     web.run_app(app, host='localhost', port=8080)
 
 if __name__ == "__main__":

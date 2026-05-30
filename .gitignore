@@ -47,3 +47,7 @@ node_modules/
 .env
 .env.local
 *.secret
+
+# Engine SQLite databases (local only — never committed)
+engine/*.sqlite3
+lbc_brain.sqlite3
