@@ -61,3 +61,17 @@ def make_scrape_fn(
                 print("🔎 [AUTO] Fermeture de l'onglet.")
                 await page.close()
     return scrape_fn
+
+
+async def build_searches_lookup(supa, defaults: dict) -> dict:
+    """Construit {search_id: {min_margin_eur, min_margin_pct}} avec défauts si null."""
+    searches = await supa.fetch_active_searches()
+    out = {}
+    for s in searches:
+        out[s["id"]] = {
+            "min_margin_eur": s.get("min_margin_eur") if s.get("min_margin_eur") is not None
+            else defaults["min_margin_eur"],
+            "min_margin_pct": s.get("min_margin_pct") if s.get("min_margin_pct") is not None
+            else defaults["min_margin_pct"],
+        }
+    return out
