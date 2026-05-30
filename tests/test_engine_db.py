@@ -63,6 +63,10 @@ def test_record_market_obs_and_count():
         "select prix from market_observations where categorie='consoles' order by observed_at"
     ).fetchall()
     assert [r["prix"] for r in rows] == [100.0, 120.0]
+    villes = b.conn.execute(
+        "select ville from market_observations where categorie='consoles' order by observed_at"
+    ).fetchall()
+    assert [r["ville"] for r in villes] == ["Bordeaux", "Lyon"]
 
 
 def test_log_scrape_writes_row():
@@ -71,6 +75,8 @@ def test_log_scrape_writes_row():
     row = b.conn.execute("select * from scrape_log").fetchone()
     assert row["search_id"] == "search-1"
     assert row["status"] == "ok"
+    assert row["last_run_at"] == 1000
+    assert row["blocked_count"] == 0
 
 
 def test_outbox_queue_and_pop_fifo():
