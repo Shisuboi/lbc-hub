@@ -68,16 +68,21 @@ alter table public.opportunities enable row level security;
 
 -- watchlist : tout membre authentifié lit (recherches partagées au groupe) ;
 -- chacun n'écrit/édite que les siennes.
+drop policy if exists "watchlist_select_all" on public.watchlist_searches;
 create policy "watchlist_select_all" on public.watchlist_searches
     for select using (auth.role() = 'authenticated');
+drop policy if exists "watchlist_insert_own" on public.watchlist_searches;
 create policy "watchlist_insert_own" on public.watchlist_searches
     for insert with check (auth.uid() = owner_id);
+drop policy if exists "watchlist_update_own" on public.watchlist_searches;
 create policy "watchlist_update_own" on public.watchlist_searches
     for update using (auth.uid() = owner_id);
+drop policy if exists "watchlist_delete_own" on public.watchlist_searches;
 create policy "watchlist_delete_own" on public.watchlist_searches
     for delete using (auth.uid() = owner_id);
 
 -- opportunities : lecture par tout membre authentifié ; AUCUNE écriture via anon/JWT
 -- (seul le moteur écrit, et il passe par service_role qui bypass RLS).
+drop policy if exists "opp_select_all" on public.opportunities;
 create policy "opp_select_all" on public.opportunities
     for select using (auth.role() = 'authenticated');
