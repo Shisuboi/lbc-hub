@@ -19,7 +19,7 @@ TRIAGE_SCHEMA = {
                     "reason": {"type": "string"},
                     "dig_deeper": {"type": "boolean"},
                 },
-                "required": ["ad_id", "category", "score", "dig_deeper"],
+                "required": ["ad_id", "category", "score", "reason", "dig_deeper"],
             },
         }
     },
