@@ -23,6 +23,28 @@ Outil local de scraping Leboncoin → transformation en **plateforme communautai
 [Browser] → localhost:8080 (server.py, optionnel, pour scraping)
 server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK JS + JWT
 ```
+> ⚠️ Exception depuis Phase A du pipeline de revente : voir « Moteur autonome » ci-dessous.
+
+## Moteur autonome (pipeline de revente — Phase A livrée)
+- `server.py --auto` démarre une boucle de fond qui scrape les `watchlist_searches`
+  actives, déduplique via SQLite local (`lbc_brain.sqlite3`), détecte les baisses de
+  prix, et **écrit des opportunités brutes dans Supabase via la clé `service_role`**.
+- ⚠️ **L'invariant « server.py ne touche JAMAIS Supabase » est volontairement levé**
+  pour le mode `--auto` (et UNIQUEMENT lui). Le scrape manuel et le frontend restent
+  inchangés (anon key + JWT + RLS). Sans `--auto`, l'API HTTP est strictement identique.
+- Package `engine/` : `config` (.env), `parse` (extract_ad_id/clean_price), `db`
+  (Brain SQLite : seen_ads, price_observations, market_observations, scrape_log, outbox),
+  `prefilter` (règles non-IA), `supa` (REST PostgREST + build_opportunity_payload),
+  `scheduler` (run_engine round-robin résilient + outbox flush), `scraper`
+  (extraction page de résultats Playwright), `bootstrap` (browser partagé + verrou).
+- Un seul Chromium partagé entre scrape manuel et auto (`scrape_lock` dans server.py).
+- Secrets dans `.env` (jamais committé — déjà dans `.gitignore`).
+- Migration : `supabase/migrations/2026-05-29-pipeline-foundation.sql`
+  (tables `opportunities` + `watchlist_searches` + RLS, à appliquer à la main).
+- Déploiement 24/7 : voir `docs/DEPLOY-agent-windows.md` (`start-agent.bat` + Planificateur).
+- Phase A = SANS IA (opportunités brutes, champs IA = null). Cascade IA = Phase B.
+- Spec : `docs/superpowers/specs/2026-05-29-pipeline-revente-opportunites-design.md`.
+- Plan : `docs/superpowers/plans/2026-05-29-pipeline-phase-a-fondation-moteur.md`.
 
 ## Principe CORS critique
 - `server.py` doit renvoyer `Access-Control-Allow-Private-Network: true` sur toutes ses réponses
