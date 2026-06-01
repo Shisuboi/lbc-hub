@@ -16,6 +16,15 @@ class FakeSupa:
         self.inserted.append(payload)
 
 
+class FakeSink:
+    """Mime engine.sink.LocalSink : SEULEMENT insert_opportunity, pas fetch_active_searches."""
+    def __init__(self):
+        self.inserted = []
+
+    async def insert_opportunity(self, payload):
+        self.inserted.append(payload)
+
+
 async def test_process_search_inserts_only_new_and_filtered():
     brain = Brain(":memory:")
     supa = FakeSupa([])
@@ -76,6 +85,27 @@ async def test_run_engine_stops_after_max_cycles():
         return [{"ad_id": "1", "title": "PS5", "price": 200.0, "url": "u1", "city": "Paris", "image_url": None}]
 
     stop = asyncio.Event()
-    await run_engine(brain, supa, scrape_fn, stop, cycle_pause=0, max_cycles=2)
+    # Phase A : supa sert à la fois de lecteur et de destination d'écriture.
+    await run_engine(brain, supa, supa, scrape_fn, stop, cycle_pause=0, max_cycles=2)
     # 1 insert au cycle 1, rien au cycle 2 (dédup)
     assert len(supa.inserted) == 1
+
+
+async def test_run_engine_reads_from_supa_writes_to_sink():
+    """Régression Phase B : les recherches viennent de `supa`, les écritures vont au `sink`.
+
+    Le sink n'a PAS fetch_active_searches (comme le vrai LocalSink) : si run_engine
+    confond les deux rôles, il plante avec 'object has no attribute fetch_active_searches'.
+    """
+    brain = Brain(":memory:")
+    supa = FakeSupa([{"id": "s1", "source_url": "u", "platform": "leboncoin"}])
+    sink = FakeSink()
+
+    async def scrape_fn(url):
+        return [{"ad_id": "1", "title": "PS5", "price": 200.0, "url": "u1", "city": "Paris", "image_url": None}]
+
+    stop = asyncio.Event()
+    await run_engine(brain, supa, sink, scrape_fn, stop, cycle_pause=0, max_cycles=1)
+    assert len(sink.inserted) == 1            # écriture → file locale (sink)
+    assert sink.inserted[0]["ad_id"] == "1"
+    assert supa.inserted == []                # supa reste en lecture seule (+ outbox)

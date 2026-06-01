@@ -556,8 +556,9 @@ async def start_autonomous_engine(app):
     app["engine_session"] = session
     app["engine_brain"] = brain
 
-    # Le scrape écrit dans le SINK (file locale) au lieu de Supabase direct.
-    tasks = [asyncio.create_task(run_engine(brain, sink, scrape_fn, stop_event, cycle_pause=60.0))]
+    # Le scrape LIT les recherches via `supa` mais ÉCRIT dans le SINK (file locale)
+    # au lieu de Supabase direct (Phase B : seules les opportunités enrichies sont publiées).
+    tasks = [asyncio.create_task(run_engine(brain, supa, sink, scrape_fn, stop_event, cycle_pause=60.0))]
 
     if ai["api_key"]:
         provider = GeminiClient(ai["api_key"], session)

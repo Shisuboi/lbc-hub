@@ -40,10 +40,12 @@ def dedup_searches(searches: list[dict]) -> list[dict]:
     return out
 
 
-async def process_search(scrape_fn, brain, supa, search: dict) -> dict:
-    """Scrape une recherche, déduplique, écrit les opportunités neuves/baissées.
+async def process_search(scrape_fn, brain, sink, search: dict) -> dict:
+    """Scrape une recherche, déduplique, écrit les opportunités neuves/baissées dans `sink`.
 
     scrape_fn: coroutine(url) -> list[ad]   (injectée → testable sans navigateur)
+    sink: destination d'écriture (Phase A = client Supa direct ; Phase B = LocalSink).
+          Doit exposer `insert_opportunity(payload)`.
     """
     counts = {"new": 0, "price_drop": 0, "seen": 0, "filtered": 0}
     ads = await scrape_fn(search.get("source_url", ""))
@@ -61,15 +63,20 @@ async def process_search(scrape_fn, brain, supa, search: dict) -> dict:
             continue
         prev = brain.previous_price(ad["ad_id"]) if event == "price_drop" else None
         payload = build_opportunity_payload(ad, search, event, scraped_at_iso, previous_price=prev)
-        await safe_insert(brain, supa, payload)
+        await safe_insert(brain, sink, payload)
         counts[event] += 1
 
     brain.log_scrape(search.get("id", "?"), "ok")
     return counts
 
 
-async def run_engine(brain, supa, scrape_fn, stop_event, cycle_pause: float = 60.0, max_cycles=None) -> None:
-    """Boucle round-robin. `max_cycles` (tests) limite le nombre de tours ; None = infini."""
+async def run_engine(brain, supa, sink, scrape_fn, stop_event, cycle_pause: float = 60.0, max_cycles=None) -> None:
+    """Boucle round-robin.
+
+    `supa` : source des recherches actives + flush de l'outbox (vrai client Supabase).
+    `sink` : destination d'écriture du scrape (Phase A = `supa` lui-même ; Phase B = LocalSink).
+    `max_cycles` (tests) limite le nombre de tours ; None = infini.
+    """
     cycle = 0
     while not stop_event.is_set():
         try:
@@ -79,7 +86,7 @@ async def run_engine(brain, supa, scrape_fn, stop_event, cycle_pause: float = 60
                 if stop_event.is_set():
                     break
                 try:
-                    await process_search(scrape_fn, brain, supa, s)
+                    await process_search(scrape_fn, brain, sink, s)
                 except Exception as exc:  # un échec sur une recherche n'arrête pas le moteur
                     brain.log_scrape(s.get("id", "?"), f"error: {exc}")
         except Exception as exc:
