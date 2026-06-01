@@ -26,6 +26,12 @@ export async function renderHeader() {
         return;
     }
 
+    const currentPath = location.pathname.replace('/lbc-hub', '') || '/';
+    function navLink(href, emoji, label) {
+        const active = currentPath === href || currentPath.startsWith(href + '/');
+        return `<a href="${href}" data-link class="nav-link${active ? ' is-active' : ''}">${emoji} ${label}</a>`;
+    }
+
     const initial = (profile?.username || '?')[0].toUpperCase();
     const color = profile?.avatar_color || '#888';
     el.innerHTML = `
@@ -38,10 +44,10 @@ export async function renderHeader() {
             </a>
         </div>
         <nav class="header-nav">
-            <a href="/hub" data-link class="nav-link">🏠 Hub</a>
-            <a href="/dashboard" data-link class="nav-link">📊 Dashboard</a>
-            <a href="/scraper" data-link class="nav-link">🔍 Scraper</a>
-            ${profile?.role === 'admin' ? '<a href="/admin" data-link class="nav-link">🛠️ Admin</a>' : ''}
+            ${navLink('/hub',       '🏠', 'Hub')}
+            ${navLink('/dashboard', '📊', 'Dashboard')}
+            ${navLink('/scraper',   '🔍', 'Scraper')}
+            ${profile?.role === 'admin' ? navLink('/admin', '🛠️', 'Admin') : ''}
             <div class="user-menu" id="userMenu">
                 <button class="user-menu-trigger" id="userMenuBtn" type="button">
                     <span class="user-avatar" style="background:${color}">${initial}</span>

@@ -2593,6 +2593,110 @@ body::after {
 html { scroll-behavior: smooth; }
 
 /* ============================================================
+   ANTI-VIBECODING v2.0 — corrections ciblées (redesign-existing-projects)
+   Ces overrides s'appliquent après toutes les règles précédentes.
+   ============================================================ */
+
+/* 1. btn-primary : gradient bleu→violet remplacé par bleu solide.
+      Le gradient bleu-violet est le fingerprint n°1 du "vibecoding" IA.
+      Texte sombre sur fond bleu clair = meilleur contraste WCAG. */
+.btn-primary {
+    background: var(--accent-blue);
+    color: #060f1e;
+    box-shadow: 0 2px 16px -4px rgba(56, 189, 248, 0.28);
+    font-weight: 700;
+}
+.btn-primary:hover:not(:disabled) {
+    background: #5acffa;
+    color: #060f1e;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px -4px rgba(56, 189, 248, 0.40);
+}
+.btn-primary:active:not(:disabled) {
+    transform: translateY(0) scale(0.99);
+}
+
+/* 2. Barres de progression : même correction */
+.progress-bar {
+    background: var(--accent-blue);
+}
+
+/* 3. step-badge : cercle gradient → badge outlined sobre */
+.step-badge {
+    background: rgba(56, 189, 248, 0.10);
+    border: 1.5px solid rgba(56, 189, 248, 0.28);
+    color: var(--accent-blue);
+    font-weight: 700;
+}
+
+/* 4. hub-chip actif : gradient → teinte bleue simple */
+.hub-chip.is-active {
+    background: rgba(56, 189, 248, 0.11);
+    border-color: rgba(56, 189, 248, 0.45);
+    color: var(--accent-blue);
+    font-weight: 600;
+}
+
+/* 5. Glows de fond : moins présents, plus subtils */
+.bg-glow {
+    opacity: 0.06;
+    filter: blur(140px);
+}
+
+/* 6. claude-step : enlever le gradient, fond uni discret */
+.claude-step {
+    background: rgba(168, 85, 247, 0.05);
+}
+
+/* 7. Page active dans la nav */
+.nav-link.is-active {
+    background: rgba(56, 189, 248, 0.10);
+    color: var(--accent-blue);
+    font-weight: 600;
+}
+
+/* 8. input[type="date"] : même style que les autres inputs.
+      Absent du sélecteur global, il héritait du style navigateur. */
+input[type="date"] {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.65rem 0.85rem;
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    transition: var(--transition-smooth);
+    outline: none;
+    color-scheme: dark;
+    cursor: pointer;
+}
+input[type="date"]:focus {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+    background: rgba(0, 0, 0, 0.4);
+}
+/* Icône calendrier navigateur : adaptée au thème sombre */
+input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.7) opacity(0.6);
+    cursor: pointer;
+    padding-left: 4px;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    filter: invert(0.9) opacity(0.9);
+}
+
+/* 9. Date dans la table dashboard : format plus lisible + léger repère visuel */
+.dash-col-date {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    letter-spacing: 0.01em;
+}
+
+/* 10. Correction v1.9 : les box-shadow sur btn-primary étaient pour l'ancienne version gradient */
+/* (remplacé par les règles ci-dessus) */
+
+/* ============================================================
    DASHBOARD FINANCIER (/dashboard) — v1.9.0
    Langage visuel préservé (dark glassmorphism), qualité Efferd/shadcn
    atteinte en CSS pur (cf. plan D-DASH-01). Mode preserve.

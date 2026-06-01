@@ -32,8 +32,8 @@ const eur = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR',
 const eur2 = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 function fmtDate(d) {
     if (!d) return '';
-    const [y, m, day] = String(d).split('-');
-    return `${day}/${m}/${y}`;
+    const date = new Date(d + 'T00:00:00');
+    return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 function escapeHtml(s) {
     return String(s ?? '').replace(/[&<>"']/g, c => (
