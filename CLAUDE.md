@@ -230,9 +230,11 @@ Dans `supabase/migrations/` :
 1. `2026-05-27-favorites.sql` — table `favorites` + RLS
 2. `2026-05-27-listings-expired.sql` — colonne `listings.expired_at` + UPDATE RLS
 3. `2026-05-28-self-onboarding.sql` — RPC `create_self_profile` (Option B, v1.8.0)
+4. `2026-06-01-transactions.sql` — table `transactions` + RLS (dashboard financier v1.9.0) — ✅ APPLIQUÉE le 01/06/2026
 
 Sans la #1/#2 : les boutons ⭐ et 🚫 affichent l'UI mais ne persistent rien (try/catch silencieux).
 Sans la #3 : `/onboarding` plante quand l'invité valide son pseudo (RPC absent).
+Sans la #4 : `/dashboard` affiche `❌ Chargement des transactions impossible` (table absente).
 
 ### Architecture frontend
 - `js/main.js` — entrypoint SPA, routes lazy-load, onAuthChange registered APRÈS premier renderHeader (sinon SDK deadlock)
