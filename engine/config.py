@@ -53,6 +53,10 @@ def ai_settings(cfg: dict) -> dict:
         "pro_model": cfg.get("GEMINI_PRO_MODEL") or "gemini-3.1-pro-preview",
         "photo_model": cfg.get("GEMINI_PHOTO_MODEL") or "gemini-3.1-flash-lite",
         "pro_enabled": _to_bool(cfg.get("GEMINI_PRO_ENABLED")) and bool(cfg.get("GEMINI_API_KEY")),
+        # Plafond DUR d'appels au modèle Pro (payant) par jour. Défaut conservateur = 50.
+        # Au-delà, le routeur retombe sur le modèle gratuit (plafond 🟡, pas de surcoût).
+        # Mettre 0 = pas de plafond côté moteur (déconseillé : compter alors sur le quota Cloud).
+        "pro_daily_cap": int(_to_float(cfg.get("GEMINI_PRO_DAILY_CAP"), 50)),
         "min_tier_for_urgent": cfg.get("MIN_TIER_FOR_URGENT") or "pro",
         "urgent_score_threshold": _to_float(cfg.get("URGENT_SCORE_THRESHOLD"), 75.0),
         "default_min_margin_eur": _to_float(cfg.get("DEFAULT_MIN_MARGIN_EUR"), 30.0),

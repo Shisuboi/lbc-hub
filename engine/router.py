@@ -34,6 +34,11 @@ class LLMRouter:
         self.settings = settings
         self.brain = brain
         self.caps = dict(_DEFAULT_CAPS)
+        # Plafond dur d'appels au Pro payant/jour (sécurité coût). 0/None = pas de plafond.
+        pro_cap = settings.get("pro_daily_cap")
+        pro_model = settings.get("pro_model")
+        if pro_cap and pro_model:
+            self.caps[pro_model] = pro_cap
         self.min_urgent_rank = TIER_RANKS.get(settings.get("min_tier_for_urgent", "pro"), 3)
 
     def _candidates(self, stage: str) -> list[str]:
