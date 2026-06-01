@@ -39,6 +39,7 @@ export async function renderHeader() {
         </div>
         <nav class="header-nav">
             <a href="/hub" data-link class="nav-link">🏠 Hub</a>
+            <a href="/dashboard" data-link class="nav-link">📊 Dashboard</a>
             <a href="/scraper" data-link class="nav-link">🔍 Scraper</a>
             ${profile?.role === 'admin' ? '<a href="/admin" data-link class="nav-link">🛠️ Admin</a>' : ''}
             <div class="user-menu" id="userMenu">

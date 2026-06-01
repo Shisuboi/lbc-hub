@@ -2591,3 +2591,295 @@ body::after {
 
 /* --- Défilement doux (ancres) ; neutralisé par prefers-reduced-motion --- */
 html { scroll-behavior: smooth; }
+
+/* ============================================================
+   DASHBOARD FINANCIER (/dashboard) — v1.9.0
+   Langage visuel préservé (dark glassmorphism), qualité Efferd/shadcn
+   atteinte en CSS pur (cf. plan D-DASH-01). Mode preserve.
+   ============================================================ */
+
+.dash-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 8px 24px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    animation: feedEnter 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+/* --- En-tête --- */
+.dash-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.dash-title {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 1.7rem;
+    letter-spacing: -0.5px;
+    text-wrap: balance;
+}
+.dash-subtitle {
+    margin: 4px 0 0;
+    color: var(--text-secondary);
+    font-size: 0.92rem;
+}
+.dash-add-btn { width: auto; white-space: nowrap; }
+
+/* --- KPIs --- */
+.dash-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+.dash-kpi {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+}
+/* Liseré d'accent à gauche, discret (pas de halo néon — skill §9.A) */
+.dash-kpi::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--kpi-accent, var(--accent-blue));
+    opacity: 0.8;
+}
+.dash-kpi--accent-blue   { --kpi-accent: var(--accent-blue); }
+.dash-kpi--accent-green  { --kpi-accent: var(--accent-green); }
+.dash-kpi--accent-purple { --kpi-accent: var(--accent-purple); }
+.dash-kpi--accent-amber  { --kpi-accent: var(--accent-amber); }
+
+.dash-kpi-icon {
+    flex-shrink: 0;
+    width: 46px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--kpi-accent) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--kpi-accent) 30%, transparent);
+}
+.dash-kpi-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dash-kpi-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.dash-kpi-value {
+    font-family: var(--font-heading);
+    font-size: 1.55rem;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+    font-variant-numeric: tabular-nums;
+}
+.dash-kpi-sub { font-size: 0.76rem; color: var(--text-secondary); }
+
+.is-positive { color: var(--accent-green); }
+.is-negative { color: var(--accent-rose); }
+
+/* --- Graphiques --- */
+.dash-charts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+.dash-chart-card { padding: 18px 20px 20px; }
+.dash-chart-head { margin-bottom: 12px; }
+.dash-chart-head h3 {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+.dash-chart-sub {
+    font-family: var(--font-body);
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-muted);
+}
+.dash-chart-canvas-wrap { position: relative; height: 260px; }
+.dash-chart-fallback {
+    padding: 20px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+/* --- Table d'historique --- */
+.dash-table-card { padding: 18px 20px 12px; }
+.dash-table-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+}
+.dash-table-head h3 {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+.dash-table-wrap { overflow-x: auto; }
+.dash-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+.dash-table thead th {
+    text-align: left;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+.dash-table tbody td {
+    padding: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    vertical-align: middle;
+}
+.dash-table tbody tr { transition: background 0.15s; }
+.dash-table tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
+.dash-table tbody tr:last-child td { border-bottom: none; }
+
+.dash-col-date { color: var(--text-secondary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dash-col-label { color: var(--text-primary); }
+.dash-col-amount {
+    text-align: right;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.dash-col-actions { text-align: right; white-space: nowrap; width: 1%; }
+
+.dash-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.dash-badge-buy  { background: rgba(56, 189, 248, 0.12); color: var(--accent-blue);  border: 1px solid rgba(56, 189, 248, 0.25); }
+.dash-badge-sale { background: rgba(16, 185, 129, 0.12); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.25); }
+
+.dash-row-link {
+    text-decoration: none;
+    color: var(--text-muted);
+    margin-left: 4px;
+    transition: color 0.15s;
+}
+.dash-row-link:hover { color: var(--accent-blue); }
+
+.dash-icon-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: var(--transition-smooth);
+    margin-left: 6px;
+}
+.dash-icon-btn:hover {
+    background: rgba(56, 189, 248, 0.12);
+    border-color: rgba(56, 189, 248, 0.3);
+    transform: translateY(-1px);
+}
+.dash-icon-btn:active { transform: translateY(0); }
+.dash-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.dash-icon-danger:hover {
+    background: rgba(244, 63, 94, 0.15);
+    border-color: rgba(244, 63, 94, 0.35);
+}
+
+/* --- Formulaire (modal) : toggle type achat/vente --- */
+.dash-form-row { grid-template-columns: 1fr 1fr; }
+.dash-type-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+.dash-type-btn {
+    padding: 0.7rem 1rem;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+}
+.dash-type-btn:hover { border-color: var(--border-hover); color: var(--text-primary); }
+.dash-type-btn.is-active {
+    background: rgba(56, 189, 248, 0.12);
+    border-color: var(--accent-blue);
+    color: var(--text-primary);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.1);
+}
+.dash-form input[type="date"] {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.65rem 0.85rem;
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    color-scheme: dark; /* date picker natif en thème sombre */
+}
+.dash-form input[type="date"]:focus {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.15);
+    outline: none;
+}
+.dash-form-error { margin-top: 4px; }
+
+/* --- Skeleton de chargement des KPIs (forme finale, pas de spinner) --- */
+.dash-kpi--skeleton::before { opacity: 0.25; }
+.dash-sk {
+    background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.09) 37%, rgba(255,255,255,0.04) 63%);
+    background-size: 400% 100%;
+    border-radius: 6px;
+    animation: dashShimmer 1.4s ease infinite;
+}
+.dash-sk-line { height: 0.8rem; display: block; }
+.dash-kpi--skeleton .dash-kpi-icon { border: none; }
+@keyframes dashShimmer {
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+}
+
+/* --- Responsive --- */
+@media (max-width: 900px) {
+    .dash-kpis { grid-template-columns: repeat(2, 1fr); }
+    .dash-charts { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+    .dash-page { padding: 8px 14px 28px; }
+    .dash-kpis { grid-template-columns: 1fr; }
+    .dash-add-btn { width: 100%; }
+    .dash-head { align-items: stretch; }
+}

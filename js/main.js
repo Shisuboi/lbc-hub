@@ -11,6 +11,7 @@ route('/install',           () => import('./pages/install.js').then(m => m.rende
 route('/invite/:token',     (p) => import('./pages/invite.js').then(m => m.render(p)));
 route('/onboarding',        () => import('./pages/invite.js').then(m => m.renderOnboarding()));
 route('/hub',               () => import('./pages/hub.js').then(m => m.render()));
+route('/dashboard',         () => import('./pages/dashboard.js').then(m => m.render()));
 route('/scraper',           () => import('./pages/scraper.js').then(m => m.render()));
 route('/search/:id',        (p) => import('./pages/search.js').then(m => m.render(p)));
 route('/profile/:username', (p) => import('./pages/profile.js').then(m => m.render(p)));
