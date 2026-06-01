@@ -137,13 +137,6 @@ export async function render() {
                     </div>
 
                     <div class="form-group">
-                        <label for="dashSearch">Lier à une recherche <span class="muted">(optionnel)</span></label>
-                        <select id="dashSearch">
-                            <option value="">Aucune</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
                         <label for="dashUrl">Lien de l'annonce <span class="muted">(optionnel)</span></label>
                         <input type="url" id="dashUrl" placeholder="https://www.leboncoin.fr/...">
                     </div>
@@ -159,7 +152,7 @@ export async function render() {
     `;
 
     // ── State ────────────────────────────────────────────────────────────────
-    const state = { transactions: [], searches: [], lineChart: null, barChart: null };
+    const state = { transactions: [], lineChart: null, barChart: null };
 
     // ── Fetch transactions + recherches du user (pour le select de liaison) ────
     let transactions;
@@ -175,29 +168,8 @@ export async function render() {
     if (navState.token !== myToken) return;
     state.transactions = transactions;
 
-    // Recherches de l'utilisateur courant (RLS ouverte en lecture sur searches,
-    // donc on filtre explicitement sur user_id côté requête).
     const { data: { session } } = await supa.auth.getSession();
     if (navState.token !== myToken) return;
-    if (session?.user) {
-        const { data: searches } = await supa
-            .from('searches')
-            .select('id, title')
-            .eq('user_id', session.user.id)
-            .order('created_at', { ascending: false })
-            .limit(100);
-        if (navState.token !== myToken) return;
-        state.searches = searches || [];
-        const sel = document.getElementById('dashSearch');
-        if (sel) {
-            for (const s of state.searches) {
-                const opt = document.createElement('option');
-                opt.value = s.id;
-                opt.textContent = s.title;
-                sel.appendChild(opt);
-            }
-        }
-    }
 
     // ── Premier rendu ──────────────────────────────────────────────────────────
     renderAll();
@@ -436,7 +408,6 @@ export async function render() {
         document.getElementById('dashLabel').value = tx?.label || '';
         document.getElementById('dashAmount').value = tx?.amount ?? '';
         document.getElementById('dashDate').value = tx?.date || new Date().toISOString().slice(0, 10);
-        document.getElementById('dashSearch').value = tx?.search_id || '';
         document.getElementById('dashUrl').value = tx?.url || '';
         const type = tx?.type || 'achat';
         document.querySelectorAll('#dashType .dash-type-btn').forEach(x => {
@@ -463,7 +434,6 @@ export async function render() {
         const label = document.getElementById('dashLabel').value.trim();
         const amount = parseFloat(document.getElementById('dashAmount').value);
         const date = document.getElementById('dashDate').value;
-        const search_id = document.getElementById('dashSearch').value || null;
         const url = document.getElementById('dashUrl').value.trim() || null;
 
         if (!label) return showFormError('Indique le nom de l\'article.');
@@ -472,7 +442,7 @@ export async function render() {
 
         submitBtn.disabled = true;
         submitBtn.textContent = 'Enregistrement…';
-        const payload = { type, label, amount, date, search_id, url };
+        const payload = { type, label, amount, date, search_id: null, url };
         try {
             if (id) {
                 const updated = await updateTransaction(id, payload);
