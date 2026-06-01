@@ -51,3 +51,4 @@ node_modules/
 # Engine SQLite databases (local only — never committed)
 engine/*.sqlite3
 lbc_brain.sqlite3
+.superpowers/
