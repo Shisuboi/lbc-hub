@@ -67,6 +67,30 @@ export async function loadCommentCounts(oppIds = []) {
   return counts;
 }
 
+/** Métadonnées commentaires pour une liste d'items, en UNE requête.
+ * Renvoie Map<oppId, { count, participated, latest }> :
+ *   count        = nombre de commentaires
+ *   participated = true si `myUserId` a au moins un commentaire sur l'item
+ *   latest       = ISO du commentaire le plus récent (ou null)
+ * Best-effort : en cas d'erreur, renvoie une map vide (on ne casse pas le feed). */
+export async function loadCommentMeta(oppIds = [], myUserId = null) {
+  const meta = new Map();
+  if (!oppIds.length) return meta;
+  const { data, error } = await supa
+    .from('item_comments')
+    .select('opportunity_id, user_id, created_at')
+    .in('opportunity_id', oppIds);
+  if (error || !data) return meta;
+  for (const row of data) {
+    const m = meta.get(row.opportunity_id) || { count: 0, participated: false, latest: null };
+    m.count += 1;
+    if (myUserId && row.user_id === myUserId) m.participated = true;
+    if (!m.latest || row.created_at > m.latest) m.latest = row.created_at;
+    meta.set(row.opportunity_id, m);
+  }
+  return meta;
+}
+
 /** Souscrit aux changements realtime des commentaires d'un item.
  * onChange() est appelé sur tout INSERT/UPDATE/DELETE concernant cette opportunité.
  * Renvoie le canal (à passer à supa.removeChannel au démontage). */
