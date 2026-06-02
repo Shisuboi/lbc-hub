@@ -46,3 +46,42 @@ def test_accepts_ad_at_exact_price_max():
     # le plafond price_max est inclusif
     search = {"price_max": 200}
     assert passes_prefilter(ad(price=200.0), search) is True
+
+
+# --- Blacklist intégrée "pour pièces / HS / cassé" (étage 0, sans réglage utilisateur) ---
+
+import pytest
+
+
+@pytest.mark.parametrize("title", [
+    "PC portable pour pièces",
+    "PC portable pour pieces",
+    "Carte mère pièce détachée",
+    "iPhone HS",
+    "iPhone H.S à vendre",
+    "Console en panne",
+    "Aspirateur ne fonctionne pas",
+    "PC ne s'allume plus",
+    "Vélo cassé",
+    "Lot vélos cassés",
+    "Télévision écran cassé",
+    "Smartphone écran fissuré",
+    "Montre à réparer",
+    "Imprimante défectueuse",
+    "iPhone bloqué iCloud",
+    "Samsung compte google verrouillé",
+])
+def test_builtin_blacklist_rejects_for_parts(title):
+    # search vide : aucune exclude_keywords utilisateur → c'est la blacklist intégrée qui agit
+    assert passes_prefilter(ad(title=title), {}) is False
+
+
+@pytest.mark.parametrize("title", [
+    "Cassette audio collector",      # ne doit PAS matcher "cassé"
+    "Casserole inox neuve",          # idem
+    "Lot de 3 chemises",
+    "PS5 très bon état",
+    "Casque audio sans fil",
+])
+def test_builtin_blacklist_accepts_clean_titles(title):
+    assert passes_prefilter(ad(title=title), {}) is True
