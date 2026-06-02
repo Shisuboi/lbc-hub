@@ -7,7 +7,8 @@ import { navState } from '../router.js';
 import { listOpportunities, filterAndSort } from '../lib/opportunities.js';
 import { opportunityRowHtml } from '../components/opportunity-row.js';
 import { loadFavorites, toggleFavorite, isFav } from '../lib/item-favorites.js';
-import { loadCommentCounts } from '../lib/comments.js';
+import { loadCommentMeta } from '../lib/comments.js';
+import { isUnseen } from '../lib/comment-seen.js';
 
 const CATS = [
   { key: 'all', label: 'Toutes' },
@@ -63,8 +64,8 @@ export async function render() {
   if (navState.token !== myToken) return;
   state.items = items;
 
-  let commentCounts = new Map();
-  try { commentCounts = await loadCommentCounts(items.map(o => o.id)); } catch (_) {}
+  let commentMeta = new Map();
+  try { commentMeta = await loadCommentMeta(items.map(o => o.id), me?.id); } catch (_) {}
   if (navState.token !== myToken) return;
 
   renderList();
@@ -124,9 +125,14 @@ export async function render() {
     if (!grid || !count || !empty) return; // navigated away
     const finalList = state.favOnly ? list.filter(o => isFav(o.id)) : list;
     empty.classList.toggle('hidden', state.items.length > 0);
-    grid.innerHTML = finalList.map(o =>
-      opportunityRowHtml(o, { isFav: isFav(o.id), commentCount: commentCounts.get(o.id) || 0 })
-    ).join('');
+    grid.innerHTML = finalList.map(o => {
+      const meta = commentMeta.get(o.id);
+      return opportunityRowHtml(o, {
+        isFav: isFav(o.id),
+        commentCount: meta ? meta.count : 0,
+        hasNewComments: !!(meta && meta.participated && isUnseen(o.id, meta.latest)),
+      });
+    }).join('');
     count.textContent = `${finalList.length} opportunité${finalList.length > 1 ? 's' : ''}`;
   }
 }

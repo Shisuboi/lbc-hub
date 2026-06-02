@@ -4,6 +4,7 @@
 // via window.__commentsChannel (démonté au montage suivant — pattern feed/hub).
 import { supa } from '../supabase-client.js';
 import { listComments, createComment, updateComment, deleteComment, subscribeComments } from '../lib/comments.js';
+import { markSeen } from '../lib/comment-seen.js';
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => (
@@ -88,6 +89,9 @@ export async function mountComments(container, { opportunityId, me }) {
     try {
       comments = await listComments(opportunityId);
       renderList();
+      // Marque l'item comme "vu" jusqu'au dernier commentaire (éteint le badge du feed).
+      // reload() tourne au montage, après post/édit/suppr, et à chaque update temps réel.
+      if (comments.length) markSeen(opportunityId, comments[comments.length - 1].created_at);
     } catch (err) {
       listEl.innerHTML = `<div class="error-panel card">❌ ${esc(err.message)}</div>`;
     }

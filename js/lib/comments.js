@@ -51,20 +51,28 @@ export async function deleteComment(id) {
   if (error) throw new Error('Suppression impossible : ' + error.message);
 }
 
-/** Compte les commentaires pour une liste d'opportunités. Renvoie Map<oppId, n>.
- * Tally côté client (une seule requête) : suffisant à l'échelle du projet, pas de vue/RPC. */
-export async function loadCommentCounts(oppIds = []) {
-  const counts = new Map();
-  if (!oppIds.length) return counts;
+/** Métadonnées commentaires pour une liste d'items, en UNE requête.
+ * Renvoie Map<oppId, { count, participated, latest }> :
+ *   count        = nombre de commentaires
+ *   participated = true si `myUserId` a au moins un commentaire sur l'item
+ *   latest       = ISO du commentaire le plus récent (ou null)
+ * Best-effort : en cas d'erreur, renvoie une map vide (on ne casse pas le feed). */
+export async function loadCommentMeta(oppIds = [], myUserId = null) {
+  const meta = new Map();
+  if (!oppIds.length) return meta;
   const { data, error } = await supa
     .from('item_comments')
-    .select('opportunity_id')
+    .select('opportunity_id, user_id, created_at')
     .in('opportunity_id', oppIds);
-  if (error || !data) return counts; // compteur best-effort : on ne casse pas le feed
+  if (error || !data) return meta;
   for (const row of data) {
-    counts.set(row.opportunity_id, (counts.get(row.opportunity_id) || 0) + 1);
+    const m = meta.get(row.opportunity_id) || { count: 0, participated: false, latest: null };
+    m.count += 1;
+    if (myUserId && row.user_id === myUserId) m.participated = true;
+    if (!m.latest || row.created_at > m.latest) m.latest = row.created_at;
+    meta.set(row.opportunity_id, m);
   }
-  return counts;
+  return meta;
 }
 
 /** Souscrit aux changements realtime des commentaires d'un item.
