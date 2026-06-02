@@ -91,10 +91,13 @@ export async function getHeartbeats() {
 }
 
 /** Abonnement realtime à scrape_heartbeats. onChange() sur tout INSERT/UPDATE/DELETE.
+ * Nom de canal UNIQUE par souscription : si on revient sur /watchlist avant que
+ * l'ancien canal soit retiré (nettoyage via timer), un nom fixe ferait réutiliser
+ * un canal déjà subscribe() → erreur "cannot add postgres_changes after subscribe()".
  * Renvoie le canal (à passer à supa.removeChannel au démontage). */
 export function subscribeHeartbeats(onChange) {
   return supa
-    .channel('scrape-heartbeats')
+    .channel('scrape-heartbeats-' + Math.random().toString(36).slice(2))
     .on('postgres_changes',
       { event: '*', schema: 'public', table: 'scrape_heartbeats' },
       () => onChange())
