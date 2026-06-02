@@ -9,6 +9,7 @@ import { opportunityRowHtml } from '../components/opportunity-row.js';
 import { loadFavorites, toggleFavorite, isFav } from '../lib/item-favorites.js';
 import { loadCommentMeta } from '../lib/comments.js';
 import { isUnseen } from '../lib/comment-seen.js';
+import { getHome, setHome, getRadius, setRadius, haversineKm } from '../lib/geo-home.js';
 
 const CATS = [
   { key: 'all', label: 'Toutes' },
@@ -40,6 +41,18 @@ export async function render() {
           ${CATS.map((c, i) => `<button type="button" class="feed-chip${i === 0 ? ' on' : ''}" data-cat="${c.key}">${c.label}</button>`).join('')}
           <button type="button" class="feed-chip" id="feedFav" data-fav-filter="off">⭐ Mes favoris</button>
           <span class="feed-count" id="feedCount">…</span>
+        </div>
+        <div class="row" id="feedGeo">
+          <input class="feed-search" id="feedSecteur" placeholder="📍 Mon secteur (code postal ou ville)">
+          <select id="feedRadius">
+            <option value="all">Toute la France</option>
+            <option value="5">≤ 5 km</option>
+            <option value="10">≤ 10 km</option>
+            <option value="25">≤ 25 km</option>
+            <option value="50">≤ 50 km</option>
+            <option value="100">≤ 100 km</option>
+          </select>
+          <span class="feed-geo-msg" id="feedGeoMsg"></span>
         </div>
       </div>
       <div id="feedList"></div>
@@ -87,6 +100,27 @@ export async function render() {
     renderList();
   });
 
+  // Secteur + rayon (proximité). État pré-rempli depuis localStorage.
+  const secteurEl = document.getElementById('feedSecteur');
+  const radiusEl = document.getElementById('feedRadius');
+  const geoMsg = document.getElementById('feedGeoMsg');
+  const home0 = getHome();
+  if (home0) { secteurEl.value = home0.label; geoMsg.textContent = `📍 ${home0.label}`; }
+  radiusEl.value = getRadius();
+  secteurEl.addEventListener('change', async () => {
+    const q = secteurEl.value.trim();
+    if (!q) return;
+    geoMsg.textContent = '⏳ Localisation…';
+    try {
+      const home = await setHome(q);
+      geoMsg.textContent = `📍 ${home.label}`;
+      renderList();
+    } catch (err) {
+      geoMsg.textContent = '❌ ' + err.message;
+    }
+  });
+  radiusEl.addEventListener('change', () => { setRadius(radiusEl.value); renderList(); });
+
   // Délégation : clic sur l'étoile favori (sans naviguer)
   document.getElementById('feedList').addEventListener('click', async e => {
     const star = e.target.closest('.opp-star');
@@ -123,14 +157,25 @@ export async function render() {
     const count = document.getElementById('feedCount');
     const empty = document.getElementById('feedEmpty');
     if (!grid || !count || !empty) return; // navigated away
-    const finalList = state.favOnly ? list.filter(o => isFav(o.id)) : list;
+    let finalList = state.favOnly ? list.filter(o => isFav(o.id)) : list;
+    // Filtre proximité : si domicile défini ET rayon ≠ "Toute la France".
+    const home = getHome();
+    const radius = getRadius();
+    if (home && radius !== 'all') {
+      const rad = Number(radius);
+      finalList = finalList.filter(o =>
+        o.lat != null && o.lon != null && haversineKm(home.lat, home.lon, o.lat, o.lon) <= rad);
+    }
     empty.classList.toggle('hidden', state.items.length > 0);
     grid.innerHTML = finalList.map(o => {
       const meta = commentMeta.get(o.id);
+      const dist = (home && o.lat != null && o.lon != null)
+        ? haversineKm(home.lat, home.lon, o.lat, o.lon) : null;
       return opportunityRowHtml(o, {
         isFav: isFav(o.id),
         commentCount: meta ? meta.count : 0,
         hasNewComments: !!(meta && meta.participated && isUnseen(o.id, meta.latest)),
+        distanceKm: dist,
       });
     }).join('');
     count.textContent = `${finalList.length} opportunité${finalList.length > 1 ? 's' : ''}`;
