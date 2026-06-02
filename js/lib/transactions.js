@@ -2,7 +2,7 @@
 // Couche d'accès aux transactions financières de l'utilisateur courant.
 // RLS garantit côté serveur qu'un user ne touche que ses propres lignes ;
 // on passe quand même user_id à l'insert (la policy with-check l'exige).
-import { supa } from '../supabase-client.js';
+import { supa, getCachedSession } from '../supabase-client.js';
 
 /** Récupère toutes les transactions du user courant, triées par date décroissante. */
 export async function listTransactions() {
@@ -17,7 +17,7 @@ export async function listTransactions() {
 
 /** Crée une transaction. Renvoie la ligne insérée. */
 export async function createTransaction(input) {
-    const { data: { session } } = await supa.auth.getSession();
+    const session = await getCachedSession();
     const user = session?.user;
     if (!user) throw new Error('Non authentifié. Reconnecte-toi.');
 

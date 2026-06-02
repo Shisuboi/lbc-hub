@@ -2,7 +2,6 @@
 // Page /dashboard : tableau de bord financier privé de l'utilisateur.
 // KPIs + 2 graphiques Chart.js (lazy-loadé) + table d'historique + modal CRUD.
 // Données strictement privées : la RLS Supabase filtre sur (select auth.uid()).
-import { supa } from '../supabase-client.js';
 import { requireAuth } from '../auth.js';
 import { navState } from '../router.js';
 import {
@@ -167,9 +166,6 @@ export async function render() {
     }
     if (navState.token !== myToken) return;
     state.transactions = transactions;
-
-    const { data: { session } } = await supa.auth.getSession();
-    if (navState.token !== myToken) return;
 
     // ── Premier rendu ──────────────────────────────────────────────────────────
     renderAll();

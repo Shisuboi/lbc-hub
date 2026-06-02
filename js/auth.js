@@ -1,6 +1,6 @@
 // js/auth.js
 // Helpers d'authentification + guard pour pages protégées.
-import { supa, currentProfile } from './supabase-client.js';
+import { supa, currentProfile, getCachedSession, setCachedSession } from './supabase-client.js';
 import { navigate } from './router.js';
 
 let cachedProfile = null;
@@ -8,6 +8,7 @@ let cachedProfile = null;
 export async function loginWithPassword(email, password) {
     const { data, error } = await supa.auth.signInWithPassword({ email, password });
     if (error) throw error;
+    setCachedSession(data.session);   // alimente le cache de session dès le login
     cachedProfile = await currentProfile();
     return data;
 }
@@ -47,7 +48,7 @@ export async function getProfile(force = false) {
  * Lève une Error que le router intercepte pour stopper le rendu.
  */
 export async function requireAuth({ requireProfile = true, requireRole = null } = {}) {
-    const { data: { session } } = await supa.auth.getSession();
+    const session = await getCachedSession();   // cache : ne hang plus en navigation
     const user = session?.user;
     if (!user) {
         navigate('/');
@@ -63,7 +64,7 @@ export async function requireAuth({ requireProfile = true, requireRole = null } 
             throw new Error('Profile not yet created');
         }
         if (requireRole && profile.role !== requireRole) {
-            navigate('/hub');
+            navigate('/feed');
             throw new Error(`Insufficient role: needs ${requireRole}`);
         }
     }

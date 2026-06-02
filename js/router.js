@@ -73,7 +73,7 @@ export async function render() {
 }
 
 export function init() {
-    window.addEventListener('popstate', render);
+    window.addEventListener('popstate', () => { render(); });
     // Intercept tous les clics sur <a data-link> pour navigation SPA
     document.body.addEventListener('click', e => {
         const a = e.target.closest('a[data-link]');

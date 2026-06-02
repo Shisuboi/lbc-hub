@@ -1,0 +1,124 @@
+// js/pages/feed.js
+// Page /feed : liste dense des opportunités du moteur + toolbar (filtres/tri/recherche/favoris).
+// Realtime : nouvelle opportunité insérée apparaît en tête. Favoris : C-1 (item_favorites).
+import { supa } from '../supabase-client.js';
+import { requireAuth, getProfile } from '../auth.js';
+import { navState } from '../router.js';
+import { listOpportunities, filterAndSort } from '../lib/opportunities.js';
+import { opportunityRowHtml } from '../components/opportunity-row.js';
+import { loadFavorites, toggleFavorite, isFav } from '../lib/item-favorites.js';
+
+const CATS = [
+  { key: 'all', label: 'Toutes' },
+  { key: 'urgent', label: '🔴 Urgent' },
+  { key: 'interesting', label: '🟡 Intéressant' },
+  { key: 'passable', label: '⚫ Passable' },
+];
+
+export async function render() {
+  const myToken = navState.token;
+  await requireAuth();
+  if (navState.token !== myToken) return;
+
+  const root = document.getElementById('appRoot');
+  root.innerHTML = `
+    <section class="feed-page">
+      <h2>🔥 Bonnes affaires</h2>
+      <p class="muted">Trouvées en continu par le moteur — les plus récentes en haut.</p>
+      <div class="feed-toolbar">
+        <div class="row">
+          <input class="feed-search" id="feedSearch" placeholder="🔍 Rechercher un titre…">
+          <select id="feedSort">
+            <option value="recent">Plus récentes</option>
+            <option value="score">Meilleur score</option>
+            <option value="margin">Meilleure marge €</option>
+          </select>
+        </div>
+        <div class="row" id="feedChips">
+          ${CATS.map((c, i) => `<button type="button" class="feed-chip${i === 0 ? ' on' : ''}" data-cat="${c.key}">${c.label}</button>`).join('')}
+          <button type="button" class="feed-chip" id="feedFav" data-fav-filter="off">⭐ Mes favoris</button>
+          <span class="feed-count" id="feedCount">…</span>
+        </div>
+      </div>
+      <div id="feedList"></div>
+      <div id="feedEmpty" class="empty-state card hidden"><h3>Aucune opportunité pour l'instant</h3>
+        <p>Le moteur n'a encore rien remonté, ou aucune recherche n'est active.</p></div>
+    </section>`;
+
+  const state = { items: [], category: 'all', sort: 'recent', text: '', favOnly: false };
+
+  const me = await getProfile();
+  if (navState.token !== myToken) return;
+  await loadFavorites(me?.id);
+  if (navState.token !== myToken) return;
+
+  let items;
+  try { items = await listOpportunities(); }
+  catch (err) {
+    if (navState.token !== myToken) return;
+    document.getElementById('feedList').innerHTML = `<div class="error-panel card">❌ ${err.message}</div>`;
+    return;
+  }
+  if (navState.token !== myToken) return;
+  state.items = items;
+  renderList();
+
+  // Toolbar events
+  document.getElementById('feedSearch').addEventListener('input', e => { state.text = e.target.value.trim(); renderList(); });
+  document.getElementById('feedSort').addEventListener('change', e => { state.sort = e.target.value; renderList(); });
+  document.getElementById('feedChips').addEventListener('click', e => {
+    const cat = e.target.closest('[data-cat]');
+    if (!cat) return;
+    state.category = cat.dataset.cat;
+    document.querySelectorAll('#feedChips [data-cat]').forEach(b => b.classList.toggle('on', b === cat));
+    renderList();
+  });
+  const favBtn = document.getElementById('feedFav');
+  favBtn.addEventListener('click', () => {
+    state.favOnly = !state.favOnly;
+    favBtn.classList.toggle('on', state.favOnly);
+    renderList();
+  });
+
+  // Délégation : clic sur l'étoile favori (sans naviguer)
+  document.getElementById('feedList').addEventListener('click', async e => {
+    const star = e.target.closest('.opp-star');
+    if (!star) return;
+    e.preventDefault(); e.stopPropagation();
+    if (!me?.id || star.dataset.pending) return;
+    const id = star.dataset.favId;
+    const willFav = !isFav(id);
+    star.dataset.pending = '1';
+    star.classList.toggle('on', willFav);
+    star.textContent = willFav ? '⭐' : '☆';
+    try {
+      await toggleFavorite(me.id, id);
+      if (state.favOnly && !willFav) renderList();
+    } catch (_) {
+      star.classList.toggle('on', !willFav);
+      star.textContent = !willFav ? '⭐' : '☆';
+    } finally { delete star.dataset.pending; }
+  });
+
+  // Realtime : nouvelle opportunité
+  if (window.__feedChannel) { try { await supa.removeChannel(window.__feedChannel); } catch (_) {} window.__feedChannel = null; }
+  if (navState.token !== myToken) return;
+  const channel = supa.channel('opportunities-feed')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'opportunities' }, payload => {
+      if (payload.new?.status === 'active') { state.items.unshift(payload.new); renderList(); }
+    })
+    .subscribe();
+  window.__feedChannel = channel;
+
+  function renderList() {
+    const list = filterAndSort(state.items, { category: state.category, sort: state.sort, text: state.text });
+    const grid = document.getElementById('feedList');
+    const count = document.getElementById('feedCount');
+    const empty = document.getElementById('feedEmpty');
+    if (!grid || !count || !empty) return; // navigated away
+    const finalList = state.favOnly ? list.filter(o => isFav(o.id)) : list;
+    empty.classList.toggle('hidden', state.items.length > 0);
+    grid.innerHTML = finalList.map(o => opportunityRowHtml(o, { isFav: isFav(o.id) })).join('');
+    count.textContent = `${finalList.length} opportunité${finalList.length > 1 ? 's' : ''}`;
+  }
+}

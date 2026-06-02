@@ -1,13 +1,13 @@
 // js/components/header.js
 // Topbar : logo + nav + menu utilisateur. Re-render à chaque changement de session.
-import { supa } from '../supabase-client.js';
+import { getCachedSession } from '../supabase-client.js';
 import { getProfile, logout } from '../auth.js';
 
 export async function renderHeader() {
     const el = document.getElementById('appHeader');
     if (!el) return;
 
-    const { data: { session } } = await supa.auth.getSession();
+    const session = await getCachedSession();
     const user = session?.user;
     const profile = user ? await getProfile() : null;
 
@@ -16,7 +16,7 @@ export async function renderHeader() {
             <div class="logo-area">
                 <span class="logo-icon">🤖</span>
                 <div class="logo-text">
-                    <h1>LBC DealFinder <span class="accent-text">Hub</span></h1>
+                    <h1>LBC <span class="accent-text">Deals</span></h1>
                 </div>
             </div>
             <nav class="header-nav">
@@ -36,17 +36,17 @@ export async function renderHeader() {
     const color = profile?.avatar_color || '#888';
     el.innerHTML = `
         <div class="logo-area">
-            <a href="/hub" data-link class="logo-link">
+            <a href="/feed" data-link class="logo-link">
                 <span class="logo-icon">🤖</span>
                 <div class="logo-text">
-                    <h1>LBC DealFinder <span class="accent-text">Hub</span></h1>
+                    <h1>LBC <span class="accent-text">Deals</span></h1>
                 </div>
             </a>
         </div>
         <nav class="header-nav">
-            ${navLink('/hub',       '🏠', 'Hub')}
+            ${navLink('/feed',      '🔥', 'Feed')}
+            ${navLink('/watchlist', '📡', 'Watchlist')}
             ${navLink('/dashboard', '📊', 'Dashboard')}
-            ${navLink('/scraper',   '🔍', 'Scraper')}
             ${profile?.role === 'admin' ? navLink('/admin', '🛠️', 'Admin') : ''}
             <div class="user-menu" id="userMenu">
                 <button class="user-menu-trigger" id="userMenuBtn" type="button">

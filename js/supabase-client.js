@@ -22,10 +22,39 @@ export const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY
     },
 });
 
+// ─── Cache de session ────────────────────────────────────────────────────────
+// PIÈGE : supa.auth.getSession() peut NE JAMAIS résoudre par intermittence
+// (bug SDK reproduit : page bloquée sur ⏳ à la navigation, F5 obligatoire).
+// On appelait getSession() à CHAQUE navigation (requireAuth) → surface du hang.
+// Fix : on garde la session en cache (alimentée au boot + par onAuthStateChange
+// au login/logout/refresh) et on ne rappelle JAMAIS getSession() en navigation.
+// Le seul appel restant (boot / force) est protégé par un timeout.
+let _cachedSession = null;
+let _sessionLoaded = false;
+
+export function setCachedSession(session) {
+    _cachedSession = session;
+    _sessionLoaded = true;
+}
+
+export async function getCachedSession({ force = false } = {}) {
+    if (_sessionLoaded && !force) return _cachedSession;   // ← navigation : zéro appel SDK
+    try {
+        const { data } = await Promise.race([
+            supa.auth.getSession(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 2500)),
+        ]);
+        _cachedSession = data.session;
+        _sessionLoaded = true;
+    } catch (e) {
+        // getSession a hang → on ne bloque pas : on garde la dernière session connue.
+        console.warn('[auth] getSession a expiré, session en cache conservée :', e?.message);
+    }
+    return _cachedSession;
+}
+
 export async function currentUser() {
-    // getSession() lit localStorage sans appel réseau (≠ getUser() qui valide côté serveur).
-    // Suffisant pour les guards d'auth ; les requêtes DB échoueront proprement si le token est invalide.
-    const { data: { session } } = await supa.auth.getSession();
+    const session = await getCachedSession();
     return session?.user || null;
 }
 
@@ -45,5 +74,8 @@ export async function currentProfile() {
 }
 
 export function onAuthChange(callback) {
-    return supa.auth.onAuthStateChange((event, session) => callback(event, session));
+    return supa.auth.onAuthStateChange((event, session) => {
+        setCachedSession(session);   // garde le cache à jour (login / logout / refresh / INITIAL_SESSION)
+        callback(event, session);
+    });
 }
