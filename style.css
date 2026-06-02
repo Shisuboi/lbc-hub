@@ -3077,6 +3077,36 @@ body {
 .item-ai-label { color: var(--c-acc2); font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
 .item-comments-placeholder { padding: 14px; text-align: center; margin-top: 14px; }
 
+/* ===== DA Phase C — commentaires ===== */
+.cm-section { margin-top: 18px; }
+.cm-title { font-size: 1.05rem; margin-bottom: 12px; }
+.cm-count { color: var(--c-mut2); font-weight: 600; }
+.cm-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.cm-empty { padding: 14px 0; }
+.cm-item { display: flex; gap: 11px; }
+.cm-avatar { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: .9rem; }
+.cm-body { flex: 1; min-width: 0; background: var(--c-card); border: 1px solid var(--c-bd);
+  border-radius: 12px; padding: 10px 13px; }
+.cm-head { display: flex; gap: 9px; align-items: baseline; margin-bottom: 4px; }
+.cm-author { font-weight: 700; color: #f1f5f9; }
+.cm-time { color: var(--c-mut2); font-size: .76rem; }
+.cm-edited { color: var(--c-mut2); font-style: italic; }
+.cm-text { color: #cbd5e1; white-space: pre-wrap; word-break: break-word; line-height: 1.45; }
+.cm-actions { margin-top: 6px; display: flex; gap: 12px; }
+.cm-link { background: none; border: none; color: var(--c-mut); font-size: .78rem; cursor: pointer; padding: 0; }
+.cm-link:hover { color: var(--c-acc2); }
+.cm-danger:hover { color: var(--c-cat-red-txt); }
+.cm-form { display: flex; flex-direction: column; gap: 8px; }
+.cm-input { width: 100%; background: rgba(255,255,255,.05); border: 1px solid var(--c-bd);
+  border-radius: 10px; padding: 10px 12px; color: var(--c-txt); font: inherit; resize: vertical; }
+.cm-input:focus { outline: none; border-color: rgba(99,102,241,.5); }
+.cm-edit-actions { display: flex; gap: 10px; margin-top: 8px; align-items: center; }
+.btn-acc { background: var(--c-acc); color: #fff; font-weight: 700; border: none;
+  border-radius: 9px; padding: 9px 16px; cursor: pointer; width: max-content; align-self: flex-end; }
+.btn-acc:hover { background: var(--c-acc2); }
+.opp-comments { color: var(--c-mut2); margin-left: 8px; }
+
 /* ===== DA Phase C — raccord logo + nav (match démo) ===== */
 .logo-icon { width: 32px; height: 32px; border-radius: 9px; display: inline-flex; align-items: center;
   justify-content: center; background: linear-gradient(135deg, var(--c-acc), #8b5cf6); font-size: 1.05rem; }

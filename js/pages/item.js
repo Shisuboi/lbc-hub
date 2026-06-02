@@ -1,8 +1,9 @@
 // js/pages/item.js
 // Page /item/:id : faits clés d'une opportunité + analyse IA. Commentaires = C-2.
-import { requireAuth } from '../auth.js';
+import { requireAuth, getProfile } from '../auth.js';
 import { navState } from '../router.js';
 import { getOpportunity } from '../lib/opportunities.js';
+import { mountComments } from '../components/comments.js';
 
 const CAT = {
   urgent:      { cls: 'cat-red',  label: '🔴 URGENT' },
@@ -19,6 +20,9 @@ const eur = n => n == null ? '' : new Intl.NumberFormat('fr-FR',
 export async function render(params) {
   const myToken = navState.token;
   await requireAuth();
+  if (navState.token !== myToken) return;
+
+  const me = await getProfile();
   if (navState.token !== myToken) return;
 
   const root = document.getElementById('appRoot');
@@ -53,5 +57,10 @@ export async function render(params) {
       </div>
     </div>
     ${o.explanation ? `<div class="item-ai"><div class="item-ai-label">🤖 Analyse</div><div>${esc(o.explanation)}</div></div>` : ''}
-    <div class="item-comments-placeholder card muted">💬 Les commentaires arrivent bientôt (sous-phase C-2).</div>`;
+    <div id="itemComments"></div>`;
+
+  const commentsEl = document.getElementById('itemComments');
+  if (commentsEl && navState.token === myToken) {
+    mountComments(commentsEl, { opportunityId: o.id, me });
+  }
 }

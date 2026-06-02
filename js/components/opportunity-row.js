@@ -14,7 +14,7 @@ function esc(s) {
 const eur = n => n == null ? '' : new Intl.NumberFormat('fr-FR',
   { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 
-export function opportunityRowHtml(o, { isFav = false } = {}) {
+export function opportunityRowHtml(o, { isFav = false, commentCount = 0 } = {}) {
   const c = CAT[o.category] || CAT.passable;
   const score = o.resale_score != null ? Math.round(o.resale_score) : '–';
   const margin = o.est_margin_eur != null
@@ -30,7 +30,8 @@ export function opportunityRowHtml(o, { isFav = false } = {}) {
       <span class="opp-main">
         <span class="opp-title">${esc(o.title || 'Sans titre')}
           <span class="opp-badge ${c.cls}">${c.label} ${score}</span></span>
-        <span class="opp-meta">${o.location_city ? `📍 ${esc(o.location_city)}` : ''}</span>
+        <span class="opp-meta">${o.location_city ? `📍 ${esc(o.location_city)}` : ''}${
+          commentCount > 0 ? ` <span class="opp-comments">💬 ${commentCount}</span>` : ''}</span>
       </span>
       <span class="opp-pricecol">
         <span class="opp-price">${eur(o.price)}${o.price_dropped && o.previous_price
