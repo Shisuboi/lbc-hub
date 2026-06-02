@@ -105,7 +105,7 @@ export async function render() {
         </div>
         <div class="wl-row-actions">
           ${s.active
-            ? `<button class="btn-mini" data-act="pause" data-id="${s.id}">Mettre en pause</button>`
+            ? (canEdit ? `<button class="btn-mini" data-act="pause" data-id="${s.id}">Mettre en pause</button>` : '')
             : `<button class="btn-mini btn-mini-go" data-act="activate" data-id="${s.id}">Activer</button>`}
           ${canEdit ? `<button class="btn-mini" data-act="edit" data-id="${s.id}">Éditer</button>
                        <button class="btn-mini btn-mini-del" data-act="delete" data-id="${s.id}">Supprimer</button>` : ''}
