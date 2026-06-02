@@ -3169,3 +3169,11 @@ body {
   vertical-align: middle;
   box-shadow: 0 0 6px var(--c-cat-red, #f87171);
 }
+
+/* ===== Phase C-5 : commentaires sur la fiche profil ===== */
+.profile-comments { display: flex; flex-direction: column; gap: 10px; }
+.profile-comment { display: block; padding: 12px 16px; text-decoration: none; color: inherit; }
+.profile-comment:hover { background: rgba(255,255,255,.05); }
+.pc-on { font-size: .8rem; margin-bottom: 4px; }
+.pc-body { font-size: .95rem; white-space: pre-wrap; word-break: break-word; }
+.pc-date { font-size: .75rem; margin-top: 6px; }
