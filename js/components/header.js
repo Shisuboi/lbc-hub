@@ -1,13 +1,13 @@
 // js/components/header.js
 // Topbar : logo + nav + menu utilisateur. Re-render à chaque changement de session.
-import { supa } from '../supabase-client.js';
+import { getCachedSession } from '../supabase-client.js';
 import { getProfile, logout } from '../auth.js';
 
 export async function renderHeader() {
     const el = document.getElementById('appHeader');
     if (!el) return;
 
-    const { data: { session } } = await supa.auth.getSession();
+    const session = await getCachedSession();
     const user = session?.user;
     const profile = user ? await getProfile() : null;
 

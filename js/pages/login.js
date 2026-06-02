@@ -1,11 +1,11 @@
 // js/pages/login.js
 import { loginWithPassword } from '../auth.js';
-import { supa } from '../supabase-client.js';
+import { getCachedSession } from '../supabase-client.js';
 import { navigate } from '../router.js';
 
 export async function render() {
     // Si déjà connecté → redirige vers /feed
-    const { data: { session } } = await supa.auth.getSession();
+    const session = await getCachedSession();
     if (session?.user) { navigate('/feed', true); return; }
 
     document.getElementById('appRoot').innerHTML = `
