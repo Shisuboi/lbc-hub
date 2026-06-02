@@ -11,6 +11,7 @@ import asyncio
 from engine.parse import extract_category
 from engine.cascade import triage_batch, verify_one, photo_one
 from engine.supa import merge_enrichment
+from engine.geo import fill_latlon
 from engine.router import QuotaExhausted
 
 _MAX_PENDING_RETRIES = 5
@@ -67,6 +68,8 @@ async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch
         payload = merge_enrichment(item["payload"], {
             "category": t["category"], "resale_score": t["score"],
         })
+        # Géocodage best-effort : remplit lat/lon depuis la ville (cache → BAN). Pour la proximité.
+        await fill_latlon(brain, supa.session, payload)
         try:
             await supa.insert_opportunity(payload)  # écriture post-triage (jamais brute)
         except Exception:
