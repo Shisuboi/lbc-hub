@@ -66,7 +66,7 @@ async def process_search(scrape_fn, brain, sink, search: dict) -> dict:
         await safe_insert(brain, sink, payload)
         counts[event] += 1
 
-    brain.log_scrape(search.get("id", "?"), "ok")
+    brain.log_scrape(search.get("id", "?"), "ok", new_ads=counts["new"])
     return counts
 
 
