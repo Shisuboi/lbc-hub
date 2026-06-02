@@ -1,7 +1,7 @@
 // js/auth.js
 // Helpers d'authentification + guard pour pages protégées.
 import { supa, currentProfile, getCachedSession, setCachedSession } from './supabase-client.js';
-import { navigate, navTrace } from './router.js';
+import { navigate } from './router.js';
 
 let cachedProfile = null;
 
@@ -37,10 +37,7 @@ export async function logout() {
 }
 
 export async function getProfile(force = false) {
-    const cacheHit = !!cachedProfile && !force;
-    navTrace(`getProfile(force=${force}) → ${cacheHit ? 'CACHE' : 'FETCH réseau…'}`);
     if (!cachedProfile || force) cachedProfile = await currentProfile();
-    navTrace(`getProfile résolu (profil=${cachedProfile ? 'ok' : 'null'})`);
     return cachedProfile;
 }
 
@@ -51,9 +48,7 @@ export async function getProfile(force = false) {
  * Lève une Error que le router intercepte pour stopper le rendu.
  */
 export async function requireAuth({ requireProfile = true, requireRole = null } = {}) {
-    navTrace('requireAuth → getCachedSession()…');
     const session = await getCachedSession();   // cache : ne hang plus en navigation
-    navTrace(`requireAuth session résolue (user=${session?.user ? 'ok' : 'aucun'})`);
     const user = session?.user;
     if (!user) {
         navigate('/');

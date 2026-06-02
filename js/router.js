@@ -33,20 +33,10 @@ function stripPrefix(path) {
     return path;
 }
 
-// ─── [NAVTRACE] instrumentation temporaire de debug (à retirer) ───────────────
-// Active une trace console compacte du cycle de navigation pour diagnostiquer
-// les pages qui « ne chargent pas sans F5 ». Activé par défaut le temps du debug.
-const NAVTRACE = true;
-export function navTrace(...args) {
-    if (NAVTRACE) console.log('%c[NAV]', 'color:#38bdf8;font-weight:bold', ...args);
-}
-// ──────────────────────────────────────────────────────────────────────────────
-
 export async function navigate(path, replace = false) {
     // Quand on navigue, on ré-ajoute le prefix si nécessaire (pour que l'URL affichée reste correcte)
     const needsPrefix = location.pathname.startsWith(ROUTE_PREFIX) && !path.startsWith(ROUTE_PREFIX);
     const finalPath = needsPrefix ? ROUTE_PREFIX + path : path;
-    navTrace(`navigate(${path}) replace=${replace}`);
     if (replace) history.replaceState({}, '', finalPath);
     else history.pushState({}, '', finalPath);
     await render();
@@ -56,8 +46,6 @@ export async function render() {
     const myToken = ++navState.token;
     const path = stripPrefix(location.pathname) || '/';
     const root = document.getElementById('appRoot');
-    const t0 = performance.now();
-    navTrace(`render #${myToken} path=${path}`);
     window.scrollTo(0, 0); // Remonte en haut à chaque changement de page
     for (const r of routes) {
         const m = path.match(r.regex);
@@ -67,12 +55,9 @@ export async function render() {
                 params[name] = decodeURIComponent(m[i + 1]);
             });
             root.innerHTML = '<div class="page-loading">⏳ Chargement…</div>';
-            navTrace(`#${myToken} loader START (${r.pattern})`);
             try {
                 await r.loader(params);
-                navTrace(`#${myToken} loader DONE in ${Math.round(performance.now() - t0)}ms (token courant=${navState.token}${navState.token !== myToken ? ' ⚠️ CHANGÉ' : ''})`);
             } catch (e) {
-                navTrace(`#${myToken} loader THREW "${e?.message}" (token courant=${navState.token})`);
                 if (e && e.message === 'Not authenticated') return; // requireAuth a déjà redirigé
                 if (e && e.message === 'Profile not yet created') return;
                 // Une navigation plus récente a démarré pendant qu'on chargeait : on abandonne
@@ -84,19 +69,17 @@ export async function render() {
             return;
         }
     }
-    navTrace(`#${myToken} AUCUNE ROUTE pour ${path}`);
     if (notFoundHandler) await notFoundHandler();
 }
 
 export function init() {
-    window.addEventListener('popstate', () => { navTrace('popstate (back/forward)'); render(); });
+    window.addEventListener('popstate', () => { render(); });
     // Intercept tous les clics sur <a data-link> pour navigation SPA
     document.body.addEventListener('click', e => {
         const a = e.target.closest('a[data-link]');
         if (a) {
             e.preventDefault();
             const href = a.getAttribute('href');
-            navTrace(`click data-link href=${href}`);
             navigate(href);
         }
     });

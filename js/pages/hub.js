@@ -6,7 +6,7 @@ import { supa } from '../supabase-client.js';
 import { requireAuth, getProfile } from '../auth.js';
 import { feedCardHtml } from '../components/feed-card.js';
 import { loadFavorites, toggleFavorite, isFavorite } from '../lib/favorites.js';
-import { navState, navTrace } from '../router.js';
+import { navState } from '../router.js';
 
 const PLATFORM_LABELS = {
     leboncoin: '🟠 LBC',
@@ -123,7 +123,6 @@ export async function render() {
         rebuildChips();
         renderFeed({ enter: true });
     }
-    navTrace(`hub: feed rendu (${state.searches.length} recherches), setup events + realtime…`);
 
     // === Filtres & tri : événements UI ===
     document.getElementById('hubFilterText').addEventListener('input', (e) => {
@@ -191,9 +190,7 @@ export async function render() {
 
     // === Realtime : insertion d'une nouvelle recherche ===
     if (window.__hubChannel) {
-        navTrace('hub: removeChannel (teardown realtime précédent)…');
         try { await supa.removeChannel(window.__hubChannel); } catch (_) {}
-        navTrace('hub: removeChannel terminé');
         window.__hubChannel = null;
     }
     if (navState.token !== myToken) return;
