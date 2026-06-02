@@ -61,6 +61,13 @@ CREATE TABLE IF NOT EXISTS llm_usage (
     token_count INTEGER DEFAULT 0,
     PRIMARY KEY (provider, model, day)
 );
+
+CREATE TABLE IF NOT EXISTS city_geo (
+    city TEXT PRIMARY KEY,
+    lat REAL NOT NULL,
+    lon REAL NOT NULL,
+    geocoded_at INTEGER NOT NULL
+);
 """
 
 # Approximation du reset minuit Pacifique (offset fixe, zéro dépendance tzdata).
@@ -189,6 +196,23 @@ class Brain:
             (search_id, now - window_s),
         ).fetchone()
         return int(row["s"] or 0)
+
+    def get_city_geo(self, city: str):
+        """Retourne (lat, lon) en cache pour cette ville, ou None."""
+        row = self.conn.execute(
+            "SELECT lat, lon FROM city_geo WHERE city = ?", (city,)
+        ).fetchone()
+        return (row["lat"], row["lon"]) if row else None
+
+    def set_city_geo(self, city: str, lat: float, lon: float, now: int | None = None) -> None:
+        now = int(now if now is not None else time.time())
+        self.conn.execute(
+            "INSERT INTO city_geo (city, lat, lon, geocoded_at) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(city) DO UPDATE SET lat=excluded.lat, lon=excluded.lon, "
+            "geocoded_at=excluded.geocoded_at",
+            (city, lat, lon, now),
+        )
+        self.conn.commit()
 
     def queue_outbox(self, payload: dict, now: int | None = None) -> None:
         now = int(now if now is not None else time.time())
