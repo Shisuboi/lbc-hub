@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS scrape_log (
     search_id TEXT,
     last_run_at INTEGER NOT NULL,
     status TEXT,
-    blocked_count INTEGER DEFAULT 0
+    blocked_count INTEGER DEFAULT 0,
+    new_ads INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS outbox (
@@ -78,7 +79,14 @@ class Brain:
         self.conn = sqlite3.connect(path)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
+        self._migrate()
         self.conn.commit()
+
+    def _migrate(self) -> None:
+        """Migrations légères des bases déjà créées (CREATE TABLE IF NOT EXISTS ne les altère pas)."""
+        cols = [r["name"] for r in self.conn.execute("PRAGMA table_info(scrape_log)").fetchall()]
+        if "new_ads" not in cols:
+            self.conn.execute("ALTER TABLE scrape_log ADD COLUMN new_ads INTEGER DEFAULT 0")
 
     def close(self) -> None:
         self.conn.close()
@@ -137,13 +145,50 @@ class Brain:
         )
         self.conn.commit()
 
-    def log_scrape(self, search_id: str, status: str, blocked: int = 0, now: int | None = None) -> None:
+    def log_scrape(self, search_id: str, status: str, blocked: int = 0,
+                   new_ads: int = 0, now: int | None = None) -> None:
         now = int(now if now is not None else time.time())
         self.conn.execute(
-            "INSERT INTO scrape_log (search_id, last_run_at, status, blocked_count) VALUES (?, ?, ?, ?)",
-            (search_id, now, status, blocked),
+            "INSERT INTO scrape_log (search_id, last_run_at, status, blocked_count, new_ads) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (search_id, now, status, blocked, new_ads),
         )
         self.conn.commit()
+
+    def new_ads_rate(self, search_id: str, window_s: int = 600, now: int | None = None) -> float:
+        """Annonces neuves par minute sur la fenêtre glissante (moyenne)."""
+        now = int(now if now is not None else time.time())
+        row = self.conn.execute(
+            "SELECT COALESCE(SUM(new_ads), 0) AS s FROM scrape_log "
+            "WHERE search_id = ? AND last_run_at >= ?",
+            (search_id, now - window_s),
+        ).fetchone()
+        minutes = window_s / 60.0
+        return (float(row["s"] or 0) / minutes) if minutes else 0.0
+
+    def ads_seen_total(self, search_id: str) -> int:
+        """Cumul d'annonces uniques que cette recherche a fait remonter (somme des new_ads)."""
+        row = self.conn.execute(
+            "SELECT COALESCE(SUM(new_ads), 0) AS s FROM scrape_log WHERE search_id = ?",
+            (search_id,),
+        ).fetchone()
+        return int(row["s"] or 0)
+
+    def last_pass_at(self, search_id: str) -> int | None:
+        row = self.conn.execute(
+            "SELECT MAX(last_run_at) AS m FROM scrape_log WHERE search_id = ?",
+            (search_id,),
+        ).fetchone()
+        return row["m"] if row and row["m"] is not None else None
+
+    def blocked_recent(self, search_id: str, window_s: int = 600, now: int | None = None) -> int:
+        now = int(now if now is not None else time.time())
+        row = self.conn.execute(
+            "SELECT COALESCE(SUM(blocked_count), 0) AS s FROM scrape_log "
+            "WHERE search_id = ? AND last_run_at >= ?",
+            (search_id, now - window_s),
+        ).fetchone()
+        return int(row["s"] or 0)
 
     def queue_outbox(self, payload: dict, now: int | None = None) -> None:
         now = int(now if now is not None else time.time())
