@@ -75,6 +75,21 @@ export async function loadCommentMeta(oppIds = [], myUserId = null) {
   return meta;
 }
 
+/** Derniers commentaires postés par un membre, joints au titre de l'opportunité.
+ * Renvoie un tableau [{ id, body, created_at, opportunity_id, opportunity: { title } }].
+ * Best-effort : en cas d'erreur, renvoie []. */
+export async function listCommentsByUser(userId, limit = 20) {
+  if (!userId) return [];
+  const { data, error } = await supa
+    .from('item_comments')
+    .select('id, body, created_at, opportunity_id, opportunity:opportunities(title)')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return data;
+}
+
 /** Souscrit aux changements realtime des commentaires d'un item.
  * onChange() est appelé sur tout INSERT/UPDATE/DELETE concernant cette opportunité.
  * Renvoie le canal (à passer à supa.removeChannel au démontage). */
