@@ -90,3 +90,11 @@ class Supa:
         headers = self._headers({"Prefer": "resolution=merge-duplicates,return=minimal"})
         async with self.session.post(url, params=params, json=payload, headers=headers) as resp:
             resp.raise_for_status()
+
+    async def upsert_heartbeat(self, payload: dict) -> None:
+        """Upsert de la télémétrie de scrape (clé search_id). Appelée en best-effort."""
+        url = f"{self.base}/rest/v1/scrape_heartbeats"
+        params = {"on_conflict": "search_id"}
+        headers = self._headers({"Prefer": "resolution=merge-duplicates,return=minimal"})
+        async with self.session.post(url, params=params, json=payload, headers=headers) as resp:
+            resp.raise_for_status()
