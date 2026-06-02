@@ -126,7 +126,7 @@ server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK J
 
 ## Fichiers critiques
 - `server.py` — scraper Python (D-01 appliqué : scrape only, plus d'analyse IA)
-- `index.html` — shell SPA avec `<base href>` dynamique (prod/dev) + script SPA route restore
+- `index.html` — shell SPA avec `<base href>` STATIQUE `/lbc-hub/` (réécrit en `/` par server.py en dev) + script SPA route restore
 - `js/main.js` — entrypoint SPA, ORDRE IMPORTANT (renderHeader avant onAuthChange)
 - `js/supabase-client.js` — config SDK avec `lock: noop`, etc. (cf. "Bugs / pièges connus")
 - `js/vendor/supabase.min.js` — SDK self-hébergé (anti-Tracking-Prevention)
@@ -256,7 +256,7 @@ Sans la #4 : `/dashboard` affiche `❌ Chargement des transactions impossible` (
 1. **`navigator.locks` du Supabase SDK** : peut figer `getSession()` au boot si un onglet zombie tient le verrou. Mitigation appliquée = `lock: noop` dans `supabase-client.js`.
 2. **Edge / Firefox Tracking Prevention** sur SDK CDN cross-origin → blocage localStorage. Mitigation = SDK self-hébergé.
 3. **SPA refresh sur `/hub`** → 405 si server.py n'a pas le catch-all GET. Mitigation = route `add_get('/{path:.*}', index_handler)` dans `create_app()`.
-4. **`<base href>` dynamique** dans `index.html` : prod `/lbc-hub/`, dev `/`. Sans ça, les chemins relatifs cassent au refresh sur SPA route.
+4. **`<base href>` STATIQUE** dans `index.html` : balise `<base href="/lbc-hub/">` en dur (prod GitHub Pages). `server.py` (`index_handler`) la réécrit en `/` à la volée pour le dev local. ⚠️ NE PAS revenir à `document.write('<base>')` : le préchargeur HTML de Firefox lit le flux d'octets brut et résout les assets relatifs (`style.css`, `js/main.js`) AVANT l'exécution du script → au refresh d'une route profonde (`/item/:id`), server.py renvoie `index.html` (text/html) à leur place → erreurs MIME. La balise statique est vue par le préchargeur, le `document.write` non. (Prod marche aussi grâce au bounce `404.html` qui recharge toujours l'app à la racine `/lbc-hub/`.)
 5. **Cross-tab `sessionStorage`** : l'invitation flow utilise `sessionStorage.pendingInvite` qui est PAR ONGLET — il faut faire le flow dans un seul onglet, sinon le token est perdu.
 6. **`onAuthChange` AVANT `renderHeader`** = deadlock du SDK. L'ordre dans `main.js` doit rester : `await renderHeader()` → `initRouter()` → `onAuthChange(...)`.
 7. **`requireAuth({ force })` à chaque navigation = hang Firefox**. Forcer `getProfile(true)` dans `requireAuth` déclenche un fetch HTTP `from('profiles').select().single()` à chaque clic de lien. Sur Firefox, ce fetch hang par intermittence (spinner `⏳ Chargement…` figé jusqu'au F5). Mitigation = `getProfile()` sans `force`, le cache est déjà invalidé au login/logout. Voir `js/auth.js` ligne 40.

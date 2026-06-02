@@ -345,7 +345,13 @@ async def run_pipeline_task(base_url: str, max_pages: int, delay: int = 1500):
 # --- 4. HTTP API ROUTERS ---
 
 async def index_handler(request):
-    return web.FileResponse(os.path.join(os.path.dirname(__file__), 'index.html'))
+    # server.py sert toujours l'app à la racine ('/'), alors que index.html porte la
+    # base prod statique '/lbc-hub/' (GitHub Pages). On la réécrit à la volée pour le
+    # dev local, sinon les assets relatifs casseraient au refresh d'une route profonde.
+    with open(os.path.join(os.path.dirname(__file__), 'index.html'), 'r', encoding='utf-8') as f:
+        html = f.read()
+    html = html.replace('<base href="/lbc-hub/">', '<base href="/">')
+    return web.Response(text=html, content_type='text/html')
 
 async def style_handler(request):
     return web.FileResponse(os.path.join(os.path.dirname(__file__), 'style.css'))
