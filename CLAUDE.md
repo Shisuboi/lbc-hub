@@ -5,275 +5,215 @@
 - Claude prend **toutes** les décisions techniques, Tristan gère le produit/UX
 - Langue : **toujours répondre en français**
 
-## Ce qu'est le projet
-Outil local de scraping Leboncoin → transformation en **plateforme communautaire privée** (hub) pour un groupe d'amis. Chaque user scrape en local, publie ses résultats sur un hub hébergé.
+## Ce qu'est le projet (modèle actuel — Phase C)
+Hub communautaire privé pour un groupe d'amis, **centré sur un flux d'opportunités de revente**
+produites en continu par un **moteur autonome** (`server.py --auto`). Le moteur scrape Leboncoin,
+note les annonces via une cascade IA, et publie les opportunités dans Supabase. Le site (GitHub
+Pages) affiche ce flux (`/feed`), le détail + commentaires par item (`/item/:id`), la watchlist
+partagée (`/watchlist`) et un dashboard financier (`/dashboard`).
+
+> ⚠️ **Pivot Phase C (juin 2026)** : on a **abandonné** l'ancien modèle « recherches unitaires »
+> (chaque membre scrapait une recherche et la publiait sur `/hub` ; analyse via copier-coller dans
+> Claude.ai ; tables `searches`/`listings`). Ce modèle, ses pages (`/hub`, `/scraper`, `/search`) et
+> ses fichiers ont été **retirés** (sous-phase C-5). Les **tables DB `searches`/`listings`/`favorites`
+> (ancienne)/`invitations` restent en base** (inutilisées, zéro risque ; nettoyage SQL possible plus
+> tard).
 
 ## Stack validée
-- **Frontend** : Vanilla JS (ES6 modules), SPA history API, Supabase SDK v2
-- **Hébergement** : GitHub Pages (`https://shisuboi.github.io/lbc-hub`)
-- **Repo GitHub** : `https://github.com/Shisuboi/lbc-hub`
+- **Frontend** : Vanilla JS (ES6 modules), SPA history API, Supabase SDK v2 (self-hébergé)
+- **Hébergement** : GitHub Pages (`https://shisuboi.github.io/lbc-hub`), déploiement auto sur push `master`
+- **Repo GitHub** : `https://github.com/Shisuboi/lbc-hub` (user `Shisuboi`)
 - **Base de données** : Supabase (PostgreSQL + Auth + Realtime) — free tier
-- **Scraping local** : Python 3.11 + aiohttp + Playwright (server.py port 8080)
-- **IA** : Claude.ai (workflow "Générer le prompt + import JSON" — D-01 appliqué, plus de dépendance Ollama)
-- **Tests** : pytest pour endpoints server.py uniquement (pas de tests frontend)
+- **Moteur / scraping** : Python 3.11+ + aiohttp + Playwright (`server.py`, port 8080)
+- **IA d'analyse** : **cascade Gemini** dans `engine/` (Phase B, sous `--auto`). L'ancien workflow
+  manuel « Générer le prompt + import JSON dans Claude.ai » a été **retiré en Phase C-5**.
+- **Tests** : pytest pour le backend (`engine/` + `server.py`) uniquement — **pas de tests frontend**
+  (validation manuelle : chargement de page + console F12 ; Node n'est pas installé, le site se sert
+  via `python server.py`).
 
 ## Architecture clé
 ```
-[Browser] → GitHub Pages (SPA) → Supabase (auth JWT + DB + Realtime)
-[Browser] → localhost:8080 (server.py, optionnel, pour scraping)
-server.py ne touche JAMAIS Supabase — le frontend publie directement via SDK JS + JWT
+[Browser] → GitHub Pages (SPA) → Supabase (auth JWT + DB + Realtime)   ← lecture du feed/commentaires
+[PC moteur] → server.py --auto → scrape Leboncoin (Playwright) → cascade IA → Supabase (service_role)
 ```
-> ⚠️ Exception depuis Phase A du pipeline de revente : voir « Moteur autonome » ci-dessous.
+- Le **frontend** lit/écrit Supabase via le SDK JS (anon key + JWT + RLS) : feed, item, commentaires,
+  watchlist, favoris, dashboard.
+- Le **moteur `--auto`** est la **seule** brique qui écrit avec la clé `service_role` (opportunités +
+  télémétrie `scrape_heartbeats`). C'est l'exception assumée à l'invariant « le frontend seul touche
+  Supabase ».
 
-## Moteur autonome (pipeline de revente — Phase A livrée)
-- `server.py --auto` démarre une boucle de fond qui scrape les `watchlist_searches`
-  actives, déduplique via SQLite local (`lbc_brain.sqlite3`), détecte les baisses de
-  prix, et **écrit des opportunités brutes dans Supabase via la clé `service_role`**.
-- ⚠️ **L'invariant « server.py ne touche JAMAIS Supabase » est volontairement levé**
-  pour le mode `--auto` (et UNIQUEMENT lui). Le scrape manuel et le frontend restent
-  inchangés (anon key + JWT + RLS). Sans `--auto`, l'API HTTP est strictement identique.
+## Moteur autonome (pipeline de revente — Phase A)
+- `server.py --auto` démarre des coroutines de fond qui scrapent les `watchlist_searches` actives,
+  dédupliquent via SQLite local (`lbc_brain.sqlite3`), détectent les baisses de prix, et écrivent
+  dans Supabase via la clé `service_role`.
 - Package `engine/` : `config` (.env), `parse` (extract_ad_id/clean_price), `db`
-  (Brain SQLite : seen_ads, price_observations, market_observations, scrape_log, outbox),
-  `prefilter` (règles non-IA), `supa` (REST PostgREST + build_opportunity_payload),
-  `scheduler` (run_engine round-robin résilient + outbox flush), `scraper`
-  (extraction page de résultats Playwright), `bootstrap` (browser partagé + verrou).
+  (Brain SQLite : seen_ads, price_observations, market_observations, scrape_log, outbox,
+  pending_enrichment, llm_usage), `prefilter` (règles non-IA), `supa` (REST PostgREST +
+  build_opportunity_payload + `upsert_heartbeat`), `scheduler` (run_engine round-robin résilient +
+  outbox flush), `scraper` (extraction page de résultats Playwright), `bootstrap` (browser partagé +
+  verrou), `telemetry` (heartbeat_worker → `scrape_heartbeats`, Phase C-3).
 - Un seul Chromium partagé entre scrape manuel et auto (`scrape_lock` dans server.py).
-- ⚠️ **Piège LBC** : `engine/scraper.py` dépend du HTML de Leboncoin, qui change
-  régulièrement (les `data-qa-id` de titre/prix/ville ont disparu en 2026). L'extracteur
-  s'appuie donc sur la **sémantique stable** (`article[aria-label]` = titre,
-  `a[href*="/ad/"]` = URL, `<span>` au texte `…€` = prix, « Située à <ville> » = ville)
-  via un script DOM in-page. Si le scrape sort des prix à 0 / titres vides → LBC a encore
-  changé : ré-inspecter une carte `<article>` et mettre à jour `_EXTRACT_JS`.
-- Secrets dans `.env` (jamais committé — déjà dans `.gitignore`).
-- Migration : `supabase/migrations/2026-05-29-pipeline-foundation.sql`
-  (tables `opportunities` + `watchlist_searches` + RLS, à appliquer à la main).
+- ⚠️ **Piège LBC** : `engine/scraper.py` dépend du HTML de Leboncoin, qui change régulièrement (les
+  `data-qa-id` de titre/prix/ville ont disparu en 2026). L'extracteur s'appuie sur la **sémantique
+  stable** (`article[aria-label]` = titre, `a[href*="/ad/"]` = URL, `<span>` au texte `…€` = prix,
+  « Située à <ville> » = ville) via un script DOM in-page. Si le scrape sort des prix à 0 / titres
+  vides → LBC a encore changé : ré-inspecter une carte `<article>` et mettre à jour `_EXTRACT_JS`.
+- Secrets dans `.env` (jamais committé — déjà dans `.gitignore`). Voir `.env.example`.
 - Déploiement 24/7 : voir `docs/DEPLOY-agent-windows.md` (`start-agent.bat` + Planificateur).
-- Phase A = SANS IA (opportunités brutes, champs IA = null). Cascade IA = Phase B.
 - Spec : `docs/superpowers/specs/2026-05-29-pipeline-revente-opportunites-design.md`.
-- Plan : `docs/superpowers/plans/2026-05-29-pipeline-phase-a-fondation-moteur.md`.
 
-## Cascade IA (pipeline de revente — Phase B livrée)
-- **Nouveau flux sous `--auto`** : le scrape ne déverse plus les opportunités brutes
-  dans Supabase. `process_search` (inchangé) écrit dans un **`LocalSink`** qui met les
-  annonces neuves en **file locale SQLite** (`pending_enrichment`). Une **2ᵉ coroutine**,
-  `enrichment_worker`, draine la file, exécute la cascade IA, et **n'écrit dans Supabase
-  que des opportunités notées** (jamais brutes). Les deux coroutines (`run_engine` +
-  `enrichment_worker`) tournent en parallèle, brain SQLite partagé (event loop coopératif,
-  pas de souci de concurrence).
+## Cascade IA (pipeline de revente — Phase B)
+- **Sous `--auto`** : `process_search` écrit dans un **`LocalSink`** (file SQLite `pending_enrichment`).
+  Une 2ᵉ coroutine `enrichment_worker` draine la file, exécute la cascade, et **n'écrit dans Supabase
+  que des opportunités notées**. Une 3ᵉ coroutine `heartbeat_worker` (Phase C-3) publie la télémétrie.
 - **Cascade 3 étages** (`engine/cascade.py`) : ① **triage groupé** (10-20 annonces/appel,
-  `gemini-3.1-flash-lite` gratuit) → catégorie 🟡/⚫ + score, **ne déclare JAMAIS urgent** ;
-  ② **vérification** (1 appel/candidate) → prix marché, marge €/%, prix max, lot, signaux ;
-  ③ **photo** (vision, 🔴 uniquement) → état réel + `scam_risk`.
-- ⚠️ **Gate 🔴 dur** : une opportunité ne devient `urgent` que si le modèle de vérification
-  a un **tier ≥ `MIN_TIER_FOR_URGENT`** (défaut `"pro"`). **Pro SUSPENDU** par défaut
-  (Tristan n'a pas encore accès au compte Pro) → en intérim, enrichissement sur Flash
-  gratuit mais **plafond 🟡**, zéro faux « urgent ». Activable plus tard via `.env`
-  (`GEMINI_PRO_ENABLED=true` + `GEMINI_VERIFY_MODEL=gemini-3.1-pro-preview` + clé du compte
-  Pro), sans réécriture. Un `scam_risk == "high"` à la photo **rétrograde** un 🔴 en 🟡.
-- **Modules `engine/`** : `router` (LLMRouter : route par stage, quotas `llm_usage`,
-  fallback, gate tier — pluggable : provider local Ollama/Groq ajoutable sans réécrire la
-  cascade), `llm_client` (GeminiClient REST `generateContent`, texte + vision, **zéro
-  nouvelle dépendance**), `cascade`, `prompts` (schémas JSON + `responseSchema`), `grounding`
-  (médiane marché locale → vrais comparables), `sink` (LocalSink), `enrich` (worker).
-- **Clés `.env` IA toutes optionnelles** : **sans `GEMINI_API_KEY`, l'enrichissement est
-  désactivé** et le moteur scrape + met en file normalement (opportunités en attente).
-  Voir `.env.example`. Démarrage 100 % gratuit acté.
-- **Résilience** : quota épuisé → on s'arrête, la file est conservée ; réponse LLM malformée
-  → reportée (retry) sans boucler ; garde anti-poison (item échouant ≥ 5 fois abandonné) ;
-  Supabase down → outbox Phase A.
-- **0 migration Supabase** : les colonnes IA d'`opportunities` existent depuis la Phase A.
+  `gemini-3.1-flash-lite` gratuit) → 🟡/⚫ + score, ne déclare JAMAIS urgent ; ② **vérification**
+  (1 appel/candidate) → prix marché, marge €/%, prix max, lot, signaux ; ③ **photo** (vision, 🔴
+  uniquement) → état réel + `scam_risk`.
+- ⚠️ **Gate 🔴 dur** : `urgent` seulement si le vérificateur a un **tier ≥ `MIN_TIER_FOR_URGENT`**
+  (défaut `"pro"`). **Pro SUSPENDU** par défaut → en intérim, enrichissement sur Flash gratuit, plafond
+  🟡, zéro faux « urgent ». Activable via `.env` (`GEMINI_PRO_ENABLED=true` + `GEMINI_VERIFY_MODEL` +
+  clé Pro). `scam_risk == "high"` à la photo **rétrograde** un 🔴 en 🟡. Voir [[phase-b-pro-verifier-suspendu]].
+- **Modules `engine/`** : `router` (LLMRouter, quotas `llm_usage`, fallback, gate tier),
+  `llm_client` (GeminiClient REST), `cascade`, `prompts` (schémas JSON), `grounding` (médiane marché),
+  `sink` (LocalSink), `enrich` (worker).
+- **`.env` IA optionnelles** : **sans `GEMINI_API_KEY`, l'enrichissement est désactivé** (le moteur
+  scrape + met en file). Démarrage 100 % gratuit acté.
+- **Résilience** : quota épuisé → stop, file conservée ; LLM malformé → retry sans boucler ; garde
+  anti-poison (≥ 5 échecs abandonné) ; Supabase down → outbox.
 - Spec : `docs/superpowers/specs/2026-05-30-pipeline-phase-b-cascade-ia-design.md`.
-- Plan : `docs/superpowers/plans/2026-05-30-pipeline-phase-b-cascade-ia.md`.
-- Validation LIVE (obligatoire) : `docs/TESTING-phase-b-live.md`.
+  Validation LIVE : `docs/TESTING-phase-b-live.md`.
 
 ## Principe CORS critique
-- `server.py` doit renvoyer `Access-Control-Allow-Private-Network: true` sur toutes ses réponses
-- Chrome/Edge supportent HTTPS→localhost (exception mixed content)
-- Firefox/Safari : workaround documenté dans /install
+- `server.py` renvoie `Access-Control-Allow-Private-Network: true` sur toutes ses réponses.
+- Chrome/Edge supportent HTTPS→localhost (exception mixed content) ; Firefox/Safari : workaround `/install`.
 
 ## Auth / accès
-- Inscriptions publiques **OFF** dans Supabase
-- **Depuis v1.8.0** : self-service onboarding. L'admin crée juste le user auth dans le Dashboard Supabase et envoie identifiant + mdp à l'invité. Au 1er login, l'invité atterrit sur `/onboarding` et choisit son pseudo lui-même (RPC `create_self_profile`).
-- La page `/admin` ne montre plus la génération de lien d'invitation, juste les instructions de création d'un user.
-- Rétro-compat : le RPC `consume_invitation` + la route `/invite/:token` restent actifs pour les liens déjà envoyés avant v1.8.0.
+- Inscriptions publiques **OFF** dans Supabase.
+- **Self-service onboarding** : l'admin crée le user auth dans le Dashboard Supabase et envoie
+  identifiant + mdp. Au 1er login, l'invité atterrit sur `/onboarding` et choisit son pseudo (RPC
+  `create_self_profile`). La page `/admin` montre les instructions de création d'un user.
+- Rétro-compat : RPC `consume_invitation` + route `/invite/:token` restent actifs pour les vieux liens.
+- ⚠️ `profiles.id == auth.uid()` (convention). Les RLS « own » comparent `auth.uid() = user_id/owner_id`.
 
-## Schéma DB important (versions cibles)
-- `profiles` : id, username, avatar_color, role ('user'|'admin'), created_at
-- `invitations` : token, created_by, used_by, used_at, expires_at
-- `searches` : id, user_id, title, criteria, source_url, platform ('leboncoin'|'ebay'|'vinted'|'other'), model_name, model_type ('cloud'|'local'), listing_count, best_score, min_price, **scraped_at** (date du scraping, PAS de la publication), created_at
-- `listings` : id, search_id, titre, prix, url, note_sur_100, caracteristiques, explication, match_criteres, created_at
+## Schéma DB (modèle actuel)
 
-## Décisions UX validées
-- `scraped_at` est LA date affichée partout (= moment du scraping, pas de la publication Supabase)
-- Cards du feed : bandeau violet = modèle cloud, gris = local
-- Badge plateforme sur les cards (🟠 LBC, 🔵 eBay, 🟢 Vinted)
-- Avertissement bas de page : "modèle cloud = précision élevée"
-- Routing SPA : 404.html → index.html fallback pour GitHub Pages
-- Prefix router `/lbc-hub` (= nom du repo GitHub)
-- GitHub username : `Shisuboi`
-- GitHub Pages URL finale : `https://shisuboi.github.io/lbc-hub`
+**Tables vivantes (Phase C) :**
+- `profiles` : id (= auth.uid()), username, avatar_color, role ('user'|'admin'), created_at
+- `opportunities` : ad_id (unique), source_search_id, platform, title, price, url, image_url,
+  location_*, category ('urgent'|'interesting'|'passable'), resale_score, est_market_price,
+  est_margin_eur/pct, max_buy_price, is_lot, signals, explanation, photo_verdict, price_dropped,
+  previous_price, model_used, status, scraped_at, created_at
+- `watchlist_searches` : id, owner_id, title, criteria, source_url, platform, geo_*, price_max,
+  exclude_keywords, min_margin_eur/pct, active (≤ 1 active via RPC `set_active_watchlist`), created_at
+- `item_comments` : id, opportunity_id, user_id, body, edited_at, created_at (RLS own/admin, realtime)
+- `scrape_heartbeats` : search_id (PK), heartbeat_at, last_pass_at, new_ads_per_min, ads_seen_total,
+  blocked_recent, updated_at (écrite par le moteur via service_role, lue en realtime)
+- `item_favorites` : user_id, opportunity_id, created_at (favoris Phase C, sur opportunity_id)
+- `transactions` : dashboard financier (`/dashboard`)
 
-## Multi-plateforme (future-proof)
-- `searches.source_url` (générique, pas `url_lbc`)
-- `searches.platform` pour filtrer par source dans le feed
-- `server.py` : abstraire le scraper derrière une interface `PlatformScraper` (aujourd'hui = LeboncoinScraper)
+**Tables legacy (dormantes, laissées en base) :** `searches`, `listings`, `favorites` (ancienne, sur
+`search_id`), `invitations`.
+
+**RPCs vivantes :** `create_self_profile(new_username)`, `set_active_watchlist(p_search_id)` (SECURITY
+DEFINER, atomique). **Legacy :** `validate_invitation`, `consume_invitation`.
+
+## Décisions UX (Phase C)
+- **DA** : police Outfit, fond dégradé indigo, glassmorphism, accent #6366f1 ; couleurs par catégorie
+  🔴 #f43f5e / 🟡 #facc15 / ⚫ #94a3b8.
+- `/feed` : lignes denses (`opportunity-row`), badge catégorie + score, marge €/%, compteur `💬 N`,
+  **point « nouveau commentaire »** (C-4, localStorage `comment-seen`), favoris ⭐, toolbar
+  filtres/tri/recherche, realtime nouvelle opportunité.
+- `/item/:id` : faits clés + analyse IA + fil de commentaires temps réel.
+- `/watchlist` : gestion des recherches (ajout/activer/pause/éditer/supprimer, une seule active) +
+  **panneau monitoring live** (PC 🟢/⚫, annonces/min, dernière passe, cumul).
+- `/profile/:username` : identité (avatar/pseudo/rôle/membre depuis) + ses derniers commentaires.
+- Routing SPA : `404.html` → `index.html` fallback (GitHub Pages) ; prefix router `/lbc-hub` en prod.
 
 ## Sync cross-machines
-- Code + plan + specs + CLAUDE.md : **git + GitHub** (pull sur chaque machine)
-- Config Claude projet : `.claude/settings.json` dans le repo
-- Mémoire globale Claude : `~/.claude/` à copier sur le laptop (une fois) puis OneDrive sync
-- Plugins Superpowers : réinstaller sur chaque machine
+- Code + plan + specs + CLAUDE.md : **git + GitHub** (`git pull` sur chaque machine).
+- Config Claude projet : `.claude/settings.json` dans le repo.
+- Mémoire globale Claude : `~/.claude/` à copier sur le laptop (une fois) puis sync.
+- Plugins Superpowers : réinstaller sur chaque machine.
+- **Pour faire tourner le moteur sur une machine** : Python 3.11+, `pip install` des deps,
+  `playwright install chromium`, copier `.env` (secrets), puis `python server.py --auto`.
 
 ## Fichiers critiques
-- `server.py` — scraper Python (D-01 appliqué : scrape only, plus d'analyse IA)
-- `index.html` — shell SPA avec `<base href>` STATIQUE `/lbc-hub/` (réécrit en `/` par server.py en dev) + script SPA route restore
-- `js/main.js` — entrypoint SPA, ORDRE IMPORTANT (renderHeader avant onAuthChange)
-- `js/supabase-client.js` — config SDK avec `lock: noop`, etc. (cf. "Bugs / pièges connus")
-- `js/vendor/supabase.min.js` — SDK self-hébergé (anti-Tracking-Prevention)
-- `docs/superpowers/plans/2026-05-27-lbc-hub-mvp-phase1.md` — plan d'origine Phase 1
-- `docs/superpowers/specs/2026-05-26-lbc-hub-platform-design.md` — spec validée
-- `TESTING.md` + `TESTING-phase2-3.md` — check-lists de tests E2E
-
-## Ce qui NE change PAS
-- Scraping Playwright reste identique
-- Workflow import JSON Claude.ai reste identique
-- Dark theme UI reste identique
-- server.py reste optionnel (uniquement pour scraper)
-
-## Invitations (legacy)
-- Le flow par token est **déprécié depuis v1.8.0** mais reste fonctionnel pour les liens déjà envoyés.
-- Plus aucune génération de nouveau token côté UI (le bouton a été retiré de `/admin`). Les tables `invitations` + RPC `consume_invitation` + route `/invite/:token` restent en DB / code pour la rétro-compat.
-- Nouveau flow : voir section "Auth / accès" ci-dessus.
+- `server.py` — sert la SPA en dev (réécrit `<base>` `/lbc-hub/`→`/`) + héberge le moteur `--auto`.
+  Garde des endpoints de scrape manuel (`/api/start`, `/api/import-results`…) **dormants** depuis le
+  retrait de `/scraper` (C-5) — inoffensifs.
+- `index.html` — shell SPA avec `<base href>` STATIQUE `/lbc-hub/` (réécrit en `/` par server.py en dev)
+  + script SPA route restore.
+- `js/main.js` — entrypoint SPA, ORDRE IMPORTANT (renderHeader avant onAuthChange).
+- `js/supabase-client.js` — config SDK (`lock: noop`, `autoRefreshToken: false`, etc.).
+- `js/vendor/supabase.min.js` — SDK self-hébergé (anti-Tracking-Prevention).
+- `engine/` — moteur autonome (voir sections Phase A/B).
 
 ## Supabase Auth — config URL
-- Pendant le dev local : Site URL = `http://localhost:8080`
-- Au déploiement (Section 9) : remettre Site URL = `https://shisuboi.github.io/lbc-hub`
-- Redirect URLs (laisser les 3 en permanence) :
-  - `https://shisuboi.github.io/lbc-hub/*`
-  - `http://localhost:8080/*`
-  - `http://localhost:8080/**`
+- Dev local : Site URL = `http://localhost:8080`. Prod : `https://shisuboi.github.io/lbc-hub`.
+- Redirect URLs (laisser en permanence) : `https://shisuboi.github.io/lbc-hub/*`,
+  `http://localhost:8080/*`, `http://localhost:8080/**`.
+
+---
 
 ## Phase actuelle
-**Phases 1 → 4 (partiel) livrées et testées E2E.** Code stable, déployé en prod.
 
-### État au 28/05/2026 — récap complet pour reprise (PC fixe)
+**Phase C livrée et déployée en prod (2026-06-02).** Le hub tourne sur le modèle « flux d'opportunités ».
 
-**Branche** : `master`.
-**Tag courant** : `v1.7.0-stable` (testé E2E complet le 28/05/2026).
-**Prod en ligne** : https://shisuboi.github.io/lbc-hub/ (déploiement auto sur push master via GH Actions).
-**Tests pytest backend** : ✅ 3/3 passent (`python -m pytest tests/ -v`).
-**Tests E2E manuels** :
-- Phase 1 (v1.0.0) : ✅ validés
-- Phases 2-3 (v1.1.0 → v1.6.0) : ✅ validés le 28/05/2026 (cf. `TESTING-phase2-3.md`)
-- Phase 4 partielle (v1.7.x) : ✅ validée le 28/05/2026
+### Sous-phases Phase C (toutes en prod)
+| Sous-phase | Contenu |
+|---|---|
+| C-1 | `/feed` + `/item/:id` + nouvelle DA (glassmorphism) + favoris item |
+| C-2 | Commentaires par item + temps réel (+ fix base href statique Firefox) |
+| C-3 | `/watchlist` gestion (RPC `set_active_watchlist`) + monitoring live (`scrape_heartbeats`) |
+| C-4 | Badge « nouveau commentaire » sur le feed (localStorage `comment-seen`) |
+| C-5 | Nettoyage legacy (`/hub`,`/scraper`,`/search` + 8 fichiers) + profil refait Phase C |
 
-### Historique des tags (du plus ancien au plus récent)
-
-| Tag | Date | Feature livrée |
-|---|---|---|
-| `v1.0.0-phase1` | 27/05 | MVP : auth, hub, search detail, scraper Ollama, install, deploy GH Pages |
-| `v1.1.0-admin` | 27/05 | Page `/admin` (gestion invitations) — admin only |
-| `v1.2.0-d01` | 27/05 | Retrait Ollama : workflow forcé Claude.ai (D-01) |
-| `v1.3.0-feed-sort` | 27/05 | Toolbar tri + filtres (plateforme/auteur/texte) sur `/hub` |
-| `v1.4.0-profiles` | 27/05 | Pages publiques `/profile/:username` + @username cliquable |
-| `v1.5.0-favorites` | 27/05 | Star ⭐ + chip "Favoris" sur `/hub` |
-| `v1.6.0-phase3` | 27/05 | Notifications (title-badge + Notification API) + badge "annonce expirée" |
-| `v1.7.0-stable` | 28/05 | Bugfixes session (expire btn, scroll SPA, hub classList), dropdown modèle IA, import JSON sans server.py, login sans email réel (convention @lbc-hub.local) |
+Specs/plans : `docs/superpowers/specs/2026-06-01-phase-c-hub-opportunites-design.md` +
+`docs/superpowers/{specs,plans}/2026-06-0{1,2}-phase-c*.md`.
 
 ### Routes SPA actives (`js/main.js`)
-- `/` — login
-- `/install` — guide d'installation public
-- `/invite/:token` — création de profil après acceptation invitation
-- `/onboarding` — fallback si user loggé sans profil
-- `/hub` — feed des recherches (avec toolbar tri+filtres+favoris+notif)
-- `/scraper` — page scraper local (workflow Claude.ai après D-01)
-- `/search/:id` — détail d'une recherche + listings (avec étoile favori + toggle expiré)
-- `/profile/:username` — profil public d'un membre
-- `/admin` — gestion des invitations (admin only)
+`/` (login), `/install`, `/invite/:token` (legacy), `/onboarding`, `/feed`, `/item/:id`,
+`/watchlist`, `/dashboard`, `/profile/:username`, `/admin`.
 
-### Endpoints `server.py` (port 8080)
-- `GET /api/ping` — health check
-- `POST /api/start` — démarrer un scraping (params : url, pages, criteres, delay)
-- `POST /api/resume` — débloquer un job en attente de captcha
-- `POST /api/stop` — arrêter un job en cours
-- `GET /api/scraped-info` — métadonnées sur `leboncoin_brut.json` existant
-- `GET /api/raw-ads` — télécharger `leboncoin_brut.json` (pour joindre à Claude.ai)
-- `GET /api/events` — SSE stream (status, logs, scraped, results)
-- `POST /api/import-results` — pousser les annonces analysées par Claude.ai
-- `GET /*` (catch-all) — SPA fallback (sert `index.html`)
+### Architecture frontend (Phase C)
+- `js/pages/` : login, install, invite, feed, item, watchlist, dashboard, profile, admin.
+- `js/components/` : header, opportunity-row, comments.
+- `js/lib/` : colors, opportunities, comments, comment-seen, item-favorites, watchlist, transactions.
+- `js/router.js` — mini-router history API, strip prefix `/lbc-hub`.
 
-### Schéma DB final (Supabase)
-
-```sql
--- Tables (toutes en public, toutes en RLS activé)
-profiles    (id, username, avatar_color, role, created_at)
-invitations (token, created_by, used_by, used_at, expires_at, created_at)
-searches    (id, user_id, title, criteria, source_url, platform, model_name,
-             model_type, listing_count, best_score, min_price, scraped_at, created_at)
-listings    (id, search_id, titre, prix, url, note_sur_100, caracteristiques,
-             explication, match_criteres, expired_at, created_at)
-favorites   (user_id, search_id, created_at) -- PK composite
-
--- RPCs
-validate_invitation(invitation_token uuid)
-consume_invitation(invitation_token uuid, new_username text)
-
--- Indexes
-profiles_username_idx, searches_created_at_idx, searches_user_id_idx,
-searches_platform_idx, listings_search_id_idx, listings_note_idx,
-listings_expired_idx (partial), favorites_user_idx, favorites_search_idx
-```
-
-### Migrations Supabase à appliquer manuellement (si pas encore fait)
-
-Dans `supabase/migrations/` :
-1. `2026-05-27-favorites.sql` — table `favorites` + RLS
-2. `2026-05-27-listings-expired.sql` — colonne `listings.expired_at` + UPDATE RLS
-3. `2026-05-28-self-onboarding.sql` — RPC `create_self_profile` (Option B, v1.8.0)
-4. `2026-06-01-transactions.sql` — table `transactions` + RLS (dashboard financier v1.9.0) — ✅ APPLIQUÉE le 01/06/2026
-
-Sans la #1/#2 : les boutons ⭐ et 🚫 affichent l'UI mais ne persistent rien (try/catch silencieux).
-Sans la #3 : `/onboarding` plante quand l'invité valide son pseudo (RPC absent).
-Sans la #4 : `/dashboard` affiche `❌ Chargement des transactions impossible` (table absente).
-
-### Architecture frontend
-- `js/main.js` — entrypoint SPA, routes lazy-load, onAuthChange registered APRÈS premier renderHeader (sinon SDK deadlock)
-- `js/router.js` — history API mini-router, strip prefix `/lbc-hub` (prod GH Pages)
-- `js/supabase-client.js` — SDK self-hébergé dans `js/vendor/supabase.min.js` (anti-Tracking-Prevention Edge/Firefox), config `lock: noop`, `autoRefreshToken: false`, `detectSessionInUrl: false`, `storage: localStorage`
-- `js/auth.js` — `requireAuth({requireRole})`, getProfile cached
-- `js/components/` — header, feed-card (article wrapper avec auteur en lien séparé), listing-card (avec expired banner + actions row)
-- `js/pages/` — login, invite, hub, search, scraper, install, admin, profile
-- `js/lib/` — colors, publish, server-ping, favorites
-
-### Fichiers de doc à consulter en cas de reprise
-- `TESTING.md` — check-list Phase 1 (faite et validée)
-- `TESTING-phase2-3.md` — check-list Phase 2-3 (à dérouler à la reprise)
-- `docs/superpowers/plans/2026-05-27-lbc-hub-mvp-phase1.md` — plan d'origine Phase 1 (avec section "Décisions / Évolutions")
-- `docs/superpowers/specs/2026-05-26-lbc-hub-platform-design.md` — spec produit
-- `README-rapide.txt` — guide rapide pour les amis (dans le ZIP de distribution)
+### Migrations Supabase (dans `supabase/migrations/`, à appliquer à la main)
+- `2026-05-28-self-onboarding.sql` — RPC `create_self_profile`
+- `2026-05-29-pipeline-foundation.sql` — `opportunities` + `watchlist_searches` + RLS
+- `2026-06-01-transactions.sql` — `transactions` (dashboard)
+- `2026-06-01-phase-c1-favorites.sql` — `item_favorites`
+- `2026-06-02-phase-c2-comments.sql` — `item_comments` + RLS + realtime
+- `2026-06-02-phase-c3-watchlist.sql` — `scrape_heartbeats` + RPC `set_active_watchlist` + override admin
+- (legacy, déjà appliquées : `2026-05-27-favorites.sql`, `2026-05-27-listings-expired.sql`)
 
 ### Bugs / pièges connus à éviter
-1. **`navigator.locks` du Supabase SDK** : peut figer `getSession()` au boot si un onglet zombie tient le verrou. Mitigation appliquée = `lock: noop` dans `supabase-client.js`.
-2. **Edge / Firefox Tracking Prevention** sur SDK CDN cross-origin → blocage localStorage. Mitigation = SDK self-hébergé.
-3. **SPA refresh sur `/hub`** → 405 si server.py n'a pas le catch-all GET. Mitigation = route `add_get('/{path:.*}', index_handler)` dans `create_app()`.
-4. **`<base href>` STATIQUE** dans `index.html` : balise `<base href="/lbc-hub/">` en dur (prod GitHub Pages). `server.py` (`index_handler`) la réécrit en `/` à la volée pour le dev local. ⚠️ NE PAS revenir à `document.write('<base>')` : le préchargeur HTML de Firefox lit le flux d'octets brut et résout les assets relatifs (`style.css`, `js/main.js`) AVANT l'exécution du script → au refresh d'une route profonde (`/item/:id`), server.py renvoie `index.html` (text/html) à leur place → erreurs MIME. La balise statique est vue par le préchargeur, le `document.write` non. (Prod marche aussi grâce au bounce `404.html` qui recharge toujours l'app à la racine `/lbc-hub/`.)
-5. **Cross-tab `sessionStorage`** : l'invitation flow utilise `sessionStorage.pendingInvite` qui est PAR ONGLET — il faut faire le flow dans un seul onglet, sinon le token est perdu.
-6. **`onAuthChange` AVANT `renderHeader`** = deadlock du SDK. L'ordre dans `main.js` doit rester : `await renderHeader()` → `initRouter()` → `onAuthChange(...)`.
-7. **`requireAuth({ force })` à chaque navigation = hang Firefox**. Forcer `getProfile(true)` dans `requireAuth` déclenche un fetch HTTP `from('profiles').select().single()` à chaque clic de lien. Sur Firefox, ce fetch hang par intermittence (spinner `⏳ Chargement…` figé jusqu'au F5). Mitigation = `getProfile()` sans `force`, le cache est déjà invalidé au login/logout. Voir `js/auth.js` ligne 40.
+1. **`navigator.locks` du Supabase SDK** : peut figer `getSession()` au boot. Mitigation = `lock: noop`.
+2. **Edge / Firefox Tracking Prevention** sur SDK CDN cross-origin → blocage localStorage. Mitigation =
+   SDK self-hébergé.
+3. **SPA refresh** → 405 si server.py n'a pas le catch-all GET. Mitigation = `add_get('/{path:.*}',
+   index_handler)`.
+4. **`<base href>` STATIQUE** dans `index.html` : `<base href="/lbc-hub/">` en dur, réécrit en `/` par
+   server.py en dev. ⚠️ NE PAS revenir à `document.write('<base>')` : le préchargeur de Firefox résout
+   les assets relatifs AVANT le script → erreurs MIME au refresh d'une route profonde (`/item/:id`).
+5. **Cross-tab `sessionStorage`** : le flow invitation utilise `sessionStorage.pendingInvite` (par
+   onglet) — faire le flow dans un seul onglet.
+6. **`onAuthChange` AVANT `renderHeader`** = deadlock SDK. Ordre dans `main.js` : `renderHeader()` →
+   `initRouter()` → `onAuthChange(...)`.
+7. **`requireAuth({ force })` à chaque navigation = hang Firefox**. Utiliser `getProfile()` sans
+   `force` (cache invalidé au login/logout). Voir `js/auth.js`.
+8. **Canal realtime à nom fixe + retour sur page** → « cannot add postgres_changes after subscribe() ».
+   Mitigation = nom de canal **unique** par souscription (cf. `js/lib/watchlist.js subscribeHeartbeats`).
+9. **RLS commentaires** : insert exige `auth.uid() = user_id`. Une erreur « new row violates RLS » au
+   post = cache de session mélangé (profil ≠ session active) → logout/login propre.
 
-### Prochaine étape pour Claude (reprise PC fixe)
-
-1. **Pull le repo** : `git pull --tags` sur `master`
-2. Tout est stable et testé — reprendre directement sur les idées Phase 4
-3. Phase 4 restante : auto-détection annonces expirées, recherches planifiées, commentaires, modération admin
-
-### Phases futures
-- ~~Phase 2 = profils, admin UI, tri feed, Realtime amélioré~~ ✅ LIVRÉ (v1.1.0–v1.4.0)
-- ~~Phase 3 = favoris, notifications, badge "annonce expirée"~~ ✅ LIVRÉ (v1.5.0–v1.6.0)
-- ~~Phase 4 partielle = bugfixes (expire btn, scroll SPA, hub null), sélecteur modèle IA (input libre + datalist + cloud/local), import JSON sans server.py, login sans email réel (@lbc-hub.local)~~ ✅ LIVRÉ (v1.7.x)
-- Phase 4 suite (idées) : auto-détection annonces expirées (HEAD check côté server.py),
-  recherches "sauvegardées" (re-run du même scrape sur planning), commentaires
-  sous une recherche, modération admin (delete search/listing/user)
-
-### Décisions notées pour Phase 2 (voir `docs/superpowers/plans/2026-05-27-lbc-hub-mvp-phase1.md` § Décisions / Évolutions)
-- **D-01** : ✅ APPLIQUÉ — l'analyse Ollama locale a été retirée. server.py se contente de scraper Leboncoin et d'écrire `leboncoin_brut.json`. L'analyse passe par Claude.ai via le workflow "Générer le prompt + import JSON". Page `/scraper` simplifiée en conséquence.
+### Reste à faire / pistes
+- **Valider C-3 en live** : le panneau monitoring (`🟢 PC actif`, annonces/min) n'a pas encore tourné
+  faute de PC moteur lancé. À tester dès que `server.py --auto` tourne (cf. mémoire `c3-live-test-pending`).
+- **Nettoyage SQL legacy** (optionnel) : `searches`/`listings`/`favorites` (ancienne)/`invitations` +
+  RPC d'invitation peuvent être supprimés de la base plus tard (zéro dépendance frontend).
+- **Compte Pro Gemini** : active le gate 🔴 urgent quand disponible (voir Cascade IA).
