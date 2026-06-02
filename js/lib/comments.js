@@ -51,22 +51,6 @@ export async function deleteComment(id) {
   if (error) throw new Error('Suppression impossible : ' + error.message);
 }
 
-/** Compte les commentaires pour une liste d'opportunités. Renvoie Map<oppId, n>.
- * Tally côté client (une seule requête) : suffisant à l'échelle du projet, pas de vue/RPC. */
-export async function loadCommentCounts(oppIds = []) {
-  const counts = new Map();
-  if (!oppIds.length) return counts;
-  const { data, error } = await supa
-    .from('item_comments')
-    .select('opportunity_id')
-    .in('opportunity_id', oppIds);
-  if (error || !data) return counts; // compteur best-effort : on ne casse pas le feed
-  for (const row of data) {
-    counts.set(row.opportunity_id, (counts.get(row.opportunity_id) || 0) + 1);
-  }
-  return counts;
-}
-
 /** Métadonnées commentaires pour une liste d'items, en UNE requête.
  * Renvoie Map<oppId, { count, participated, latest }> :
  *   count        = nombre de commentaires
