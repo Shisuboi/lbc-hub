@@ -7,6 +7,7 @@ import { navState } from '../router.js';
 import { listOpportunities, filterAndSort } from '../lib/opportunities.js';
 import { opportunityRowHtml } from '../components/opportunity-row.js';
 import { loadFavorites, toggleFavorite, isFav } from '../lib/item-favorites.js';
+import { loadCommentCounts } from '../lib/comments.js';
 
 const CATS = [
   { key: 'all', label: 'Toutes' },
@@ -61,6 +62,11 @@ export async function render() {
   }
   if (navState.token !== myToken) return;
   state.items = items;
+
+  let commentCounts = new Map();
+  try { commentCounts = await loadCommentCounts(items.map(o => o.id)); } catch (_) {}
+  if (navState.token !== myToken) return;
+
   renderList();
 
   // Toolbar events
@@ -118,7 +124,9 @@ export async function render() {
     if (!grid || !count || !empty) return; // navigated away
     const finalList = state.favOnly ? list.filter(o => isFav(o.id)) : list;
     empty.classList.toggle('hidden', state.items.length > 0);
-    grid.innerHTML = finalList.map(o => opportunityRowHtml(o, { isFav: isFav(o.id) })).join('');
+    grid.innerHTML = finalList.map(o =>
+      opportunityRowHtml(o, { isFav: isFav(o.id), commentCount: commentCounts.get(o.id) || 0 })
+    ).join('');
     count.textContent = `${finalList.length} opportunité${finalList.length > 1 ? 's' : ''}`;
   }
 }
