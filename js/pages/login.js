@@ -4,9 +4,9 @@ import { supa } from '../supabase-client.js';
 import { navigate } from '../router.js';
 
 export async function render() {
-    // Si déjà connecté → redirige vers /hub
+    // Si déjà connecté → redirige vers /feed
     const { data: { session } } = await supa.auth.getSession();
-    if (session?.user) { navigate('/hub', true); return; }
+    if (session?.user) { navigate('/feed', true); return; }
 
     document.getElementById('appRoot').innerHTML = `
         <section class="auth-panel">
@@ -45,7 +45,7 @@ export async function render() {
             if (pending) {
                 navigate(`/invite/${pending}`);
             } else {
-                navigate('/hub');
+                navigate('/feed');
             }
         } catch (err) {
             errorEl.textContent = err.message === 'Invalid login credentials'
