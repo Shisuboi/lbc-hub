@@ -24,7 +24,7 @@ notFound(async () => {
     document.getElementById('appRoot').innerHTML = `
         <div class="error-panel card">
             <h2>Page introuvable</h2>
-            <a href="/hub" data-link class="btn btn-primary">Retour au Hub</a>
+            <a href="/feed" data-link class="btn btn-primary">Retour au feed</a>
         </div>`;
 });
 

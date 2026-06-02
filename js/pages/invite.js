@@ -5,7 +5,7 @@
 //   2. L'invité ouvre l'URL → s'il n'est pas loggé, on stocke le token en
 //      sessionStorage et on redirige vers /. Après login il reviendra ici.
 //   3. L'invité authentifié choisit son pseudo (RPC consume_invitation),
-//      le profil est créé, puis on l'envoie sur /hub.
+//      le profil est créé, puis on l'envoie sur /feed.
 
 import { supa } from '../supabase-client.js';
 import { navigate } from '../router.js';
@@ -41,15 +41,15 @@ export async function render({ token }) {
                 <div class="auth-card card">
                     <h2>❌ Invitation invalide</h2>
                     <p>${result?.message || 'Token introuvable'}</p>
-                    <a href="/hub" data-link class="btn">Retour</a>
+                    <a href="/feed" data-link class="btn">Retour</a>
                 </div>
             </section>`;
         return;
     }
 
-    // Si l'user a déjà un profil, l'invitation n'a plus de sens → vers /hub
+    // Si l'user a déjà un profil, l'invitation n'a plus de sens → vers /feed
     const profile = await getProfile(true);
-    if (profile) { navigate('/hub', true); return; }
+    if (profile) { navigate('/feed', true); return; }
 
     document.getElementById('appRoot').innerHTML = `
         <section class="auth-panel">
@@ -84,7 +84,7 @@ export async function render({ token }) {
             return;
         }
         sessionStorage.removeItem('pendingInvite');
-        navigate('/hub');
+        navigate('/feed');
     });
 }
 
@@ -100,11 +100,11 @@ export async function renderOnboarding() {
         return;
     }
 
-    // Si l'user a déjà un profil (rare : arrivé là par erreur), → /hub
+    // Si l'user a déjà un profil (rare : arrivé là par erreur), → /feed
     const { data: { session } } = await supa.auth.getSession();
     if (!session?.user) { navigate('/', true); return; }
     const existing = await getProfile(true);
-    if (existing) { navigate('/hub', true); return; }
+    if (existing) { navigate('/feed', true); return; }
 
     document.getElementById('appRoot').innerHTML = `
         <section class="auth-panel">
@@ -135,6 +135,6 @@ export async function renderOnboarding() {
             errorEl.classList.remove('hidden');
             return;
         }
-        navigate('/hub');
+        navigate('/feed');
     });
 }
