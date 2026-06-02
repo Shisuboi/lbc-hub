@@ -38,3 +38,26 @@ def test_build_photo_prompt_mentions_arnaque():
 def test_verify_schema_has_market_price_field():
     assert "est_market_price" in VERIFY_SCHEMA["properties"]
     assert "refined_score" in VERIFY_SCHEMA["properties"]
+
+
+def test_triage_prompt_flags_implausibly_low_price_and_for_parts():
+    """Un prix dérisoire (PC à 8€) doit être traité comme cassé/pièces, pas comme une affaire."""
+    ads = [{"ad_id": "1", "title": "PC portable", "price": 8.0, "city": "Paris"}]
+    prompt = build_triage_prompt(ads, {})  # médiane marché INCONNUE
+    low = prompt.lower()
+    assert "connaiss" in low                                  # connaissances produit
+    assert ("illusoire" in low) or ("dérisoire" in low)       # marge illusoire / prix dérisoire
+    assert ("pour pièces" in low) or ("pour pieces" in low)   # mots-clés pièces
+
+
+def test_triage_prompt_has_score_scale():
+    prompt = build_triage_prompt([{"ad_id": "1", "title": "x", "price": 10.0, "city": "P"}], {})
+    assert "85" in prompt  # échelle de score ancrée
+
+
+def test_verify_prompt_uses_product_knowledge_when_grounding_unknown():
+    ad = {"title": "PC portable", "price": 8.0, "city": "Paris", "category": "informatique"}
+    prompt = build_verify_prompt(ad, {})  # médiane INCONNUE
+    low = prompt.lower()
+    assert "connaiss" in low                              # estimer via connaissances produit
+    assert ("illusoire" in low) or ("dérisoire" in low) or ("pièces" in low)
