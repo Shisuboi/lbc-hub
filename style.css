@@ -3177,3 +3177,13 @@ body {
 .pc-on { font-size: .8rem; margin-bottom: 4px; }
 .pc-body { font-size: .95rem; white-space: pre-wrap; word-break: break-word; }
 .pc-date { font-size: .75rem; margin-top: 6px; }
+
+/* ===== Proximité : secteur + rayon + distance ===== */
+#feedGeo { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+#feedGeo #feedSecteur { flex: 1; min-width: 180px; }
+#feedGeo #feedRadius {
+  padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,.05);
+  color: inherit; border: 1px solid rgba(255,255,255,.12);
+}
+.feed-geo-msg { font-size: .8rem; color: var(--c-mut, #94a3b8); }
+.opp-dist { color: var(--c-mut, #94a3b8); }
