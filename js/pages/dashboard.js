@@ -320,7 +320,7 @@ export async function render() {
         const green = COL('--accent-green', '#10b981');
         const rose = COL('--accent-rose', '#f43f5e');
         const textSec = COL('--text-secondary', '#94a3b8');
-        const grid = 'rgba(255,255,255,0.06)';
+        const grid = COL('--chart-grid', 'rgba(255,255,255,0.06)');
         const monthLabels = labels.map(formatMonthLabel);
 
         Chart.defaults.font.family = "'Outfit', system-ui, sans-serif";

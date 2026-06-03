@@ -79,6 +79,7 @@
   --accent-green: #34d399;
   --accent-amber: #f5c542;
   --accent-rose: #fb5b76;
+  --chart-grid: rgba(255,255,255,0.06);  /* grille Chart.js (lue en JS) */
   --transition-smooth: all var(--t-ui);
   --c-bg: var(--stage-base);  --c-bg-glow: hsl(258 24% 14%);
   --c-card: var(--glass-2);   --c-bd: var(--glass-border);
@@ -181,6 +182,70 @@
 }
 :root[data-theme="light"] .deal-card:hover { box-shadow: var(--shadow-3), inset 0 1px 0 var(--glass-hl); }
 :root[data-theme="light"] .deal-thumb { margin: 5px 5px 0; border-radius: 17px; }
+
+/* ===== Thème clair — pages secondaires (item, dashboard, watchlist, profil,
+   auth, admin, install). Corrige les couleurs codées en dur (blancs translucides
+   invisibles sur clair, fonds sombres, textes colorés trop clairs). ===== */
+:root[data-theme="light"] { --chart-grid: rgba(40,52,92,0.10); }
+
+/* Contrôles natifs (selects, date pickers) en clair */
+:root[data-theme="light"] input,
+:root[data-theme="light"] textarea,
+:root[data-theme="light"] select { color-scheme: light; }
+
+/* Surfaces translucides : blanc/α (sur sombre) → teinte sombre/α (sur clair) */
+:root[data-theme="light"] .stat-box,
+:root[data-theme="light"] .wl-metric,
+:root[data-theme="light"] .stat-item,
+:root[data-theme="light"] .card-analysis,
+:root[data-theme="light"] .dash-icon-btn,
+:root[data-theme="light"] .badge,
+:root[data-theme="light"] .wl-tag-off,
+:root[data-theme="light"] .progress-bar-container,
+:root[data-theme="light"] .prompt-box-header,
+:root[data-theme="light"] .step-content code,
+:root[data-theme="light"] .install-steps code,
+:root[data-theme="light"] .invitations-list td code,
+:root[data-theme="light"] .modal-close { background: hsl(240 24% 44% / 0.07); }
+
+/* Hovers translucides (hors console admin qui reste sombre) */
+:root[data-theme="light"] .btn-ghost:hover:not(:disabled),
+:root[data-theme="light"] .btn-mini:hover,
+:root[data-theme="light"] .btn-card:hover,
+:root[data-theme="light"] .dash-table tbody tr:hover,
+:root[data-theme="light"] .profile-comment:hover { background: hsl(240 24% 44% / 0.10); }
+
+/* Lignes de tableau dashboard */
+:root[data-theme="light"] .dash-table tbody td { border-bottom-color: hsl(240 24% 44% / 0.14); }
+
+/* Squelette de chargement (shimmer) */
+:root[data-theme="light"] .dash-sk {
+  background: linear-gradient(90deg, hsl(240 24% 44% / 0.06) 25%, hsl(240 24% 44% / 0.13) 37%, hsl(240 24% 44% / 0.06) 63%);
+  background-size: 400% 100%;
+}
+
+/* Photo placeholder de l'item (dégradé sombre → clair) */
+:root[data-theme="light"] .item-photo { background: linear-gradient(135deg, hsl(220 24% 90%), hsl(220 20% 84%)); }
+
+/* Boîtes sombres → claires (la console admin reste un terminal sombre) */
+:root[data-theme="light"] .prompt-box,
+:root[data-theme="light"] .url-box { background: hsl(220 30% 96%); }
+:root[data-theme="light"] .prompt-textarea { color: var(--text-1); }
+:root[data-theme="light"] .model-banner.local { background: hsl(240 24% 44% / 0.12); color: var(--text-1); }
+
+/* Textes colorés trop clairs (vert/bleu) → assombris pour contraste AA */
+:root[data-theme="light"] .btn-secondary,
+:root[data-theme="light"] .wl-state.on,
+:root[data-theme="light"] .wl-tag-on,
+:root[data-theme="light"] .dash-badge-sale,
+:root[data-theme="light"] .status-active,
+:root[data-theme="light"] .btn-copy-prompt.copied { color: hsl(152 60% 30%); }
+:root[data-theme="light"] .status-used { color: hsl(210 78% 40%); }
+:root[data-theme="light"] .status-expired,
+:root[data-theme="light"] .btn-mini-del { color: hsl(2 70% 46%); }
+
+/* Carte glass générique : fini Apple (rayon concentrique + arête spéculaire) */
+:root[data-theme="light"] .card { border-radius: 20px; box-shadow: var(--shadow-1), inset 0 1px 1px var(--glass-hl); }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }

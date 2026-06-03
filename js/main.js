@@ -27,16 +27,8 @@ notFound(async () => {
         </div>`;
 });
 
-// Thème clair « Apple Liquid Glass » scopé aux pages flux (feed / favoris / item).
-// Les autres pages restent en sombre immersif tant qu'elles ne sont pas redessinées.
-// Doit être enregistré AVANT initRouter() : initRouter() rend immédiatement et émet
-// l'event 'spa:navigated' sur lequel on s'appuie pour fixer le thème du 1er rendu.
-const LIGHT_ROUTES = [/^\/feed$/, /^\/favorites$/, /^\/item\//];
-window.addEventListener('spa:navigated', e => {
-    const path = e.detail?.path || '/';
-    if (LIGHT_ROUTES.some(re => re.test(path))) document.documentElement.dataset.theme = 'light';
-    else delete document.documentElement.dataset.theme; // fallback :root (sombre)
-});
+// Thème clair « Apple Liquid Glass » global : posé en dur sur <html data-theme="light">
+// dans index.html (tout le site). Plus de bascule par route ici.
 
 initLiquidGlass();
 await renderHeader();
