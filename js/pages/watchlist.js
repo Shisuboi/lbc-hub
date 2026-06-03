@@ -128,7 +128,7 @@ export async function render() {
           <input name="exclude_keywords" placeholder="Mots exclus, séparés par des virgules (optionnel)">
         </div>
         <div class="wl-add-foot">
-          <button type="submit" class="btn-primary">Ajouter</button>
+          <button type="submit" class="btn btn-primary">Ajouter</button>
           <span id="wlAddMsg" class="muted"></span>
         </div>
       </form>`;

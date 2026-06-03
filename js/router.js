@@ -2,6 +2,7 @@
 // Mini-router history API. Routes statiques + paramètres dynamiques (:id, :token, :username).
 // En prod GitHub Pages, l'URL est préfixée par /lbc-hub (= nom du repo) : on strip ce prefix
 // avant de matcher pour que les définitions de routes restent identiques en dev et en prod.
+import { startTransition, endTransition } from './lib/page-transition.js';
 
 const ROUTE_PREFIX = '/lbc-hub';
 const routes = [];
@@ -49,6 +50,8 @@ export async function render() {
     window.scrollTo(0, 0); // Remonte en haut à chaque changement de page
     // Notifie le chrome (rail + dock) pour resynchroniser l'état actif selon l'URL.
     window.dispatchEvent(new CustomEvent('spa:navigated', { detail: { path } }));
+    // Splash de transition (picto animé propre à l'onglet) — révélé par endTransition().
+    startTransition(path);
     for (const r of routes) {
         const m = path.match(r.regex);
         if (m) {
@@ -56,11 +59,11 @@ export async function render() {
             r.paramNames.forEach((name, i) => {
                 params[name] = decodeURIComponent(m[i + 1]);
             });
-            root.innerHTML = '<div class="page-loading">⏳ Chargement…</div>';
+            root.innerHTML = '<div class="page-loading"></div>';
             try {
                 await r.loader(params);
             } catch (e) {
-                if (e && e.message === 'Not authenticated') return; // requireAuth a déjà redirigé
+                if (e && e.message === 'Not authenticated') return; // requireAuth a déjà redirigé (la nouvelle nav reprend le splash)
                 if (e && e.message === 'Profile not yet created') return;
                 // Une navigation plus récente a démarré pendant qu'on chargeait : on abandonne
                 // silencieusement pour ne pas écraser la nouvelle page avec un panel d'erreur.
@@ -68,10 +71,14 @@ export async function render() {
                 console.error('[router] page load failed', e);
                 root.innerHTML = `<div class="error-panel card">❌ Erreur de chargement : ${e.message}</div>`;
             }
+            // Termine le splash UNIQUEMENT si on est encore la navigation active
+            // (sinon une nav plus récente a déjà repris la main sur l'overlay).
+            if (myToken === navState.token) await endTransition();
             return;
         }
     }
     if (notFoundHandler) await notFoundHandler();
+    if (myToken === navState.token) await endTransition();
 }
 
 export function init() {

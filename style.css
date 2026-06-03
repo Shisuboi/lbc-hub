@@ -80,6 +80,7 @@
   --accent-amber: #f5c542;
   --accent-rose: #fb5b76;
   --chart-grid: rgba(255,255,255,0.06);  /* grille Chart.js (lue en JS) */
+  --fx-veil: hsl(255 30% 7% / 0.84);     /* voile du splash de transition */
   --transition-smooth: all var(--t-ui);
   --c-bg: var(--stage-base);  --c-bg-glow: hsl(258 24% 14%);
   --c-card: var(--glass-2);   --c-bd: var(--glass-border);
@@ -186,7 +187,7 @@
 /* ===== Thème clair — pages secondaires (item, dashboard, watchlist, profil,
    auth, admin, install). Corrige les couleurs codées en dur (blancs translucides
    invisibles sur clair, fonds sombres, textes colorés trop clairs). ===== */
-:root[data-theme="light"] { --chart-grid: rgba(40,52,92,0.10); }
+:root[data-theme="light"] { --chart-grid: rgba(40,52,92,0.10); --fx-veil: hsl(220 32% 93% / 0.82); }
 
 /* Contrôles natifs (selects, date pickers) en clair */
 :root[data-theme="light"] input,
@@ -693,6 +694,68 @@ body {
 
 
 /* ============================================================
+   SPLASH DE TRANSITION ENTRE PAGES (js/lib/page-transition.js)
+   Picto animé propre à l'onglet → grandit + se fond pour révéler la page.
+   ============================================================ */
+.pagefx {
+  position: fixed; inset: 0; z-index: 200;
+  display: grid; place-items: center;
+  background: var(--fx-veil);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  backdrop-filter: blur(22px) saturate(150%);
+  opacity: 0; transition: opacity 0.18s ease;
+}
+.pagefx.pagefx-in { opacity: 1; }
+.pagefx.pagefx-out { opacity: 0; transition: opacity var(--t-ui); }
+
+.pagefx-badge {
+  width: 104px; height: 104px; border-radius: 30px;
+  display: grid; place-items: center; color: var(--accent);
+  background: var(--glass-2); border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-2), inset 0 1px 0 var(--glass-hl);
+  -webkit-backdrop-filter: blur(16px) saturate(170%);
+  backdrop-filter: blur(16px) saturate(170%);
+  transform: scale(0.86); opacity: 0;
+}
+.pagefx-in .pagefx-badge { animation: fxBadgeIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+@keyframes fxBadgeIn { to { transform: scale(1); opacity: 1; } }
+.pagefx-out .pagefx-badge { transform: scale(1.22); opacity: 0; transition: transform var(--t-ui), opacity var(--t-ui); }
+
+.pfx-svg { width: 54px; height: 54px; overflow: visible; }
+
+/* Cardiogramme (Suivis) : le tracé se démêle vers la droite (segment qui révèle
+   devant et efface derrière, en suivant la forme ECG) */
+.pfx-ecg path { stroke-dasharray: 50 100; stroke-dashoffset: 150; animation: fxEcg 1.15s linear infinite; }
+@keyframes fxEcg { to { stroke-dashoffset: 0; } }
+
+/* Barres (Dashboard) : montent / descendent en décalé */
+.pfx-bars .b { transform-box: fill-box; transform-origin: 50% 100%; animation: fxBars 0.85s ease-in-out infinite alternate; }
+.pfx-bars .b1 { animation-delay: 0s; }     .pfx-bars .b2 { animation-delay: -0.55s; }
+.pfx-bars .b3 { animation-delay: -0.25s; } .pfx-bars .b4 { animation-delay: -0.7s; }
+@keyframes fxBars { from { transform: scaleY(0.32); } to { transform: scaleY(1); } }
+
+/* Faders (Admin) : curseurs de table de mixage de haut en bas */
+.pfx-faders .h { transform-box: fill-box; transform-origin: 50% 50%; animation: fxFader 1s ease-in-out infinite alternate; }
+.pfx-faders .h1 { animation-delay: 0s; } .pfx-faders .h2 { animation-delay: -0.5s; } .pfx-faders .h3 { animation-delay: -0.25s; }
+@keyframes fxFader { from { transform: translateY(-9px); } to { transform: translateY(9px); } }
+
+/* Tracé qui se dessine (Accueil = maison, Profil = avatar) */
+.pfx-draw > * { stroke-dasharray: 100; stroke-dashoffset: 100; animation: fxDraw 0.7s ease forwards; }
+.pfx-draw > *:nth-child(2) { animation-delay: 0.16s; }
+@keyframes fxDraw { to { stroke-dashoffset: 0; } }
+
+/* Cœur qui bat (Favoris) */
+.pfx-heart { transform-box: fill-box; transform-origin: 50% 55%; animation: fxBeat 0.85s ease-in-out infinite; }
+@keyframes fxBeat { 0%, 100% { transform: scale(0.9); } 22% { transform: scale(1.14); } 40% { transform: scale(0.98); } 60% { transform: scale(1.08); } }
+
+/* Éclair LBC (défaut : login, install, item…) : pulse */
+.pfx-bolt { transform-box: fill-box; transform-origin: 50% 50%; animation: fxPulse 0.9s ease-in-out infinite; }
+@keyframes fxPulse { 0%, 100% { transform: scale(0.9); opacity: 0.8; } 50% { transform: scale(1.08); opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) { .pagefx { display: none; } }
+
+
+/* ============================================================
    ITEM — fiche en hero immersif
    ============================================================ */
 .item-page { max-width: 920px; margin: 0 auto; }
@@ -979,8 +1042,9 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.65) opa
 .wl-metric { text-align: center; padding: 10px 6px; border-radius: var(--r-sm); background: hsl(0 0% 100% / 0.05); border: 1px solid var(--glass-border); }
 .wl-mval { font-size: 1.2rem; font-weight: 800; font-variant-numeric: tabular-nums; }
 .wl-mlabel { font-size: 0.70rem; color: var(--text-3); margin-top: 3px; }
-.wl-add { padding: 16px 18px; margin-bottom: 18px; display: flex; flex-direction: column; gap: 10px; }
+.wl-add { padding: 16px 18px; margin-top: 30px; margin-bottom: 18px; display: flex; flex-direction: column; gap: 10px; }
 .wl-add-title { font-weight: 700; }
+.wl-add-foot .btn { width: auto; }
 .wl-add input { width: 100%; padding: 9px 12px; border-radius: var(--r-sm); border: 1px solid var(--glass-border); background: var(--glass-input); color: var(--text-1); font: inherit; outline: none; }
 .wl-add input:focus { border-color: var(--glass-border-accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .wl-add-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
