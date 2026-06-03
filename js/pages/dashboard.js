@@ -48,10 +48,12 @@ export async function render() {
     const root = document.getElementById('appRoot');
     root.innerHTML = `
         <section class="dash-page">
-            <div class="dash-head">
-                <div class="dash-head-titles">
-                    <h2 class="dash-title">📊 Tableau de bord financier</h2>
-                    <p class="dash-subtitle">Suis tes achats, tes ventes et ta rentabilité sur la revente.</p>
+            <div class="dash-hero liquid">
+                <div class="dash-hero-main">
+                    <p class="feed-eyebrow">Tableau de bord · revente</p>
+                    <h2 class="dash-title">Profit net cumulé</h2>
+                    <div class="dash-hero-figure" id="dashHeroProfit">—</div>
+                    <div class="dash-hero-sub" id="dashHeroRoi">Suis tes achats, tes ventes et ta rentabilité.</div>
                 </div>
                 <button type="button" class="btn btn-primary dash-add-btn" id="dashAddBtn">
                     <span aria-hidden="true">＋</span> Ajouter une transaction
@@ -199,6 +201,15 @@ export async function render() {
         const roiText = k.roi === null ? 'n/d' : `${k.roi > 0 ? '+' : ''}${k.roi.toFixed(1).replace('.', ',')} %`;
         const roiClass = k.roi === null ? '' : k.roi > 0 ? 'is-positive' : k.roi < 0 ? 'is-negative' : '';
 
+        // Hero financier : profit net mis en avant
+        const heroProfit = document.getElementById('dashHeroProfit');
+        const heroRoi = document.getElementById('dashHeroRoi');
+        if (heroProfit) {
+            heroProfit.textContent = `${profitSign}${eur.format(k.profit)}`;
+            heroProfit.className = `dash-hero-figure ${profitClass}`;
+        }
+        if (heroRoi) heroRoi.textContent = `ROI ${roiText} · ${k.sellCount} vente${k.sellCount > 1 ? 's' : ''} / ${k.buyCount} achat${k.buyCount > 1 ? 's' : ''}`;
+
         kpis.innerHTML = `
             ${kpiCard('💰', 'accent-blue', 'Total investi', eur.format(k.invested), `${k.buyCount} achat${k.buyCount > 1 ? 's' : ''}`)}
             ${kpiCard('💵', 'accent-green', 'Total encaissé', eur.format(k.earned), `${k.sellCount} vente${k.sellCount > 1 ? 's' : ''}`)}
@@ -309,7 +320,7 @@ export async function render() {
         const green = COL('--accent-green', '#10b981');
         const rose = COL('--accent-rose', '#f43f5e');
         const textSec = COL('--text-secondary', '#94a3b8');
-        const grid = 'rgba(255,255,255,0.06)';
+        const grid = COL('--chart-grid', 'rgba(255,255,255,0.06)');
         const monthLabels = labels.map(formatMonthLabel);
 
         Chart.defaults.font.family = "'Outfit', system-ui, sans-serif";

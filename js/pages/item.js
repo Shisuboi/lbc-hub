@@ -4,6 +4,7 @@ import { requireAuth, getProfile } from '../auth.js';
 import { navState } from '../router.js';
 import { getOpportunity } from '../lib/opportunities.js';
 import { mountComments } from '../components/comments.js';
+import { icon } from '../lib/icons.js';
 
 const CAT = {
   urgent:      { cls: 'cat-red',  label: '🔴 URGENT' },
@@ -41,13 +42,16 @@ export async function render(params) {
   const c = CAT[o.category] || CAT.passable;
   const score = o.resale_score != null ? Math.round(o.resale_score) : '–';
   document.getElementById('itemBody').innerHTML = `
-    <div class="item-head card">
-      <div class="item-photo">${o.image_url ? `<img src="${esc(o.image_url)}" alt="">` : '📷'}</div>
-      <div class="item-facts">
-        <div><span class="opp-badge ${c.cls}">${c.label} · ${score}</span>${o.price_dropped ? ' <span class="muted">· baisse de prix 📉</span>' : ''}</div>
-        <h2>${esc(o.title || 'Sans titre')}</h2>
-        <div class="item-price">${eur(o.price)}${o.price_dropped && o.previous_price ? `<span class="opp-old">${eur(o.previous_price)}</span>` : ''}</div>
-        <div class="muted">${o.location_city ? `📍 ${esc(o.location_city)}${o.location_postal ? ' ' + esc(o.location_postal) : ''}` : ''}</div>
+    <div class="item-hero">
+      <div class="hero-visual">${o.image_url ? `<img src="${esc(o.image_url)}" alt="">` : `<span class="ph-glyph">${icon('image', { size: 48 })}</span>`}</div>
+      <div class="item-hero-panel liquid">
+        <div class="item-badge-row">
+          <span class="opp-badge ${c.cls}">${c.label} · ${score}</span>
+          ${o.price_dropped ? '<span class="muted">📉 baisse de prix</span>' : ''}
+        </div>
+        <h1>${esc(o.title || 'Sans titre')}</h1>
+        <div class="item-hero-price">${eur(o.price)}${o.price_dropped && o.previous_price ? `<span class="opp-old">${eur(o.previous_price)}</span>` : ''}</div>
+        <div class="item-hero-loc">${o.location_city ? `${icon('pin', { size: 15 })} ${esc(o.location_city)}${o.location_postal ? ' ' + esc(o.location_postal) : ''}` : ''}</div>
         <div class="item-stats">
           <div class="stat-box"><div class="stat-label">Prix marché</div><div class="stat-val">${o.est_market_price != null ? '~' + eur(o.est_market_price) : 'n/d'}</div></div>
           <div class="stat-box"><div class="stat-label">Marge</div><div class="stat-val item-gain">${o.est_margin_eur != null ? '+' + eur(o.est_margin_eur) : 'n/d'}</div></div>

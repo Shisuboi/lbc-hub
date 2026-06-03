@@ -1,11 +1,14 @@
 <!DOCTYPE html>
-<html lang="fr">
+<!-- data-theme="light" : thème clair « Apple Liquid Glass » global (tout le site).
+     Statique ici → pas de flash sombre au 1er paint. Pour repasser un jour en sombre,
+     retirer l'attribut (les tokens :root par défaut sont sombres). -->
+<html lang="fr" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LBC DealFinder Hub</title>
     <meta name="description" content="Hub privé de bons plans : les recherches Leboncoin scrapées et notées par IA, partagées entre amis.">
-    <meta name="theme-color" content="#060913">
+    <meta name="theme-color" content="#e9edf5">
     <meta property="og:type" content="website">
     <meta property="og:title" content="LBC DealFinder Hub">
     <meta property="og:description" content="Hub privé de bons plans : les recherches Leboncoin scrapées et notées par IA, partagées entre amis.">
@@ -39,16 +42,41 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="bg-glow bg-glow-1"></div>
-    <div class="bg-glow bg-glow-2"></div>
+    <!-- ===== Filtre Liquid Glass réfractif (couche chrome L3) =====
+         Vraie réfraction « façon Apple » : feImage charge une displacement map
+         en BISEAU ARRONDI (générée en JS par js/lib/liquid-glass.js → href de
+         #lg-map). feDisplacementMap courbe le fond derrière le verre comme une
+         LENTILLE sur les bords (neutre au centre). La force (scale de #lg-disp)
+         est pilotée en JS : repos doux, intensification au survol.
+         Rendu réel surtout sur Chromium ; ailleurs le blur du backdrop suffit. -->
+    <svg width="0" height="0" aria-hidden="true" class="lg-defs">
+      <defs>
+        <filter id="liquid" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+          <feImage id="lg-map" preserveAspectRatio="none" result="map"/>
+          <feDisplacementMap id="lg-disp" in="SourceGraphic" in2="map" scale="26"
+                             xChannelSelector="R" yChannelSelector="G"/>
+        </filter>
+      </defs>
+    </svg>
+
+    <!-- L0 Stage : aurora immersive plein écran, fixe, dérive lente -->
+    <div class="stage" aria-hidden="true">
+        <div class="stage-aurora stage-aurora-1"></div>
+        <div class="stage-aurora stage-aurora-2"></div>
+        <div class="stage-aurora stage-aurora-3"></div>
+        <div class="stage-grain"></div>
+    </div>
+    <!-- L1 Scrim : voile de contraste par-dessus l'image -->
+    <div class="scrim" aria-hidden="true"></div>
 
     <div class="app-container">
+        <!-- L3 Chrome flottant (logo + avatar + dock) : injecté par header.js -->
         <header class="app-header" id="appHeader">
             <!-- Injecté par js/components/header.js -->
         </header>
 
+        <!-- L2 Contenu : page courante injectée par le router -->
         <main id="appRoot" class="app-body">
-            <!-- Page courante injectée par le router -->
             <div class="page-loading">⏳ Chargement…</div>
         </main>
     </div>

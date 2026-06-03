@@ -47,6 +47,8 @@ export async function render() {
     const path = stripPrefix(location.pathname) || '/';
     const root = document.getElementById('appRoot');
     window.scrollTo(0, 0); // Remonte en haut à chaque changement de page
+    // Notifie le chrome (rail + dock) pour resynchroniser l'état actif selon l'URL.
+    window.dispatchEvent(new CustomEvent('spa:navigated', { detail: { path } }));
     for (const r of routes) {
         const m = path.match(r.regex);
         if (m) {

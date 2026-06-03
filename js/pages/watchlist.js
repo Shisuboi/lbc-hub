@@ -32,11 +32,11 @@ export async function render() {
   const root = document.getElementById('appRoot');
   root.innerHTML = `
     <section class="feed-page">
-      <h2>📡 Recherches surveillées</h2>
-      <p class="muted">Ce que le PC scrape en continu (une seule recherche active à la fois).</p>
+      <p class="feed-eyebrow">Monitoring · ce que le PC scrape en continu</p>
       <div id="wlLive"></div>
-      <div id="wlAdd"></div>
+      <h3 class="wl-section-title">📡 Mes recherches</h3>
       <div id="wlList"><div class="page-loading">⏳ Chargement…</div></div>
+      <div id="wlAdd"></div>
     </section>`;
 
   let searches = [];
@@ -55,7 +55,7 @@ export async function render() {
     if (!el) return;
     const active = searches.find(s => s.active);
     if (!active) {
-      el.innerHTML = `<div class="wl-live card wl-live-idle">😴 Aucune recherche active. Active-en une ci-dessous pour lancer le PC.</div>`;
+      el.innerHTML = `<div class="wl-live wl-hero glass-panel wl-live-idle">😴 Aucune recherche active. Active-en une ci-dessous pour lancer le PC.</div>`;
       return;
     }
     const hb = beats.get(active.id);
@@ -70,7 +70,7 @@ export async function render() {
     const seen = hb && hb.ads_seen_total != null ? hb.ads_seen_total : 0;
     const blocked = hb && hb.blocked_recent != null ? hb.blocked_recent : 0;
     el.innerHTML = `
-      <div class="wl-live card">
+      <div class="wl-live wl-hero liquid is-live">
         <div class="wl-live-head">
           <div class="wl-live-title">${PLATFORM_BADGE[active.platform] || '⚪'} ${esc(active.title)}</div>
           <div class="wl-state ${online ? 'on' : 'off'}">${stateHtml}</div>

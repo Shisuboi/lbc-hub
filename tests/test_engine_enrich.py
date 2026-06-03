@@ -8,6 +8,7 @@ from engine.router import TIER_RANKS, QuotaExhausted
 class FakeSupa:
     def __init__(self):
         self.upserts = []
+        self.session = None  # miroir du vrai Supa ; fill_latlon géocode en best-effort (noop ici)
 
     async def insert_opportunity(self, payload):
         self.upserts.append(dict(payload))

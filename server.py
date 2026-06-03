@@ -521,6 +521,11 @@ async def cors_middleware(request, handler):
     response = await handler(request)
     for k, v in CORS_HEADERS.items():
         response.headers[k] = v
+    # Dev only : force la revalidation des assets (le navigateur a un ETag/Last-Modified,
+    # donc c'est un 304 bon marché si rien n'a changé). Évite que le SPA serve un ancien
+    # module JS/CSS en cache heuristique après un `git pull` / une édition. Prod = GitHub Pages.
+    if request.method == 'GET' and 'Cache-Control' not in response.headers:
+        response.headers['Cache-Control'] = 'no-cache'
     return response
 
 

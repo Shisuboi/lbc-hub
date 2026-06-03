@@ -3,6 +3,7 @@
 import { route, notFound, init as initRouter } from './router.js';
 import { renderHeader } from './components/header.js';
 import { onAuthChange } from './supabase-client.js';
+import { initLiquidGlass } from './lib/liquid-glass.js';
 
 // === ROUTES ===
 // Chaque page est lazy-loaded pour limiter le bundle initial.
@@ -11,6 +12,7 @@ route('/install',           () => import('./pages/install.js').then(m => m.rende
 route('/invite/:token',     (p) => import('./pages/invite.js').then(m => m.render(p)));
 route('/onboarding',        () => import('./pages/invite.js').then(m => m.renderOnboarding()));
 route('/feed',              () => import('./pages/feed.js').then(m => m.render()));
+route('/favorites',         () => import('./pages/favorites.js').then(m => m.render()));
 route('/item/:id',          (p) => import('./pages/item.js').then(m => m.render(p)));
 route('/watchlist',         () => import('./pages/watchlist.js').then(m => m.render()));
 route('/dashboard',         () => import('./pages/dashboard.js').then(m => m.render()));
@@ -25,6 +27,10 @@ notFound(async () => {
         </div>`;
 });
 
+// Thème clair « Apple Liquid Glass » global : posé en dur sur <html data-theme="light">
+// dans index.html (tout le site). Plus de bascule par route ici.
+
+initLiquidGlass();
 await renderHeader();
 initRouter();
 

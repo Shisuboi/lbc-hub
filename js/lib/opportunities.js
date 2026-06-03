@@ -5,7 +5,7 @@ import { supa } from '../supabase-client.js';
 
 const SELECT = [
   'id', 'ad_id', 'title', 'price', 'url', 'image_url',
-  'location_city', 'location_postal', 'category', 'resale_score',
+  'location_city', 'location_postal', 'lat', 'lon', 'category', 'resale_score',
   'est_market_price', 'est_margin_eur', 'est_margin_pct', 'max_buy_price',
   'price_dropped', 'previous_price', 'explanation', 'signals',
   'source_search_id', 'scraped_at', 'created_at', 'status',
