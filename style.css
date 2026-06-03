@@ -80,7 +80,7 @@
   --accent-amber: #f5c542;
   --accent-rose: #fb5b76;
   --chart-grid: rgba(255,255,255,0.06);  /* grille Chart.js (lue en JS) */
-  --fx-veil: hsl(255 30% 7% / 0.84);     /* voile du splash de transition */
+  --fx-veil: hsl(255 30% 7%);            /* préloader plein (opaque) */
   --transition-smooth: all var(--t-ui);
   --c-bg: var(--stage-base);  --c-bg-glow: hsl(258 24% 14%);
   --c-card: var(--glass-2);   --c-bd: var(--glass-border);
@@ -187,7 +187,7 @@
 /* ===== Thème clair — pages secondaires (item, dashboard, watchlist, profil,
    auth, admin, install). Corrige les couleurs codées en dur (blancs translucides
    invisibles sur clair, fonds sombres, textes colorés trop clairs). ===== */
-:root[data-theme="light"] { --chart-grid: rgba(40,52,92,0.10); --fx-veil: hsl(220 32% 93% / 0.82); }
+:root[data-theme="light"] { --chart-grid: rgba(40,52,92,0.10); --fx-veil: hsl(220 32% 93%); }
 
 /* Contrôles natifs (selects, date pickers) en clair */
 :root[data-theme="light"] input,
@@ -698,16 +698,17 @@ body {
    Picto animé propre à l'onglet → grandit + se fond pour révéler la page.
    ============================================================ */
 .pagefx {
-  position: fixed; inset: 0; z-index: 200;
+  /* Préloader OPAQUE posé sur la zone de contenu, SOUS le dock (z 60) et le rail
+     (z 50) → la barre de nav reste visible et cliquable pendant le chargement
+     (l'utilisateur peut changer d'onglet) et on ne voit jamais le site se monter. */
+  position: fixed; inset: 0; z-index: 40;
   display: grid; place-items: center;
-  background: var(--fx-veil);
-  -webkit-backdrop-filter: blur(18px) saturate(135%);
-  backdrop-filter: blur(18px) saturate(135%);
-  /* Le voile couvre INSTANTANÉMENT (même frame que le changement de page) →
-     l'animation se montre d'abord, la page se construit cachée derrière, puis
-     révélation douce. La douceur vient du picto + halo + sortie, pas du voile. */
+  background:
+    radial-gradient(130% 110% at 82% -12%, color-mix(in srgb, var(--accent) 7%, transparent) 0%, transparent 56%),
+    var(--fx-veil);
   opacity: 1;
 }
+@media (min-width: 760px) { .pagefx { padding-left: var(--rail-w); padding-bottom: var(--dock-h); } }
 /* halo doux derrière le picto (élégance épurée) */
 .pagefx::before {
   content: ''; position: absolute; inset: 0; pointer-events: none;

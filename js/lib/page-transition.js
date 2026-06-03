@@ -62,7 +62,10 @@ export function startTransition(path) {
   overlay.className = 'pagefx';
   overlay.setAttribute('aria-hidden', 'true');
   overlay.innerHTML = `<div class="pagefx-badge">${SVGS[type] || SVGS.bolt}</div>`;
-  document.body.appendChild(overlay);
+  // Injecté DANS .app-container (et non body) pour rester dans le même contexte
+  // d'empilement que le dock/rail → ceux-ci restent au-dessus (z 60 / 50 > 40) et
+  // cliquables pendant le chargement. Sibling de #appRoot → survit au swap de page.
+  (document.querySelector('.app-container') || document.body).appendChild(overlay);
   void overlay.offsetWidth;          // reflow → l'anim d'entrée part proprement
   overlay.classList.add('pagefx-in');
   startTs = performance.now();
