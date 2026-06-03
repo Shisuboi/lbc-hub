@@ -703,7 +703,10 @@ body {
   background: var(--fx-veil);
   -webkit-backdrop-filter: blur(18px) saturate(135%);
   backdrop-filter: blur(18px) saturate(135%);
-  opacity: 0; transition: opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Le voile couvre INSTANTANÉMENT (même frame que le changement de page) →
+     l'animation se montre d'abord, la page se construit cachée derrière, puis
+     révélation douce. La douceur vient du picto + halo + sortie, pas du voile. */
+  opacity: 1;
 }
 /* halo doux derrière le picto (élégance épurée) */
 .pagefx::before {
@@ -711,7 +714,6 @@ body {
   background: radial-gradient(closest-side at 50% 50%, var(--accent-soft), transparent 72%);
   opacity: 0; transition: opacity 0.6s ease;
 }
-.pagefx.pagefx-in { opacity: 1; }
 .pagefx.pagefx-in::before { opacity: 1; }
 .pagefx.pagefx-out { opacity: 0; transition: opacity 0.36s cubic-bezier(0.4, 0, 0.2, 1); }
 
