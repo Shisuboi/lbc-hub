@@ -10,8 +10,8 @@
 // prefers-reduced-motion : aucun overlay (révélation instantanée).
 
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const MIN_MS = 680;   // durée mini forcée du splash (court)
-const OUT_MS = 280;   // fondu + agrandissement de sortie
+const MIN_MS = 880;   // durée mini forcée : entrée douce + court temps de pose
+const OUT_MS = 380;   // fondu de sortie (doux)
 
 let overlay = null;
 let startTs = 0;
