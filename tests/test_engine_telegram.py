@@ -82,3 +82,49 @@ async def test_send_alert_absorbs_network_error(monkeypatch):
     async with ClientSession() as session:
         client = TelegramClient("TOKEN", "G", "T", session)
         await send_alert(client, "test")  # ne doit PAS lever
+
+
+async def test_send_opportunity_includes_reply_markup_when_id_present(aiohttp_server, monkeypatch):
+    """send_opportunity avec opp['id'] → reply_markup avec bouton 🤝."""
+    import json as _json
+    captured = {}
+    server = await aiohttp_server(_make_tg_app(captured))
+    monkeypatch.setattr(tg_mod, "TG_API", str(server.make_url("/")) + "bot{token}/sendMessage")
+    async with ClientSession() as session:
+        client = TelegramClient("TOKEN", "GROUP", "TRISTAN", session)
+        await send_opportunity(client, {"title": "T", "price": 10, "id": "uuid-abc", "url": "https://lbc.fr/ad/1"})
+    markup = captured["body"].get("reply_markup")
+    assert markup is not None
+    parsed = _json.loads(markup) if isinstance(markup, str) else markup
+    btn = parsed["inline_keyboard"][0][0]
+    assert "occupe" in btn["text"]
+    assert "uuid-abc" in btn["callback_data"]
+
+
+async def test_send_opportunity_no_markup_without_id(aiohttp_server, monkeypatch):
+    """send_opportunity sans id → pas de reply_markup."""
+    captured = {}
+    server = await aiohttp_server(_make_tg_app(captured))
+    monkeypatch.setattr(tg_mod, "TG_API", str(server.make_url("/")) + "bot{token}/sendMessage")
+    async with ClientSession() as session:
+        client = TelegramClient("TOKEN", "G", "T", session)
+        await send_opportunity(client, {"title": "T"})  # pas d'id
+    assert "reply_markup" not in captured.get("body", {})
+
+
+async def test_answer_callback_posts_to_answer_api(aiohttp_server, monkeypatch):
+    """answer_callback → POST à TG_ANSWER_API avec callback_query_id et text."""
+    captured = {}
+    async def answer_handler(request):
+        captured["body"] = await request.json()
+        return web.json_response({"ok": True})
+    app = web.Application()
+    app.router.add_post("/bot{token}/answerCallbackQuery", answer_handler)
+    server = await aiohttp_server(app)
+    monkeypatch.setattr(tg_mod, "TG_ANSWER_API", str(server.make_url("/")) + "bot{token}/answerCallbackQuery")
+    from engine.telegram import answer_callback
+    async with ClientSession() as session:
+        client = TelegramClient("TOKEN", "G", "T", session)
+        await answer_callback(client, "cq-42", "🤝 Enregistré !")
+    assert captured["body"]["callback_query_id"] == "cq-42"
+    assert "Enregistré" in captured["body"]["text"]
