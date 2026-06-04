@@ -73,6 +73,12 @@ CREATE TABLE IF NOT EXISTS telegram_sent (
     ad_id TEXT PRIMARY KEY,
     sent_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS telegram_poll_offset (
+    id INTEGER PRIMARY KEY DEFAULT 1,
+    offset INTEGER NOT NULL DEFAULT 0
+);
+INSERT OR IGNORE INTO telegram_poll_offset (id, offset) VALUES (1, 0);
 """
 
 # Approximation du reset minuit Pacifique (offset fixe, zéro dépendance tzdata).
@@ -233,6 +239,22 @@ class Brain:
             "INSERT INTO telegram_sent (ad_id, sent_at) VALUES (?, ?) "
             "ON CONFLICT(ad_id) DO UPDATE SET sent_at = excluded.sent_at",
             (ad_id, now),
+        )
+        self.conn.commit()
+
+    def get_telegram_offset(self) -> int:
+        """Retourne l'offset de polling getUpdates (0 si non initialisé)."""
+        row = self.conn.execute(
+            "SELECT offset FROM telegram_poll_offset WHERE id = 1"
+        ).fetchone()
+        return row["offset"] if row else 0
+
+    def set_telegram_offset(self, offset: int) -> None:
+        """Met à jour l'offset de polling getUpdates."""
+        self.conn.execute(
+            "INSERT INTO telegram_poll_offset(id, offset) VALUES(1,?) "
+            "ON CONFLICT(id) DO UPDATE SET offset=excluded.offset",
+            (offset,),
         )
         self.conn.commit()
 
