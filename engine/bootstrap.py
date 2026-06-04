@@ -1,6 +1,8 @@
 """Câblage du moteur autonome au reste de server.py (browser partagé + verrou)."""
 import asyncio
 
+from engine.telegram import send_alert
+
 
 def make_scrape_fn(
     get_context,
@@ -9,6 +11,7 @@ def make_scrape_fn(
     ready_selector: str | None = None,
     ready_timeout_ms: int = 8000,
     captcha_wait_ms: int = 120000,
+    telegram=None,
 ):
     """Fabrique un scrape_fn(url) qui réutilise le Chromium partagé, sérialisé par un verrou.
 
@@ -41,6 +44,12 @@ def make_scrape_fn(
                             f"({type(exc).__name__}). Blocage/captcha probable — résous-le dans "
                             "la fenêtre Chromium (attente jusqu'à 2 min)..."
                         )
+                        if telegram:
+                            await send_alert(
+                                telegram,
+                                "⚠️ Captcha Datadome détecté — scraping bloqué. "
+                                "Résous-le dans la fenêtre Chromium."
+                            )
                         try:
                             await page.wait_for_selector(ready_selector, timeout=captcha_wait_ms)
                             print("✅ [AUTO] Page débloquée, extraction en cours.")
