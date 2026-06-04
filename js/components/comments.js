@@ -140,15 +140,6 @@ export async function mountComments(container, { opportunityId, me }) {
 
   // Édition / suppression (délégation)
   listEl.addEventListener('click', async e => {
-    const cancelContactBtn = e.target.closest('[data-cancel-contact]');
-    if (cancelContactBtn) {
-      try {
-        await cancelContactSignal(cancelContactBtn.dataset.cancelContact);
-        await reload();
-      } catch (err) { alert(err.message); }
-      return;
-    }
-
     const delBtn = e.target.closest('[data-del]');
     const editBtn = e.target.closest('[data-edit]');
 
@@ -184,8 +175,19 @@ export async function mountComments(container, { opportunityId, me }) {
     }
   });
 
-  // Bouton "Je contacte" (délégation sur contactEl)
+  // Bouton "Je contacte" + Annulation du signal (délégation sur contactEl)
   contactEl.addEventListener('click', async e => {
+    // Annulation du signal
+    const cancelBtn = e.target.closest('[data-cancel-contact]');
+    if (cancelBtn) {
+      try {
+        await cancelContactSignal(cancelBtn.dataset.cancelContact);
+        await reload();
+      } catch (err) { alert(err.message); }
+      return;
+    }
+
+    // Création du signal
     if (e.target.id !== 'cmContactBtn') return;
     e.target.disabled = true;
     try {
