@@ -19,6 +19,7 @@ from engine.llm_client import GeminiClient
 from engine.enrich import enrichment_worker
 from engine.scheduler import run_engine
 from engine.telemetry import heartbeat_worker
+from engine.maintenance import run_maintenance
 from engine.bootstrap import make_scrape_fn, build_searches_lookup
 from engine.scraper import extract_ads_from_results, RESULTS_CONTAINER_SELECTOR
 
@@ -567,6 +568,9 @@ async def start_autonomous_engine(app):
     app["engine_stop"] = stop_event
     app["engine_session"] = session
     app["engine_brain"] = brain
+
+    # Maintenance au démarrage : purge des opportunités > PURGE_DAYS jours (hors favoris).
+    await run_maintenance(supa, cfg)
 
     # Le scrape LIT les recherches via `supa` mais ÉCRIT dans le SINK (file locale)
     # au lieu de Supabase direct (Phase B : seules les opportunités enrichies sont publiées).
