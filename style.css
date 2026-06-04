@@ -763,6 +763,40 @@ body {
 .pfx-bolt { transform-box: fill-box; transform-origin: 50% 50%; animation: fxPulse 0.9s ease-in-out infinite; }
 @keyframes fxPulse { 0%, 100% { transform: scale(0.9); opacity: 0.8; } 50% { transform: scale(1.08); opacity: 1; } }
 
+/* Livre (Journal) : séquence rythmée — début posé (dessin), milieu en rafale (5 pages
+   qui se tournent en 3D), fin ralentie (fermeture). Le texte intérieur gauche s'efface
+   à 1.45s, pendant que la couverture se rabat dessus. Joue UNE fois (cf. BOOK_MIN_MS). */
+.pfx-book .draw-line { stroke-dasharray: 100; stroke-dashoffset: 100; }
+.pfx-book .draw-text { stroke-dasharray: 20; stroke-dashoffset: 20; }
+/* 1) Début posé : le livre se dessine */
+.pfx-book .left-page { animation: fxBookDraw 0.46s ease-out 0s forwards; }
+.pfx-book .binding   { animation: fxBookDraw 0.46s ease-out 0.12s forwards; }
+.pfx-book .left-text { animation: fxBookDraw 0.46s ease-out 0.26s forwards, fxBookFade 0.14s ease-out 1.45s forwards; }
+.pfx-book .close-book .right-page { animation: fxBookDraw 0.46s ease-out 0.26s forwards; }
+.pfx-book .right-static-text { animation: fxBookDraw 0.46s ease-out 0.26s forwards, fxBookFade 0.1s ease-out 0.98s forwards; }
+@keyframes fxBookDraw { to { stroke-dashoffset: 0; } }
+@keyframes fxBookFade { to { opacity: 0; } }
+/* 2) Milieu en rafale : durées et écarts qui se resserrent (whoosh accéléré) */
+.pfx-book .flip-page { transform-origin: 50% 50%; opacity: 0; transform-style: preserve-3d; }
+.pfx-book .page-1 { animation: fxBookFlip 0.44s cubic-bezier(0.45,0,0.25,1) 0.60s forwards; }
+.pfx-book .page-2 { animation: fxBookFlip 0.41s cubic-bezier(0.45,0,0.25,1) 0.71s forwards; }
+.pfx-book .page-3 { animation: fxBookFlip 0.38s cubic-bezier(0.45,0,0.25,1) 0.81s forwards; }
+.pfx-book .page-4 { animation: fxBookFlip 0.35s cubic-bezier(0.45,0,0.25,1) 0.90s forwards; }
+.pfx-book .page-5 { animation: fxBookFlip 0.33s cubic-bezier(0.45,0,0.25,1) 0.98s forwards; }
+@keyframes fxBookFlip {
+  0%   { transform: perspective(200px) rotateY(0deg);    opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { transform: perspective(200px) rotateY(-180deg); opacity: 0; }
+}
+/* 3) Fin ralentie : le livre se ferme avec une décélération douce */
+.pfx-book .close-book { transform-origin: 50% 50%; transform-style: preserve-3d; animation: fxBookClose 0.6s cubic-bezier(0.22,0.61,0.36,1) 1.28s forwards; }
+@keyframes fxBookClose {
+  0%   { transform: perspective(200px) rotateY(0deg);    opacity: 1; }
+  85%  { opacity: 1; }
+  100% { transform: perspective(200px) rotateY(-180deg); opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) { .pagefx { display: none; } }
 
 

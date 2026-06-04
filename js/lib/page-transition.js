@@ -10,18 +10,20 @@
 // prefers-reduced-motion : aucun overlay (révélation instantanée).
 
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const MIN_MS = 880;   // durée mini forcée : entrée douce + court temps de pose
-const OUT_MS = 380;   // fondu de sortie (doux)
+const MIN_MS = 880;        // durée mini forcée : entrée douce + court temps de pose
+const BOOK_MIN_MS = 1900;  // le livre du Journal joue une séquence complète (~1,9s) : on la laisse finir
+const OUT_MS = 380;        // fondu de sortie (doux)
 
 let overlay = null;
 let startTs = 0;
+let currentMin = MIN_MS;   // minimum d'affichage de la transition en cours (dépend du picto)
 
 // Route → type d'animation (chaque onglet le sien)
 function animFor(path) {
   if (path.startsWith('/feed')) return 'home';      // maison qui se dessine
   if (path.startsWith('/favorites')) return 'heart'; // cœur qui bat
   if (path.startsWith('/watchlist')) return 'ecg';   // cardiogramme qui court
-  if (path.startsWith('/dashboard')) return 'bars';  // barres qui montent/descendent
+  if (path.startsWith('/dashboard')) return 'book';  // livre du Journal qui se feuillette
   if (path.startsWith('/admin')) return 'faders';    // table de mixage
   if (path.startsWith('/profile')) return 'user';    // avatar qui se dessine
   return 'bolt';                                      // login, install, item… : éclair LBC
@@ -48,6 +50,21 @@ const SVGS = {
       <circle pathLength="100" cx="24" cy="17" r="8"/><path pathLength="100" d="M9 41 a15 15 0 0 1 30 0"/></svg>`,
   bolt: `<svg viewBox="0 0 48 48" class="pfx-svg pfx-bolt" fill="currentColor">
       <path d="M27 4 L10 27 h11 l-2 17 17-25 H32 l2-15 z"/></svg>`,
+  // Journal : le livre se dessine (posé) → 5 pages se tournent en 3D (rafale) →
+  // le livre se ferme (ralenti) ; le texte intérieur s'efface pendant la fermeture.
+  book: `<svg viewBox="0 0 48 48" class="pfx-svg pfx-book" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <path class="draw-line left-page" d="M24 38 L4 38 L4 12 L24 12"/>
+      <path class="draw-text left-text" d="M10 18 L18 18 M10 25 L18 25 M10 32 L14 32"/>
+      <path class="draw-text right-static-text" d="M30 18 L38 18 M30 25 L38 25 M34 32 L38 32"/>
+      <g class="close-book"><rect width="48" height="48" fill="none" stroke="none"/>
+        <path class="draw-line right-page" d="M24 38 L44 38 L44 12 L24 12"/></g>
+      <line class="draw-line binding" x1="24" y1="12" x2="24" y2="38"/>
+      <g class="flip-page page-1"><rect width="48" height="48" fill="none" stroke="none"/><path d="M24 38 L44 38 L44 12 L24 12 M30 18 L38 18 M30 25 L38 25 M34 32 L38 32"/></g>
+      <g class="flip-page page-2"><rect width="48" height="48" fill="none" stroke="none"/><path d="M24 38 L44 38 L44 12 L24 12 M30 18 L38 18 M30 25 L38 25 M34 32 L38 32"/></g>
+      <g class="flip-page page-3"><rect width="48" height="48" fill="none" stroke="none"/><path d="M24 38 L44 38 L44 12 L24 12 M30 18 L38 18 M30 25 L38 25 M34 32 L38 32"/></g>
+      <g class="flip-page page-4"><rect width="48" height="48" fill="none" stroke="none"/><path d="M24 38 L44 38 L44 12 L24 12 M30 18 L38 18 M30 25 L38 25 M34 32 L38 32"/></g>
+      <g class="flip-page page-5"><rect width="48" height="48" fill="none" stroke="none"/><path d="M24 38 L44 38 L44 12 L24 12 M30 18 L38 18 M30 25 L38 25 M34 32 L38 32"/></g>
+    </svg>`,
 };
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -58,6 +75,9 @@ export function startTransition(path) {
   destroy();
   if (REDUCED) return;
   const type = animFor(path || '/');
+  // Le livre a une séquence non bouclée (dessin → pages → fermeture) : on lui laisse
+  // le temps de la jouer entièrement. Les autres pictos bouclent → 880 ms suffisent.
+  currentMin = (type === 'book') ? BOOK_MIN_MS : MIN_MS;
   overlay = document.createElement('div');
   overlay.className = 'pagefx';
   overlay.setAttribute('aria-hidden', 'true');
@@ -76,7 +96,7 @@ export async function endTransition() {
   if (!overlay) return;
   const el = overlay;
   overlay = null;                    // libère le module pour une éventuelle nav suivante
-  const remaining = MIN_MS - (performance.now() - startTs);
+  const remaining = currentMin - (performance.now() - startTs);
   if (remaining > 0) await sleep(remaining);
   el.classList.add('pagefx-out');
   await sleep(OUT_MS);
