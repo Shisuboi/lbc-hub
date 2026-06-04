@@ -98,3 +98,23 @@ class Supa:
         headers = self._headers({"Prefer": "resolution=merge-duplicates,return=minimal"})
         async with self.session.post(url, params=params, json=payload, headers=headers) as resp:
             resp.raise_for_status()
+
+    async def create_contact_from_telegram(self, opportunity_id: str, first_name: str) -> bool:
+        """Insère un signal de contact via Telegram (service_role, bypass RLS).
+
+        Retourne True si créé, False si déjà actif (conflit 409 sur l'index unique).
+        Lève une exception pour toute autre erreur HTTP.
+        """
+        url = f"{self.base}/rest/v1/item_comments"
+        payload = {
+            "opportunity_id": opportunity_id,
+            "user_id": None,
+            "body": f"🤝 {first_name} s'en occupe (via Telegram)",
+            "type": "contact",
+        }
+        headers = self._headers({"Prefer": "return=minimal"})
+        async with self.session.post(url, json=payload, headers=headers) as resp:
+            if resp.status == 409:
+                return False
+            resp.raise_for_status()
+            return True
