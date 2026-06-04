@@ -3,7 +3,7 @@
 // L'auteur est récupéré par jointure (FK user_id -> profiles).
 import { supa } from '../supabase-client.js';
 
-const SELECT = 'id, opportunity_id, user_id, body, edited_at, created_at, author:profiles(username, avatar_color)';
+const SELECT = 'id, opportunity_id, user_id, body, edited_at, created_at, type, cancelled_at, author:profiles(username, avatar_color)';
 
 /** Liste les commentaires d'une opportunité, du plus ancien au plus récent. */
 export async function listComments(opportunityId) {
@@ -66,6 +66,7 @@ export async function loadCommentMeta(oppIds = [], myUserId = null) {
     .in('opportunity_id', oppIds);
   if (error || !data) return meta;
   for (const row of data) {
+    if (row.type === 'contact') continue;
     const m = meta.get(row.opportunity_id) || { count: 0, participated: false, latest: null };
     m.count += 1;
     if (myUserId && row.user_id === myUserId) m.participated = true;
@@ -88,6 +89,19 @@ export async function listCommentsByUser(userId, limit = 20) {
     .limit(limit);
   if (error || !data) return [];
   return data;
+}
+
+/** Crée un signal de contact via RPC (auteur = profil hub connecté). */
+export async function createContactSignal(opportunityId) {
+  const { data, error } = await supa.rpc('create_contact_signal', { p_opportunity_id: opportunityId });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+/** Annule un signal de contact via RPC (auteur ou admin). */
+export async function cancelContactSignal(commentId) {
+  const { error } = await supa.rpc('cancel_contact_signal', { p_comment_id: commentId });
+  if (error) throw new Error(error.message);
 }
 
 /** Souscrit aux changements realtime des commentaires d'un item.
