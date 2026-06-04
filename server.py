@@ -20,6 +20,7 @@ from engine.enrich import enrichment_worker
 from engine.scheduler import run_engine
 from engine.telemetry import heartbeat_worker
 from engine.maintenance import run_maintenance
+from engine.telegram import TelegramClient
 from engine.bootstrap import make_scrape_fn, build_searches_lookup
 from engine.scraper import extract_ads_from_results, RESULTS_CONTAINER_SELECTOR
 
@@ -554,6 +555,21 @@ async def start_autonomous_engine(app):
     brain = Brain("lbc_brain.sqlite3")
     session = aiohttp.ClientSession()
     supa = Supa(cfg["SUPABASE_URL"], cfg["SUPABASE_SERVICE_KEY"], session)
+
+    # Telegram (optionnel) : notifications opportunités 🔴 + alertes captcha
+    telegram = None
+    if (cfg.get("TELEGRAM_BOT_TOKEN") and cfg.get("TELEGRAM_GROUP_ID")
+            and cfg.get("TELEGRAM_TRISTAN_ID")):
+        telegram = TelegramClient(
+            cfg["TELEGRAM_BOT_TOKEN"],
+            cfg["TELEGRAM_GROUP_ID"],
+            cfg["TELEGRAM_TRISTAN_ID"],
+            session,
+        )
+        print("📨 Notifications Telegram activées.")
+    else:
+        print("📨 Telegram non configuré — notifications désactivées.")
+
     sink = LocalSink(brain)  # le scrape dépose en file locale (PAS Supabase direct)
 
     async def get_context():
@@ -563,6 +579,7 @@ async def start_autonomous_engine(app):
     scrape_fn = make_scrape_fn(
         get_context, extract_ads_from_results, scrape_lock,
         ready_selector=RESULTS_CONTAINER_SELECTOR,
+        telegram=telegram,
     )
     stop_event = asyncio.Event()
     app["engine_stop"] = stop_event
@@ -592,7 +609,8 @@ async def start_autonomous_engine(app):
             )
 
         tasks.append(asyncio.create_task(
-            enrichment_worker(brain, supa, router, ai, fetch_searches, image_fetch, stop_event)
+            enrichment_worker(brain, supa, router, ai, fetch_searches, image_fetch, stop_event,
+                              telegram=telegram)
         ))
         print("🧠 Worker d'enrichissement IA démarré (cascade).")
     else:
