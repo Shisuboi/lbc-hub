@@ -3,7 +3,7 @@
 // Monté par js/pages/item.js dans un conteneur fourni. Gère son propre canal realtime
 // via window.__commentsChannel (démonté au montage suivant — pattern feed/hub).
 import { supa } from '../supabase-client.js';
-import { listComments, createComment, updateComment, deleteComment, subscribeComments } from '../lib/comments.js';
+import { listComments, createComment, updateComment, deleteComment, subscribeComments, createContactSignal, cancelContactSignal } from '../lib/comments.js';
 import { markSeen } from '../lib/comment-seen.js';
 
 function esc(s) {
@@ -42,6 +42,7 @@ export async function mountComments(container, { opportunityId, me }) {
     <section class="cm-section">
       <h3 class="cm-title">💬 Commentaires <span id="cmCount" class="cm-count"></span></h3>
       <div id="cmList" class="cm-list"><div class="muted">Chargement…</div></div>
+      <div id="cmContact"></div>
       <form id="cmForm" class="cm-form">
         <textarea id="cmInput" class="cm-input" rows="2" maxlength="2000"
           placeholder="Ajouter un commentaire…"></textarea>
@@ -53,6 +54,7 @@ export async function mountComments(container, { opportunityId, me }) {
   const countEl = container.querySelector('#cmCount');
   const form = container.querySelector('#cmForm');
   const input = container.querySelector('#cmInput');
+  const contactEl = container.querySelector('#cmContact');
 
   function canDelete(c) { return c.user_id === me?.id || isAdmin; }
   function canEdit(c)   { return c.user_id === me?.id; }
@@ -77,12 +79,34 @@ export async function mountComments(container, { opportunityId, me }) {
   }
 
   function renderList() {
-    if (!comments.length) {
+    // Séparer contact actif vs commentaires normaux
+    const contact = comments.find(c => c.type === 'contact' && !c.cancelled_at);
+    const visible = comments.filter(c => c.type === 'comment');
+
+    // Pin contact
+    if (contact) {
+      contactEl.innerHTML = `
+        <div class="cm-contact-pin" data-id="${contact.id}">
+          <span class="cm-contact-icon">🤝</span>
+          <div class="cm-body">
+            <span class="cm-contact-text">${esc(contact.body)}</span>
+            <span class="cm-time"> · ${timeAgo(contact.created_at)}</span>
+          </div>
+          ${(contact.user_id === me?.id || isAdmin)
+            ? `<button class="cm-link cm-cancel-contact" data-cancel-contact="${contact.id}">✋ Annuler</button>`
+            : ''}
+        </div>`;
+    } else {
+      contactEl.innerHTML = `<button id="cmContactBtn" class="btn-contact">🤝 Je contacte cette annonce</button>`;
+    }
+
+    // Commentaires normaux
+    if (!visible.length) {
       listEl.innerHTML = `<div class="cm-empty muted">Aucun commentaire. Soyez le premier !</div>`;
     } else {
-      listEl.innerHTML = comments.map(rowHtml).join('');
+      listEl.innerHTML = visible.map(rowHtml).join('');
     }
-    countEl.textContent = comments.length ? `(${comments.length})` : '';
+    countEl.textContent = visible.length ? `(${visible.length})` : '';
   }
 
   async function reload() {
@@ -116,6 +140,15 @@ export async function mountComments(container, { opportunityId, me }) {
 
   // Édition / suppression (délégation)
   listEl.addEventListener('click', async e => {
+    const cancelContactBtn = e.target.closest('[data-cancel-contact]');
+    if (cancelContactBtn) {
+      try {
+        await cancelContactSignal(cancelContactBtn.dataset.cancelContact);
+        await reload();
+      } catch (err) { alert(err.message); }
+      return;
+    }
+
     const delBtn = e.target.closest('[data-del]');
     const editBtn = e.target.closest('[data-edit]');
 
@@ -148,6 +181,19 @@ export async function mountComments(container, { opportunityId, me }) {
         try { await updateComment(id, nv); await reload(); }
         catch (err) { alert(err.message); }
       });
+    }
+  });
+
+  // Bouton "Je contacte" (délégation sur contactEl)
+  contactEl.addEventListener('click', async e => {
+    if (e.target.id !== 'cmContactBtn') return;
+    e.target.disabled = true;
+    try {
+      await createContactSignal(opportunityId);
+      await reload();
+    } catch (err) {
+      alert(err.message);
+      e.target.disabled = false;
     }
   });
 
