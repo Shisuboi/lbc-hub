@@ -13,6 +13,7 @@ from engine.cascade import triage_batch, verify_one, photo_one
 from engine.supa import merge_enrichment
 from engine.geo import fill_latlon
 from engine.router import QuotaExhausted
+from engine.telegram import send_opportunity
 
 _MAX_PENDING_RETRIES = 5
 
@@ -29,7 +30,7 @@ def _ad_from_payload(payload: dict) -> dict:
     }
 
 
-async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch, batch_size=15) -> int:
+async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch, batch_size=15, telegram=None) -> int:
     """Traite un lot. Retourne le nombre d'opportunités écrites (post-triage). 0 si rien/quota."""
     raw = brain.peek_pending(limit=batch_size)
     # Garde anti-poison : un item ayant échoué trop de fois est abandonné (file jamais bloquée).
@@ -116,19 +117,27 @@ async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch
             except Exception:
                 brain.queue_outbox(payload)
 
+            # Notification Telegram 🔴 (best-effort, après vérif/photo finale)
+            if telegram and payload.get("category") == "urgent":
+                ad_id_str = payload.get("ad_id", "")
+                if ad_id_str and not brain.is_telegram_sent(ad_id_str):
+                    await send_opportunity(telegram, payload)
+                    brain.mark_telegram_sent(ad_id_str)
+
         brain.delete_pending(item["id"])
         written += 1
     return written
 
 
 async def enrichment_worker(brain, supa, router, settings, fetch_searches, image_fetch,
-                            stop_event, pause: float = 5.0, max_loops=None) -> None:
+                            stop_event, pause: float = 5.0, max_loops=None, telegram=None) -> None:
     """Boucle du worker. `fetch_searches` → {search_id: {min_margin_eur, min_margin_pct}}."""
     loops = 0
     while not stop_event.is_set():
         try:
             searches_by_id = await fetch_searches()
-            await enrich_once(brain, supa, router, settings, searches_by_id, image_fetch)
+            await enrich_once(brain, supa, router, settings, searches_by_id, image_fetch,
+                              telegram=telegram)
         except Exception as exc:
             print(f"[enrich] erreur cycle: {exc}")
         loops += 1

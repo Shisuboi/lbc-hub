@@ -192,3 +192,53 @@ async def test_enrich_once_unknown_search_uses_default_margins():
     # marge 20 € / 10 % < défauts 30/30 → reste 🟡, JAMAIS 🔴 (preuve que les défauts s'appliquent)
     assert supa.upserts[-1]["category"] == "interesting"
     assert supa.upserts[-1]["est_margin_eur"] == 20.0
+
+
+async def test_enrich_once_sends_telegram_for_urgent(monkeypatch):
+    """Opp urgente + telegram configuré → send_opportunity appelée, ad_id marqué."""
+    sent = []
+    async def fake_send(client, opp):
+        sent.append(opp.get("ad_id"))
+    monkeypatch.setattr("engine.enrich.send_opportunity", fake_send)
+
+    brain = Brain(":memory:")
+    supa = FakeSupa()
+    queue_ad(brain, "urgent-1", price=200.0)
+    router = ScriptedRouter(
+        triage_items=[{"ad_id": "urgent-1", "category": "interesting", "score": 85, "dig_deeper": True}],
+        verify={"refined_score": 92, "est_market_price": 350.0, "signals": [], "is_lot": False,
+                "explanation": "ok"},
+        verify_tier=TIER_RANKS["pro"],
+    )
+    telegram_stub = object()  # non-None pour activer le hook
+    await enrich_once(brain, supa, router,
+                      settings={"urgent_score_threshold": 75},
+                      searches_by_id={"s1": {"min_margin_eur": 30, "min_margin_pct": 30}},
+                      image_fetch=None, telegram=telegram_stub)
+    assert "urgent-1" in sent, "send_opportunity doit être appelée pour une opp urgente"
+    assert brain.is_telegram_sent("urgent-1"), "ad_id doit être marqué comme envoyé"
+
+
+async def test_enrich_once_no_duplicate_telegram(monkeypatch):
+    """Si ad_id déjà marqué → send_opportunity pas rappelée."""
+    sent = []
+    async def fake_send(client, opp):
+        sent.append(opp.get("ad_id"))
+    monkeypatch.setattr("engine.enrich.send_opportunity", fake_send)
+
+    brain = Brain(":memory:")
+    brain.mark_telegram_sent("urgent-2")  # pré-marquer
+    supa = FakeSupa()
+    queue_ad(brain, "urgent-2", price=200.0)
+    router = ScriptedRouter(
+        triage_items=[{"ad_id": "urgent-2", "category": "interesting", "score": 85, "dig_deeper": True}],
+        verify={"refined_score": 92, "est_market_price": 350.0, "signals": [], "is_lot": False,
+                "explanation": "ok"},
+        verify_tier=TIER_RANKS["pro"],
+    )
+    telegram_stub = object()
+    await enrich_once(brain, supa, router,
+                      settings={"urgent_score_threshold": 75},
+                      searches_by_id={"s1": {"min_margin_eur": 30, "min_margin_pct": 30}},
+                      image_fetch=None, telegram=telegram_stub)
+    assert sent == [], "send_opportunity NE doit PAS être rappelée si déjà marqué"
