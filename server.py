@@ -21,6 +21,7 @@ from engine.scheduler import run_engine
 from engine.telemetry import heartbeat_worker
 from engine.maintenance import run_maintenance
 from engine.telegram import TelegramClient
+from engine.telegram_bot import telegram_poll_worker
 from engine.bootstrap import make_scrape_fn, build_searches_lookup
 from engine.scraper import extract_ads_from_results, RESULTS_CONTAINER_SELECTOR
 
@@ -619,6 +620,12 @@ async def start_autonomous_engine(app):
     # Heartbeat de télémétrie : tourne TOUJOURS sous --auto (indépendant de la clé IA).
     tasks.append(asyncio.create_task(heartbeat_worker(brain, supa, stop_event)))
     print("📡 Heartbeat de télémétrie démarré (scrape_heartbeats).")
+
+    if telegram:
+        tasks.append(asyncio.create_task(
+            telegram_poll_worker(brain, supa, telegram, stop_event)
+        ))
+        print("🤝 Polling callbacks Telegram démarré.")
 
     app["engine_tasks"] = tasks
     print("🤖 Moteur autonome démarré (scrape 24/7).")
