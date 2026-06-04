@@ -68,6 +68,11 @@ CREATE TABLE IF NOT EXISTS city_geo (
     lon REAL NOT NULL,
     geocoded_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS telegram_sent (
+    ad_id TEXT PRIMARY KEY,
+    sent_at INTEGER NOT NULL
+);
 """
 
 # Approximation du reset minuit Pacifique (offset fixe, zéro dépendance tzdata).
@@ -211,6 +216,23 @@ class Brain:
             "ON CONFLICT(city) DO UPDATE SET lat=excluded.lat, lon=excluded.lon, "
             "geocoded_at=excluded.geocoded_at",
             (city, lat, lon, now),
+        )
+        self.conn.commit()
+
+    def is_telegram_sent(self, ad_id: str) -> bool:
+        """True si une notification Telegram a déjà été envoyée pour cet ad_id."""
+        row = self.conn.execute(
+            "SELECT 1 FROM telegram_sent WHERE ad_id = ?", (ad_id,)
+        ).fetchone()
+        return row is not None
+
+    def mark_telegram_sent(self, ad_id: str, now: int | None = None) -> None:
+        """Enregistre qu'une notification Telegram a été envoyée pour cet ad_id."""
+        now = int(now if now is not None else time.time())
+        self.conn.execute(
+            "INSERT INTO telegram_sent (ad_id, sent_at) VALUES (?, ?) "
+            "ON CONFLICT(ad_id) DO UPDATE SET sent_at = excluded.sent_at",
+            (ad_id, now),
         )
         self.conn.commit()
 
