@@ -58,6 +58,7 @@ export async function render(params) {
           <div class="stat-box"><div class="stat-label">Prix max achat</div><div class="stat-val">${o.max_buy_price != null ? eur(o.max_buy_price) : 'n/d'}</div></div>
         </div>
         ${o.url ? `<a href="${esc(o.url)}" target="_blank" rel="noopener noreferrer" class="btn-lbc">Voir l'annonce sur Leboncoin ↗</a>` : ''}
+        <button type="button" id="itemAddJournal" class="btn-journal">＋ Ajouter au journal</button>
       </div>
     </div>
     ${o.explanation ? `<div class="item-ai"><div class="item-ai-label">🤖 Analyse</div><div>${esc(o.explanation)}</div></div>` : ''}
@@ -66,5 +67,17 @@ export async function render(params) {
   const commentsEl = document.getElementById('itemComments');
   if (commentsEl && navState.token === myToken) {
     mountComments(commentsEl, { opportunityId: o.id, me });
+  }
+
+  const addBtn = document.getElementById('itemAddJournal');
+  if (addBtn) {
+    addBtn.addEventListener('click', () => {
+      try {
+        sessionStorage.setItem('journal-prefill', JSON.stringify({
+          opportunity_id: o.id, title: o.title || '',
+        }));
+      } catch (_) {}
+      location.assign('/dashboard');
+    });
   }
 }
