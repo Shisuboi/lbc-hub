@@ -45,7 +45,7 @@ def test_triage_prompt_flags_implausibly_low_price_and_for_parts():
     ads = [{"ad_id": "1", "title": "PC portable", "price": 8.0, "city": "Paris"}]
     prompt = build_triage_prompt(ads, {})  # médiane marché INCONNUE
     low = prompt.lower()
-    assert "connaiss" in low                                  # connaissances produit
+    assert ("piège" in low) or ("arnaque" in low)              # warning prix dérisoire
     assert ("illusoire" in low) or ("dérisoire" in low)       # marge illusoire / prix dérisoire
     assert ("pour pièces" in low) or ("pour pieces" in low)   # mots-clés pièces
 

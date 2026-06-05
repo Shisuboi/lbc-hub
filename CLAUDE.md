@@ -70,10 +70,11 @@ partagée (`/watchlist`) et un dashboard financier (`/dashboard`).
   `gemini-3.1-flash-lite` gratuit) → 🟡/⚫ + score, ne déclare JAMAIS urgent ; ② **vérification**
   (1 appel/candidate) → prix marché, marge €/%, prix max, lot, signaux ; ③ **photo** (vision, 🔴
   uniquement) → état réel + `scam_risk`.
-- ⚠️ **Gate 🔴 dur** : `urgent` seulement si le vérificateur a un **tier ≥ `MIN_TIER_FOR_URGENT`**
-  (défaut `"pro"`). **Pro SUSPENDU** par défaut → en intérim, enrichissement sur Flash gratuit, plafond
-  🟡, zéro faux « urgent ». Activable via `.env` (`GEMINI_PRO_ENABLED=true` + `GEMINI_VERIFY_MODEL` +
-  clé Pro). `scam_risk == "high"` à la photo **rétrograde** un 🔴 en 🟡. Voir [[phase-b-pro-verifier-suspendu]].
+- **Gate 🔴** : `urgent` seulement si le vérificateur a un **tier ≥ `MIN_TIER_FOR_URGENT`**
+  (défaut `"flash-lite"` → gate ouverte aux modèles gratuits) **ET** un score ≥ `URGENT_SCORE_THRESHOLD`
+  (défaut 85). Quand le compte Pro Gemini sera dispo : `GEMINI_PRO_ENABLED=true` + `GEMINI_VERIFY_MODEL`
+  + clé Pro + `MIN_TIER_FOR_URGENT=pro` pour restreindre. `scam_risk == "high"` à la photo **rétrograde**
+  un 🔴 en 🟡.
 - **Modules `engine/`** : `router` (LLMRouter, quotas `llm_usage`, fallback, gate tier),
   `llm_client` (GeminiClient REST), `cascade`, `prompts` (schémas JSON), `grounding` (médiane marché),
   `sink` (LocalSink), `enrich` (worker).
@@ -212,8 +213,10 @@ Specs/plans : `docs/superpowers/specs/2026-06-01-phase-c-hub-opportunites-design
    post = cache de session mélangé (profil ≠ session active) → logout/login propre.
 
 ### Reste à faire / pistes
-- **Valider C-3 en live** : le panneau monitoring (`🟢 PC actif`, annonces/min) n'a pas encore tourné
-  faute de PC moteur lancé. À tester dès que `server.py --auto` tourne (cf. mémoire `c3-live-test-pending`).
+- **Valider en live** : faire tourner `python server.py --auto` et vérifier : panneau monitoring
+  `/watchlist` (🟢 PC actif, annonces/min), opportunités publiées dans le feed, notifs Telegram,
+  signal 🔴 urgent (gate ouverte depuis juin 2026 avec flash-lite + seuil 85).
 - **Nettoyage SQL legacy** (optionnel) : `searches`/`listings`/`favorites` (ancienne)/`invitations` +
   RPC d'invitation peuvent être supprimés de la base plus tard (zéro dépendance frontend).
-- **Compte Pro Gemini** : active le gate 🔴 urgent quand disponible (voir Cascade IA).
+- **Compte Pro Gemini** (futur) : quand dispo, mettre `GEMINI_PRO_ENABLED=true` +
+  `MIN_TIER_FOR_URGENT=pro` dans `.env` pour des analyses de vérification plus précises.

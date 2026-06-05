@@ -6,9 +6,9 @@ def test_ai_settings_defaults():
     s = ai_settings({})
     assert s["triage_model"] == "gemini-3.1-flash-lite"
     assert s["photo_model"] == "gemini-3.1-flash-lite"
-    assert s["min_tier_for_urgent"] == "pro"   # Pro = seul juge du 🔴 (B-04)
-    assert s["pro_enabled"] is False            # Pro suspendu par défaut
-    assert s["urgent_score_threshold"] == 75.0
+    assert s["min_tier_for_urgent"] == "flash-lite"  # gate ouverte aux modèles gratuits
+    assert s["pro_enabled"] is False                 # Pro désactivé par défaut
+    assert s["urgent_score_threshold"] == 85.0
     assert s["default_min_margin_eur"] == 30.0
     assert s["default_min_margin_pct"] == 30.0
     assert s["api_key"] is None

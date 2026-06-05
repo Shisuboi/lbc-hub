@@ -57,7 +57,7 @@ def ai_settings(cfg: dict) -> dict:
         # Au-delà, le routeur retombe sur le modèle gratuit (plafond 🟡, pas de surcoût).
         # Mettre 0 = pas de plafond côté moteur (déconseillé : compter alors sur le quota Cloud).
         "pro_daily_cap": int(_to_float(cfg.get("GEMINI_PRO_DAILY_CAP"), 50)),
-        "min_tier_for_urgent": cfg.get("MIN_TIER_FOR_URGENT") or "pro",
+        "min_tier_for_urgent": cfg.get("MIN_TIER_FOR_URGENT") or "flash-lite",
         "urgent_score_threshold": _to_float(cfg.get("URGENT_SCORE_THRESHOLD"), 85.0),
         "default_min_margin_eur": _to_float(cfg.get("DEFAULT_MIN_MARGIN_EUR"), 30.0),
         "default_min_margin_pct": _to_float(cfg.get("DEFAULT_MIN_MARGIN_PCT"), 30.0),
