@@ -1465,3 +1465,65 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.65) opa
 }
 .btn-contact:hover:not(:disabled) { background: rgba(99,102,241,.35); }
 .btn-contact:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ===================== Journal de trading ===================== */
+/* Animation d'entrée (option C) : KPIs en fondu haut, colonnes depuis les côtés. */
+.journal-enter .dash-hero,
+.journal-enter .dash-kpis { animation: jrFadeDown .5s ease both; }
+.journal-enter .jr-col[data-status="contacted"] { animation: jrSlideL .55s ease both; }
+.journal-enter .jr-col[data-status="bought"]    { animation: jrFadeUp .55s ease .08s both; }
+.journal-enter .jr-col[data-status="sold"]      { animation: jrSlideR .55s ease both; }
+@keyframes jrFadeDown { from { opacity:0; transform:translateY(-12px); } to { opacity:1; transform:none; } }
+@keyframes jrFadeUp   { from { opacity:0; transform:translateY(14px); }  to { opacity:1; transform:none; } }
+@keyframes jrSlideL   { from { opacity:0; transform:translateX(-26px); } to { opacity:1; transform:none; } }
+@keyframes jrSlideR   { from { opacity:0; transform:translateX(26px); }  to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce) {
+  .journal-enter .dash-hero, .journal-enter .dash-kpis, .journal-enter .jr-col { animation: none; }
+}
+
+/* Kanban */
+.jr-board { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:18px; }
+@media (max-width:780px){ .jr-board { grid-template-columns:1fr; } }
+.jr-col { background:var(--glass-1, rgba(255,255,255,.55)); border:1px solid rgba(0,0,0,.06);
+  border-radius:16px; padding:12px; min-height:120px; }
+.jr-col-head { font-weight:700; font-size:.92rem; margin-bottom:10px; display:flex; gap:6px; align-items:center; }
+.jr-col-count { color:var(--text-secondary,#78716c); font-weight:600; font-size:.82rem; }
+.jr-col-empty { font-size:.82rem; padding:8px 4px; }
+
+/* Carte deal */
+.jr-card { position:relative; background:#fff; border:1px solid rgba(0,0,0,.06); border-radius:12px;
+  padding:10px 12px; margin-bottom:9px; cursor:pointer; transition:transform .12s, box-shadow .12s; }
+.jr-card:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(0,0,0,.07); }
+.jr-card-top { display:flex; justify-content:space-between; gap:8px; align-items:flex-start; }
+.jr-card-title { font-weight:600; font-size:.9rem; line-height:1.25; }
+.jr-card-margin { font-weight:700; font-size:.82rem; white-space:nowrap; }
+.jr-card-margin.is-positive { color:var(--accent-green,#34d399); }
+.jr-card-margin.is-negative { color:var(--accent-rose,#fb5b76); }
+.jr-card-meta { display:flex; align-items:center; gap:6px; margin-top:6px; font-size:.78rem; color:var(--text-secondary,#78716c); }
+.jr-card-prices { margin-top:5px; font-size:.8rem; }
+.jr-avatar { display:inline-grid; place-items:center; width:20px; height:20px; border-radius:50%;
+  color:#fff; font-size:.7rem; font-weight:700; }
+.jr-card-actions { position:absolute; top:8px; right:8px; display:none; gap:2px; }
+.jr-card:hover .jr-card-actions { display:flex; }
+.jr-icon-btn { background:none; border:none; cursor:pointer; font-size:.85rem; padding:2px 4px; border-radius:6px; }
+.jr-icon-btn:hover { background:rgba(0,0,0,.06); }
+
+/* Modal : marge live + recherche feed */
+.jr-margin { padding:8px 12px; border-radius:10px; font-weight:700; font-size:.9rem; background:rgba(0,0,0,.04); }
+.jr-margin.is-positive { color:var(--accent-green,#34d399); }
+.jr-margin.is-negative { color:var(--accent-rose,#fb5b76); }
+.jr-link { position:relative; }
+.jr-link-results { display:flex; flex-direction:column; gap:2px; margin-top:6px; max-height:180px; overflow:auto; }
+.jr-link-item { text-align:left; background:rgba(0,0,0,.03); border:1px solid rgba(0,0,0,.05); border-radius:8px;
+  padding:7px 10px; cursor:pointer; font-size:.84rem; }
+.jr-link-item:hover { background:var(--accent-soft, rgba(245,150,60,.16)); }
+.jr-link-empty { padding:8px 4px; font-size:.82rem; }
+.jr-link-chosen { margin-top:6px; padding:8px 10px; border-radius:8px; background:var(--accent-soft, rgba(245,150,60,.16));
+  font-size:.84rem; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.jr-link-clear { background:none; border:none; color:var(--accent,#f5963c); cursor:pointer; font-size:.78rem; font-weight:600; white-space:nowrap; }
+
+/* Bouton "Ajouter au journal" sur /item/:id */
+.btn-journal { margin-top:10px; width:100%; padding:10px; border-radius:10px; cursor:pointer; font-weight:600;
+  background:var(--accent-soft, rgba(245,150,60,.16)); border:1px solid var(--glass-border-accent, rgba(245,150,60,.45));
+  color:var(--accent-light, #c2410c); transition:background .15s; }
+.btn-journal:hover { background:var(--accent-soft, rgba(245,150,60,.28)); }
