@@ -1,515 +1,486 @@
 // js/pages/dashboard.js
-// Page /dashboard : tableau de bord financier privé de l'utilisateur.
-// KPIs + 2 graphiques Chart.js (lazy-loadé) + table d'historique + modal CRUD.
-// Données strictement privées : la RLS Supabase filtre sur (select auth.uid()).
-import { requireAuth } from '../auth.js';
+// Page /dashboard = JOURNAL DE TRADING PARTAGÉ.
+// Héro (profit groupe) + KPIs + 2 graphiques + Kanban 3 colonnes (Contacté/Acheté/Revendu)
+// + modal CRUD adaptatif au statut + recherche/liaison d'une annonce du feed.
+// Données partagées (RLS) : tout le groupe voit tous les deals ; écriture auteur/admin.
+import { requireAuth, getProfile } from '../auth.js';
 import { navState } from '../router.js';
 import {
-    listTransactions, createTransaction, updateTransaction, deleteTransaction,
-    computeKpis, buildMonthlySeries, formatMonthLabel,
-} from '../lib/transactions.js';
+  listTrades, createTrade, updateTrade, deleteTrade, searchOpportunities,
+  computeGroupKpis, buildMonthlySeries, formatMonthLabel,
+} from '../lib/trades.js';
 
-// ── Lazy-load Chart.js (cf. plan D-DASH-02) : chargé UNE fois, à la demande ─────
+// ── Lazy-load Chart.js (chargé une fois, à la demande) ───────────────────────
 const CHARTJS_CDN = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js';
 let chartJsPromise = null;
 function loadChartJs() {
-    if (window.Chart) return Promise.resolve(window.Chart);
-    if (chartJsPromise) return chartJsPromise;
-    chartJsPromise = new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = CHARTJS_CDN;
-        s.async = true;
-        s.onload = () => resolve(window.Chart);
-        s.onerror = () => { chartJsPromise = null; reject(new Error('CDN Chart.js injoignable')); };
-        document.head.appendChild(s);
-    });
-    return chartJsPromise;
+  if (window.Chart) return Promise.resolve(window.Chart);
+  if (chartJsPromise) return chartJsPromise;
+  chartJsPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = CHARTJS_CDN; s.async = true;
+    s.onload = () => resolve(window.Chart);
+    s.onerror = () => { chartJsPromise = null; reject(new Error('CDN Chart.js injoignable')); };
+    document.head.appendChild(s);
+  });
+  return chartJsPromise;
 }
 
-// ── Helpers de formatage ────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 const eur = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
-const eur2 = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-function fmtDate(d) {
-    if (!d) return '';
-    const date = new Date(d + 'T00:00:00');
-    return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+const eur2 = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 2 });
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
-function escapeHtml(s) {
-    return String(s ?? '').replace(/[&<>"']/g, c => (
-        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-    ));
+function fmtDate(d) {
+  if (!d) return '';
+  return new Date(d + 'T00:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+}
+const STATUS = {
+  contacted: { label: '🤝 Contacté', col: 'Contactés', icon: '🤝' },
+  bought:    { label: '🛒 Acheté',   col: 'Achetés',   icon: '🛒' },
+  sold:      { label: '✅ Revendu',  col: 'Revendus',  icon: '✅' },
+};
+const CAT_DOT = { urgent: '🔴', interesting: '🟡', passable: '⚫' };
+function avatar(t) {
+  const name = t.author?.username || '?';
+  const color = t.author?.avatar_color || 'var(--accent)';
+  return `<span class="jr-avatar" style="background:${esc(color)}">${esc(name[0].toUpperCase())}</span>`;
 }
 
 export async function render() {
-    const myToken = navState.token;
-    await requireAuth();
-    if (navState.token !== myToken) return;
+  const myToken = navState.token;
+  await requireAuth();
+  if (navState.token !== myToken) return;
+  const me = await getProfile();
+  if (navState.token !== myToken) return;
+  const isAdmin = me?.role === 'admin';
 
-    const root = document.getElementById('appRoot');
-    root.innerHTML = `
-        <section class="dash-page">
-            <div class="dash-hero liquid">
-                <div class="dash-hero-main">
-                    <p class="feed-eyebrow">Tableau de bord · revente</p>
-                    <h2 class="dash-title">Profit net cumulé</h2>
-                    <div class="dash-hero-figure" id="dashHeroProfit">—</div>
-                    <div class="dash-hero-sub" id="dashHeroRoi">Suis tes achats, tes ventes et ta rentabilité.</div>
-                </div>
-                <button type="button" class="btn btn-primary dash-add-btn" id="dashAddBtn">
-                    <span aria-hidden="true">＋</span> Ajouter une transaction
-                </button>
-            </div>
-
-            <div class="dash-kpis" id="dashKpis" aria-busy="true">
-                ${kpiSkeleton()}
-            </div>
-
-            <div class="dash-charts" id="dashCharts">
-                <div class="card dash-chart-card">
-                    <div class="dash-chart-head">
-                        <h3>Achats vs ventes <span class="dash-chart-sub">cumul mensuel</span></h3>
-                    </div>
-                    <div class="dash-chart-canvas-wrap">
-                        <canvas id="dashLineChart" role="img" aria-label="Courbe cumulée des achats et des ventes par mois"></canvas>
-                    </div>
-                </div>
-                <div class="card dash-chart-card">
-                    <div class="dash-chart-head">
-                        <h3>Profit net <span class="dash-chart-sub">par mois</span></h3>
-                    </div>
-                    <div class="dash-chart-canvas-wrap">
-                        <canvas id="dashBarChart" role="img" aria-label="Profit net mensuel"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card dash-table-card">
-                <div class="dash-table-head">
-                    <h3>Historique des transactions</h3>
-                    <span class="muted small" id="dashTxCount"></span>
-                </div>
-                <div id="dashTableWrap" class="dash-table-wrap"></div>
-            </div>
-
-            <div class="dash-empty empty-state card hidden" id="dashEmpty">
-                <div class="empty-icon" aria-hidden="true">📈</div>
-                <h3>Aucune transaction pour l'instant</h3>
-                <p>Ajoute ton premier achat ou ta première vente pour voir tes KPIs et tes graphiques se construire.</p>
-                <button type="button" class="btn btn-primary" id="dashEmptyAddBtn" style="width:auto">
-                    <span aria-hidden="true">＋</span> Ajouter ma première transaction
-                </button>
-            </div>
-        </section>
-
-        <div class="modal-overlay hidden" id="dashModal">
-            <div class="modal-card card" role="dialog" aria-modal="true" aria-labelledby="dashModalTitle">
-                <div class="modal-header">
-                    <div class="modal-title-area">
-                        <span class="modal-icon" aria-hidden="true">💸</span>
-                        <h2 id="dashModalTitle">Nouvelle transaction</h2>
-                    </div>
-                    <button type="button" class="modal-close" id="dashModalClose" aria-label="Fermer">✕</button>
-                </div>
-                <form class="modal-body dash-form" id="dashForm">
-                    <input type="hidden" id="dashTxId">
-
-                    <div class="form-group">
-                        <label>Type d'opération</label>
-                        <div class="dash-type-toggle" id="dashType" role="radiogroup" aria-label="Type d'opération">
-                            <button type="button" class="dash-type-btn is-active" data-type="achat" role="radio" aria-checked="true">🛒 Achat</button>
-                            <button type="button" class="dash-type-btn" data-type="vente" role="radio" aria-checked="false">💰 Vente</button>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="dashLabel">Article</label>
-                        <input type="text" id="dashLabel" maxlength="200" required placeholder="Ex : Vélo VTT Decathlon Rockrider">
-                    </div>
-
-                    <div class="form-row dash-form-row">
-                        <div class="form-group">
-                            <label for="dashAmount">Montant (€)</label>
-                            <input type="number" id="dashAmount" min="0.01" step="0.01" required placeholder="0,00">
-                        </div>
-                        <div class="form-group">
-                            <label for="dashDate">Date</label>
-                            <input type="date" id="dashDate" required>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="dashUrl">Lien de l'annonce <span class="muted">(optionnel)</span></label>
-                        <input type="url" id="dashUrl" placeholder="https://www.leboncoin.fr/...">
-                    </div>
-
-                    <div class="dash-form-error form-error hidden" id="dashFormError"></div>
-
-                    <div class="actions-area">
-                        <button type="submit" class="btn btn-primary" id="dashSubmit">Enregistrer</button>
-                    </div>
-                </form>
-            </div>
+  const root = document.getElementById('appRoot');
+  root.innerHTML = `
+    <section class="journal-page journal-enter">
+      <div class="dash-hero liquid">
+        <div class="dash-hero-main">
+          <p class="feed-eyebrow">Journal · revente groupe</p>
+          <h2 class="dash-title">Profit net du groupe</h2>
+          <div class="dash-hero-figure" id="jrHeroProfit">—</div>
+          <div class="dash-hero-sub" id="jrHeroSub">Suivez vos deals de A à Z, ensemble.</div>
         </div>
-    `;
+        <button type="button" class="btn btn-primary dash-add-btn" id="jrAddBtn">
+          <span aria-hidden="true">＋</span> Ajouter un deal
+        </button>
+      </div>
 
-    // ── State ────────────────────────────────────────────────────────────────
-    const state = { transactions: [], lineChart: null, barChart: null };
+      <div class="dash-kpis" id="jrKpis"></div>
 
-    // ── Fetch transactions + recherches du user (pour le select de liaison) ────
-    let transactions;
-    try {
-        transactions = await listTransactions();
-    } catch (err) {
-        if (navState.token !== myToken) return;
-        document.getElementById('dashTableWrap').innerHTML =
-            `<div class="error-panel">❌ ${escapeHtml(err.message)}</div>`;
-        document.getElementById('dashKpis').removeAttribute('aria-busy');
-        return;
+      <div class="dash-charts" id="jrCharts">
+        <div class="card dash-chart-card">
+          <div class="dash-chart-head"><h3>Achats vs ventes <span class="dash-chart-sub">cumul mensuel</span></h3></div>
+          <div class="dash-chart-canvas-wrap"><canvas id="jrLineChart" role="img" aria-label="Cumul achats/ventes"></canvas></div>
+        </div>
+        <div class="card dash-chart-card">
+          <div class="dash-chart-head"><h3>Profit net <span class="dash-chart-sub">par mois</span></h3></div>
+          <div class="dash-chart-canvas-wrap"><canvas id="jrBarChart" role="img" aria-label="Profit net mensuel"></canvas></div>
+        </div>
+      </div>
+
+      <div class="jr-board" id="jrBoard">
+        <div class="jr-col" data-status="contacted"><div class="jr-col-head">🤝 Contactés <span class="jr-col-count" id="jrCount-contacted"></span></div><div class="jr-col-body" id="jrColBody-contacted"></div></div>
+        <div class="jr-col" data-status="bought"><div class="jr-col-head">🛒 Achetés <span class="jr-col-count" id="jrCount-bought"></span></div><div class="jr-col-body" id="jrColBody-bought"></div></div>
+        <div class="jr-col" data-status="sold"><div class="jr-col-head">✅ Revendus <span class="jr-col-count" id="jrCount-sold"></span></div><div class="jr-col-body" id="jrColBody-sold"></div></div>
+      </div>
+
+      <div class="dash-empty empty-state card hidden" id="jrEmpty">
+        <div class="empty-icon" aria-hidden="true">📓</div>
+        <h3>Le journal est vide</h3>
+        <p>Ajoute ton premier deal — ou lance-toi depuis une annonce du feed avec « Ajouter au journal ».</p>
+        <button type="button" class="btn btn-primary" id="jrEmptyAddBtn" style="width:auto"><span aria-hidden="true">＋</span> Ajouter un deal</button>
+      </div>
+    </section>
+
+    <div class="modal-overlay hidden" id="jrModal">
+      <div class="modal-card card" role="dialog" aria-modal="true" aria-labelledby="jrModalTitle">
+        <div class="modal-header">
+          <div class="modal-title-area"><span class="modal-icon" aria-hidden="true">📓</span><h2 id="jrModalTitle">Nouveau deal</h2></div>
+          <button type="button" class="modal-close" id="jrModalClose" aria-label="Fermer">✕</button>
+        </div>
+        <form class="modal-body dash-form" id="jrForm">
+          <input type="hidden" id="jrId">
+          <input type="hidden" id="jrOppId">
+
+          <div class="form-group">
+            <label for="jrTitle">Article</label>
+            <input type="text" id="jrTitle" maxlength="200" required placeholder="Ex : Vélo VTT Decathlon Rockrider">
+          </div>
+
+          <div class="form-group">
+            <label>Lier une annonce du feed <span class="muted">(optionnel)</span></label>
+            <div class="jr-link" id="jrLinkArea">
+              <input type="text" id="jrLinkSearch" placeholder="🔎 Rechercher une opportunité…" autocomplete="off">
+              <div class="jr-link-results" id="jrLinkResults"></div>
+              <div class="jr-link-chosen hidden" id="jrLinkChosen"></div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Statut</label>
+            <div class="dash-type-toggle" id="jrStatus" role="radiogroup" aria-label="Statut">
+              <button type="button" class="dash-type-btn is-active" data-status="contacted" role="radio" aria-checked="true">🤝 Contacté</button>
+              <button type="button" class="dash-type-btn" data-status="bought" role="radio" aria-checked="false">🛒 Acheté</button>
+              <button type="button" class="dash-type-btn" data-status="sold" role="radio" aria-checked="false">✅ Revendu</button>
+            </div>
+          </div>
+
+          <div class="form-row dash-form-row jr-buy hidden" id="jrBuyRow">
+            <div class="form-group"><label for="jrBuyPrice">Prix d'achat (€)</label><input type="number" id="jrBuyPrice" min="0" step="0.01" placeholder="0"></div>
+            <div class="form-group"><label for="jrBoughtAt">Date d'achat</label><input type="date" id="jrBoughtAt"></div>
+          </div>
+
+          <div class="form-row dash-form-row jr-sell hidden" id="jrSellRow">
+            <div class="form-group"><label for="jrSellPrice">Prix de vente (€)</label><input type="number" id="jrSellPrice" min="0" step="0.01" placeholder="0"></div>
+            <div class="form-group"><label for="jrSoldAt">Date de vente</label><input type="date" id="jrSoldAt"></div>
+          </div>
+
+          <div class="jr-margin hidden" id="jrMargin"></div>
+
+          <div class="form-group">
+            <label for="jrNotes">Notes <span class="muted">(optionnel)</span></label>
+            <textarea id="jrNotes" rows="2" maxlength="1000" placeholder="Détails, état, négociation…"></textarea>
+          </div>
+
+          <div class="dash-form-error form-error hidden" id="jrFormError"></div>
+          <div class="actions-area"><button type="submit" class="btn btn-primary" id="jrSubmit">Enregistrer</button></div>
+        </form>
+      </div>
+    </div>`;
+
+  const state = { trades: [], lineChart: null, barChart: null };
+
+  let trades;
+  try { trades = await listTrades(); }
+  catch (err) {
+    if (navState.token !== myToken) return;
+    document.getElementById('jrBoard').innerHTML = `<div class="error-panel">❌ ${esc(err.message)}</div>`;
+    return;
+  }
+  if (navState.token !== myToken) return;
+  state.trades = trades;
+
+  renderAll();
+  wireModal();
+
+  setTimeout(() => root.querySelector('.journal-page')?.classList.remove('journal-enter'), 700);
+
+  try {
+    const pre = JSON.parse(sessionStorage.getItem('journal-prefill') || 'null');
+    if (pre && pre.opportunity_id) {
+      sessionStorage.removeItem('journal-prefill');
+      openModal(null, { opportunity_id: pre.opportunity_id, title: pre.title });
+    }
+  } catch (_) {}
+
+  function renderAll() {
+    const has = state.trades.length > 0;
+    document.getElementById('jrEmpty').classList.toggle('hidden', has);
+    document.getElementById('jrCharts').classList.toggle('hidden', !has);
+    document.getElementById('jrBoard').classList.toggle('hidden', !has);
+    renderKpis();
+    if (has) { renderBoard(); renderCharts(); }
+  }
+
+  function renderKpis() {
+    const k = computeGroupKpis(state.trades);
+    const sign = k.profit > 0 ? '+' : '';
+    const pClass = k.profit > 0 ? 'is-positive' : k.profit < 0 ? 'is-negative' : '';
+    const roiTxt = k.roi == null ? 'n/d' : `${k.roi > 0 ? '+' : ''}${k.roi.toFixed(1).replace('.', ',')} %`;
+
+    document.getElementById('jrHeroProfit').textContent = `${sign}${eur.format(k.profit)}`;
+    document.getElementById('jrHeroProfit').className = `dash-hero-figure ${pClass}`;
+    document.getElementById('jrHeroSub').textContent =
+      `ROI ${roiTxt} · ${k.counts.sold} revendu${k.counts.sold > 1 ? 's' : ''} / ${k.counts.bought} acheté${k.counts.bought > 1 ? 's' : ''} / ${k.counts.contacted} contacté${k.counts.contacted > 1 ? 's' : ''}`;
+
+    document.getElementById('jrKpis').innerHTML = `
+      ${kpi('💰', 'accent-blue', 'Total investi', eur.format(k.invested), 'achats des deals revendus')}
+      ${kpi('💵', 'accent-green', 'Total encaissé', eur.format(k.earned), 'ventes réalisées')}
+      ${kpi('📈', 'accent-purple', 'Profit net', `${sign}${eur.format(k.profit)}`, 'marge réalisée', pClass)}
+      ${kpi('🎯', 'accent-amber', 'ROI', roiTxt, 'retour sur investissement')}`;
+  }
+
+  function cardHtml(t) {
+    const canEdit = t.user_id === me?.id || isAdmin;
+    const margin = (t.status === 'sold' && t.buy_price != null && t.sell_price != null)
+      ? Number(t.sell_price) - Number(t.buy_price) : null;
+    const priceLine =
+      t.status === 'sold'
+        ? `<span class="jr-card-price">Achat ${t.buy_price != null ? eur2.format(t.buy_price) : '—'} → Vente ${t.sell_price != null ? eur2.format(t.sell_price) : '—'}</span>`
+        : t.status === 'bought'
+          ? `<span class="jr-card-price">Payé ${t.buy_price != null ? eur2.format(t.buy_price) : '—'}</span>`
+          : '';
+    const marginBadge = margin != null
+      ? `<span class="jr-card-margin ${margin >= 0 ? 'is-positive' : 'is-negative'}">${margin >= 0 ? '+' : ''}${eur2.format(margin)}</span>` : '';
+    const actions = canEdit
+      ? `<div class="jr-card-actions">
+           <button type="button" class="jr-icon-btn" data-action="edit" data-id="${t.id}" title="Modifier" aria-label="Modifier">✏️</button>
+           <button type="button" class="jr-icon-btn jr-icon-danger" data-action="delete" data-id="${t.id}" title="Supprimer" aria-label="Supprimer">🗑️</button>
+         </div>` : '';
+    return `
+      <div class="jr-card" data-id="${t.id}">
+        <div class="jr-card-top">
+          <span class="jr-card-title">${esc(t.title)}</span>
+          ${marginBadge}
+        </div>
+        <div class="jr-card-meta">${avatar(t)} <span class="jr-card-author">${esc(t.author?.username || 'Anonyme')}</span></div>
+        ${priceLine ? `<div class="jr-card-prices">${priceLine}</div>` : ''}
+        ${actions}
+      </div>`;
+  }
+
+  function renderBoard() {
+    for (const st of ['contacted', 'bought', 'sold']) {
+      const list = state.trades.filter(t => t.status === st);
+      const body = document.getElementById('jrColBody-' + st);
+      const count = document.getElementById('jrCount-' + st);
+      count.textContent = list.length ? `(${list.length})` : '';
+      body.innerHTML = list.length
+        ? list.map(cardHtml).join('')
+        : `<div class="jr-col-empty muted">Aucun deal.</div>`;
+    }
+    document.getElementById('jrBoard').onclick = onBoardClick;
+  }
+
+  async function onBoardClick(e) {
+    const btn = e.target.closest('button[data-action]');
+    const card = e.target.closest('.jr-card');
+    if (btn) {
+      const t = state.trades.find(x => x.id === btn.dataset.id);
+      if (!t) return;
+      if (btn.dataset.action === 'edit') { openModal(t); return; }
+      if (btn.dataset.action === 'delete') {
+        if (!confirm(`Supprimer « ${t.title} » ?`)) return;
+        try { await deleteTrade(t.id); state.trades = state.trades.filter(x => x.id !== t.id); renderAll(); }
+        catch (err) { alert(err.message); }
+      }
+      return;
+    }
+    if (card) {
+      const t = state.trades.find(x => x.id === card.dataset.id);
+      if (t) openModal(t);
+    }
+  }
+
+  async function renderCharts() {
+    const { labels, buysCumul, sellsCumul, profitMonthly } = buildMonthlySeries(state.trades);
+    const lineCanvas = document.getElementById('jrLineChart');
+    const barCanvas = document.getElementById('jrBarChart');
+    if (!lineCanvas || !barCanvas) return;
+    if (!labels.length) { document.getElementById('jrCharts').classList.add('hidden'); return; }
+
+    let Chart;
+    try { Chart = await loadChartJs(); }
+    catch (_) {
+      document.getElementById('jrCharts').innerHTML =
+        `<div class="card dash-chart-fallback">📉 Graphiques indisponibles (Chart.js injoignable). Les KPIs et le tableau restent à jour.</div>`;
+      return;
     }
     if (navState.token !== myToken) return;
-    state.transactions = transactions;
+    state.lineChart?.destroy(); state.barChart?.destroy();
 
-    // ── Premier rendu ──────────────────────────────────────────────────────────
-    renderAll();
-    wireModal();
+    const css = getComputedStyle(document.documentElement);
+    const COL = (n, f) => (css.getPropertyValue(n).trim() || f);
+    const blue = COL('--accent-blue', '#f5963c'), green = COL('--accent-green', '#34d399'),
+      rose = COL('--accent-rose', '#fb5b76'), textSec = COL('--text-secondary', '#78716c'),
+      grid = COL('--chart-grid', 'rgba(0,0,0,0.06)');
+    const monthLabels = labels.map(formatMonthLabel);
+    Chart.defaults.font.family = "'Outfit', system-ui, sans-serif";
+    Chart.defaults.color = textSec;
+    const scales = { x: { grid: { color: grid }, ticks: { color: textSec } },
+      y: { grid: { color: grid }, ticks: { color: textSec, callback: v => eur.format(v) }, beginAtZero: true } };
+    const tooltip = { callbacks: { label: ctx => `${ctx.dataset.label} : ${eur2.format(ctx.parsed.y)}` } };
 
-    // ============================================================================
-    // Rendu global (KPIs + table + charts + bascule empty state)
-    // ============================================================================
-    function renderAll() {
-        const hasData = state.transactions.length > 0;
-        document.getElementById('dashEmpty')?.classList.toggle('hidden', hasData);
-        document.getElementById('dashCharts')?.classList.toggle('hidden', !hasData);
-        document.getElementById('dashKpis')?.classList.toggle('hidden', !hasData);
-        document.querySelector('.dash-table-card')?.classList.toggle('hidden', !hasData);
+    state.lineChart = new Chart(lineCanvas, {
+      type: 'line',
+      data: { labels: monthLabels, datasets: [
+        { label: 'Achats (cumul)', data: buysCumul, borderColor: blue, backgroundColor: hexA(blue, .12), fill: true, tension: .3 },
+        { label: 'Ventes (cumul)', data: sellsCumul, borderColor: green, backgroundColor: hexA(green, .12), fill: true, tension: .3 },
+      ] },
+      options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { labels: { color: textSec, usePointStyle: true, boxWidth: 8 } }, tooltip }, scales },
+    });
+    state.barChart = new Chart(barCanvas, {
+      type: 'bar',
+      data: { labels: monthLabels, datasets: [{ label: 'Profit net', data: profitMonthly,
+        backgroundColor: profitMonthly.map(v => v >= 0 ? hexA(green, .6) : hexA(rose, .6)),
+        borderColor: profitMonthly.map(v => v >= 0 ? green : rose), borderWidth: 1, borderRadius: 6 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip }, scales },
+    });
+  }
 
-        if (!hasData) return;
+  function wireModal() {
+    document.getElementById('jrAddBtn').addEventListener('click', () => openModal(null));
+    document.getElementById('jrEmptyAddBtn').addEventListener('click', () => openModal(null));
+    document.getElementById('jrModalClose').addEventListener('click', closeModal);
+    document.getElementById('jrModal').addEventListener('click', e => { if (e.target.id === 'jrModal') closeModal(); });
+    document.addEventListener('keydown', onEsc);
 
-        renderKpis();
-        renderTable();
-        renderCharts();
+    document.getElementById('jrStatus').addEventListener('click', e => {
+      const b = e.target.closest('.dash-type-btn'); if (!b) return;
+      document.querySelectorAll('#jrStatus .dash-type-btn').forEach(x => {
+        const on = x === b; x.classList.toggle('is-active', on); x.setAttribute('aria-checked', on ? 'true' : 'false');
+      });
+      syncStatusFields();
+    });
+    document.getElementById('jrBuyPrice').addEventListener('input', syncMargin);
+    document.getElementById('jrSellPrice').addEventListener('input', syncMargin);
+
+    wireLinkSearch();
+    document.getElementById('jrForm').addEventListener('submit', onSubmit);
+  }
+
+  function onEsc(e) { if (e.key === 'Escape') closeModal(); }
+  function currentStatus() { return document.querySelector('#jrStatus .dash-type-btn.is-active')?.dataset.status || 'contacted'; }
+
+  function syncStatusFields() {
+    const st = currentStatus();
+    document.getElementById('jrBuyRow').classList.toggle('hidden', st === 'contacted');
+    document.getElementById('jrSellRow').classList.toggle('hidden', st !== 'sold');
+    syncMargin();
+  }
+  function syncMargin() {
+    const st = currentStatus();
+    const b = parseFloat(document.getElementById('jrBuyPrice').value);
+    const s = parseFloat(document.getElementById('jrSellPrice').value);
+    const box = document.getElementById('jrMargin');
+    if (st === 'sold' && b >= 0 && s >= 0 && !isNaN(b) && !isNaN(s)) {
+      const m = s - b;
+      box.className = `jr-margin ${m >= 0 ? 'is-positive' : 'is-negative'}`;
+      box.textContent = `Marge : ${m >= 0 ? '+' : ''}${eur2.format(m)}`;
+      box.classList.remove('hidden');
+    } else { box.classList.add('hidden'); }
+  }
+
+  function setStatusUI(status) {
+    document.querySelectorAll('#jrStatus .dash-type-btn').forEach(x => {
+      const on = x.dataset.status === status;
+      x.classList.toggle('is-active', on); x.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+    syncStatusFields();
+  }
+  function setLinkedOpp(opp) {
+    const chosen = document.getElementById('jrLinkChosen');
+    const search = document.getElementById('jrLinkSearch');
+    document.getElementById('jrLinkResults').innerHTML = '';
+    if (opp && opp.opportunity_id) {
+      document.getElementById('jrOppId').value = opp.opportunity_id;
+      chosen.innerHTML = `🔗 ${esc(opp.title || 'Annonce liée')} <button type="button" class="jr-link-clear" id="jrLinkClear">✕ délier</button>`;
+      chosen.classList.remove('hidden'); search.classList.add('hidden');
+      document.getElementById('jrLinkClear').addEventListener('click', () => setLinkedOpp(null));
+    } else {
+      document.getElementById('jrOppId').value = '';
+      chosen.classList.add('hidden'); chosen.innerHTML = '';
+      search.classList.remove('hidden'); search.value = '';
     }
+  }
 
-    function renderKpis() {
-        const k = computeKpis(state.transactions);
-        const kpis = document.getElementById('dashKpis');
-        if (!kpis) return;
-        kpis.removeAttribute('aria-busy');
+  function wireLinkSearch() {
+    const search = document.getElementById('jrLinkSearch');
+    const results = document.getElementById('jrLinkResults');
+    let timer = null;
+    search.addEventListener('input', () => {
+      clearTimeout(timer);
+      const q = search.value.trim();
+      if (q.length < 2) { results.innerHTML = ''; return; }
+      timer = setTimeout(async () => {
+        const opps = await searchOpportunities(q);
+        results.innerHTML = opps.length
+          ? opps.map(o => `<button type="button" class="jr-link-item" data-id="${o.id}" data-title="${esc(o.title)}">
+               ${CAT_DOT[o.category] || '⚫'} ${esc(o.title)} <span class="muted">${o.price != null ? eur.format(o.price) : ''}</span></button>`).join('')
+          : `<div class="jr-link-empty muted">Aucune annonce trouvée.</div>`;
+      }, 250);
+    });
+    results.addEventListener('click', e => {
+      const it = e.target.closest('.jr-link-item'); if (!it) return;
+      setLinkedOpp({ opportunity_id: it.dataset.id, title: it.dataset.title });
+      const titleEl = document.getElementById('jrTitle');
+      if (!titleEl.value.trim()) titleEl.value = it.dataset.title;
+    });
+  }
 
-        const profitClass = k.profit > 0 ? 'is-positive' : k.profit < 0 ? 'is-negative' : '';
-        const profitSign = k.profit > 0 ? '+' : '';
-        const roiText = k.roi === null ? 'n/d' : `${k.roi > 0 ? '+' : ''}${k.roi.toFixed(1).replace('.', ',')} %`;
-        const roiClass = k.roi === null ? '' : k.roi > 0 ? 'is-positive' : k.roi < 0 ? 'is-negative' : '';
+  function openModal(trade, prefill) {
+    document.getElementById('jrFormError').classList.add('hidden');
+    document.getElementById('jrId').value = trade?.id || '';
+    document.getElementById('jrModalTitle').textContent = trade ? 'Modifier le deal' : 'Nouveau deal';
+    document.getElementById('jrTitle').value = trade?.title || prefill?.title || '';
+    document.getElementById('jrBuyPrice').value = trade?.buy_price ?? '';
+    document.getElementById('jrSellPrice').value = trade?.sell_price ?? '';
+    document.getElementById('jrBoughtAt').value = trade?.bought_at || '';
+    document.getElementById('jrSoldAt').value = trade?.sold_at || '';
+    document.getElementById('jrNotes').value = trade?.notes || '';
+    setStatusUI(trade?.status || 'contacted');
+    if (trade?.opportunity_id) setLinkedOpp({ opportunity_id: trade.opportunity_id, title: trade.title });
+    else if (prefill?.opportunity_id) setLinkedOpp({ opportunity_id: prefill.opportunity_id, title: prefill.title });
+    else setLinkedOpp(null);
+    document.getElementById('jrModal').classList.remove('hidden');
+    setTimeout(() => document.getElementById('jrTitle')?.focus(), 50);
+  }
+  function closeModal() { document.getElementById('jrModal').classList.add('hidden'); }
 
-        // Hero financier : profit net mis en avant
-        const heroProfit = document.getElementById('dashHeroProfit');
-        const heroRoi = document.getElementById('dashHeroRoi');
-        if (heroProfit) {
-            heroProfit.textContent = `${profitSign}${eur.format(k.profit)}`;
-            heroProfit.className = `dash-hero-figure ${profitClass}`;
-        }
-        if (heroRoi) heroRoi.textContent = `ROI ${roiText} · ${k.sellCount} vente${k.sellCount > 1 ? 's' : ''} / ${k.buyCount} achat${k.buyCount > 1 ? 's' : ''}`;
+  async function onSubmit(e) {
+    e.preventDefault();
+    const err = document.getElementById('jrFormError');
+    const submit = document.getElementById('jrSubmit');
+    err.classList.add('hidden');
 
-        kpis.innerHTML = `
-            ${kpiCard('💰', 'accent-blue', 'Total investi', eur.format(k.invested), `${k.buyCount} achat${k.buyCount > 1 ? 's' : ''}`)}
-            ${kpiCard('💵', 'accent-green', 'Total encaissé', eur.format(k.earned), `${k.sellCount} vente${k.sellCount > 1 ? 's' : ''}`)}
-            ${kpiCard('📈', 'accent-purple', 'Profit net', `${profitSign}${eur.format(k.profit)}`, 'ventes − achats', profitClass)}
-            ${kpiCard('🎯', 'accent-amber', 'ROI', roiText, 'retour sur investissement', roiClass)}
-        `;
-    }
+    const id = document.getElementById('jrId').value;
+    const status = currentStatus();
+    const title = document.getElementById('jrTitle').value.trim();
+    const buy = document.getElementById('jrBuyPrice').value;
+    const sell = document.getElementById('jrSellPrice').value;
 
-    function renderTable() {
-        const wrap = document.getElementById('dashTableWrap');
-        const count = document.getElementById('dashTxCount');
-        if (!wrap) return;
-        if (count) count.textContent = `${state.transactions.length} transaction${state.transactions.length > 1 ? 's' : ''}`;
+    if (!title) return showErr('Indique le nom de l\'article.');
+    if ((status === 'bought' || status === 'sold') && !(parseFloat(buy) >= 0)) return showErr('Indique le prix d\'achat.');
+    if (status === 'sold' && !(parseFloat(sell) >= 0)) return showErr('Indique le prix de vente.');
 
-        const rows = state.transactions.map(t => {
-            const isSale = t.type === 'vente';
-            const amountClass = isSale ? 'is-positive' : 'is-negative';
-            const amountStr = `${isSale ? '+' : '−'}${eur2.format(t.amount)}`;
-            const link = t.url
-                ? `<a href="${escapeHtml(t.url)}" target="_blank" rel="noopener noreferrer" class="dash-row-link" title="Ouvrir l'annonce">↗</a>`
-                : '';
-            return `
-                <tr data-tx-id="${t.id}">
-                    <td class="dash-col-date">${fmtDate(t.date)}</td>
-                    <td class="dash-col-type">
-                        <span class="dash-badge ${isSale ? 'dash-badge-sale' : 'dash-badge-buy'}">
-                            ${isSale ? '💰 Vente' : '🛒 Achat'}
-                        </span>
-                    </td>
-                    <td class="dash-col-label">${escapeHtml(t.label)} ${link}</td>
-                    <td class="dash-col-amount ${amountClass}">${amountStr}</td>
-                    <td class="dash-col-actions">
-                        <button type="button" class="dash-icon-btn" data-action="edit" data-id="${t.id}" title="Modifier" aria-label="Modifier">✏️</button>
-                        <button type="button" class="dash-icon-btn dash-icon-danger" data-action="delete" data-id="${t.id}" title="Supprimer" aria-label="Supprimer">🗑️</button>
-                    </td>
-                </tr>`;
-        }).join('');
+    const todayISO = new Date().toISOString().slice(0, 10);
+    const payload = {
+      title, status,
+      opportunity_id: document.getElementById('jrOppId').value || null,
+      buy_price: buy, sell_price: sell,
+      bought_at: document.getElementById('jrBoughtAt').value || (status !== 'contacted' ? todayISO : null),
+      sold_at: document.getElementById('jrSoldAt').value || (status === 'sold' ? todayISO : null),
+      notes: document.getElementById('jrNotes').value,
+    };
 
-        wrap.innerHTML = `
-            <table class="dash-table">
-                <thead>
-                    <tr>
-                        <th class="dash-col-date">Date</th>
-                        <th class="dash-col-type">Type</th>
-                        <th class="dash-col-label">Article</th>
-                        <th class="dash-col-amount">Montant</th>
-                        <th class="dash-col-actions" aria-label="Actions"></th>
-                    </tr>
-                </thead>
-                <tbody>${rows}</tbody>
-            </table>`;
-
-        // Délégation des actions edit / delete
-        const tbody = wrap.querySelector('tbody');
-        tbody?.addEventListener('click', onTableAction);
-    }
-
-    async function onTableAction(e) {
-        const btn = e.target.closest('button[data-action]');
-        if (!btn) return;
-        const id = btn.dataset.id;
-        const tx = state.transactions.find(t => t.id === id);
-        if (!tx) return;
-
-        if (btn.dataset.action === 'edit') {
-            openModal(tx);
-            return;
-        }
-        if (btn.dataset.action === 'delete') {
-            if (!confirm(`Supprimer « ${tx.label} » (${eur2.format(tx.amount)}) ?`)) return;
-            btn.disabled = true;
-            try {
-                await deleteTransaction(id);
-                state.transactions = state.transactions.filter(t => t.id !== id);
-                renderAll();
-            } catch (err) {
-                alert(err.message);
-                btn.disabled = false;
-            }
-        }
-    }
-
-    async function renderCharts() {
-        const { labels, buysCumul, sellsCumul, profitMonthly } = buildMonthlySeries(state.transactions);
-        const lineCanvas = document.getElementById('dashLineChart');
-        const barCanvas = document.getElementById('dashBarChart');
-        if (!lineCanvas || !barCanvas) return;
-
-        let Chart;
-        try {
-            Chart = await loadChartJs();
-        } catch (_) {
-            // Fallback gracieux si le CDN est injoignable : on garde KPIs + table.
-            const charts = document.getElementById('dashCharts');
-            if (charts) charts.innerHTML =
-                `<div class="card dash-chart-fallback">📉 Graphiques indisponibles (Chart.js n'a pas pu être chargé). Les KPIs et l'historique ci-dessous restent à jour.</div>`;
-            return;
-        }
-        if (navState.token !== myToken) return;
-
-        // Détruit les instances précédentes avant re-render (évite les fuites canvas).
-        state.lineChart?.destroy();
-        state.barChart?.destroy();
-
-        const css = getComputedStyle(document.documentElement);
-        const COL = (name, fallback) => (css.getPropertyValue(name).trim() || fallback);
-        const blue = COL('--accent-blue', '#38bdf8');
-        const green = COL('--accent-green', '#10b981');
-        const rose = COL('--accent-rose', '#f43f5e');
-        const textSec = COL('--text-secondary', '#94a3b8');
-        const grid = COL('--chart-grid', 'rgba(255,255,255,0.06)');
-        const monthLabels = labels.map(formatMonthLabel);
-
-        Chart.defaults.font.family = "'Outfit', system-ui, sans-serif";
-        Chart.defaults.color = textSec;
-
-        const baseScales = {
-            x: { grid: { color: grid }, ticks: { color: textSec } },
-            y: {
-                grid: { color: grid }, ticks: { color: textSec, callback: v => eur.format(v) },
-                beginAtZero: true,
-            },
-        };
-        const tooltip = {
-            backgroundColor: 'rgba(6,9,19,0.92)', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1,
-            titleColor: '#f8fafc', bodyColor: '#cbd5e1', padding: 10, cornerRadius: 8,
-            callbacks: { label: ctx => `${ctx.dataset.label} : ${eur2.format(ctx.parsed.y)}` },
-        };
-
-        state.lineChart = new Chart(lineCanvas, {
-            type: 'line',
-            data: {
-                labels: monthLabels,
-                datasets: [
-                    { label: 'Achats (cumul)', data: buysCumul, borderColor: blue, backgroundColor: hexA(blue, 0.12), fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: blue },
-                    { label: 'Ventes (cumul)', data: sellsCumul, borderColor: green, backgroundColor: hexA(green, 0.12), fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: green },
-                ],
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: { legend: { labels: { color: textSec, usePointStyle: true, boxWidth: 8 } }, tooltip },
-                scales: baseScales,
-            },
-        });
-
-        state.barChart = new Chart(barCanvas, {
-            type: 'bar',
-            data: {
-                labels: monthLabels,
-                datasets: [{
-                    label: 'Profit net',
-                    data: profitMonthly,
-                    backgroundColor: profitMonthly.map(v => v >= 0 ? hexA(green, 0.6) : hexA(rose, 0.6)),
-                    borderColor: profitMonthly.map(v => v >= 0 ? green : rose),
-                    borderWidth: 1, borderRadius: 6,
-                }],
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: false }, tooltip },
-                scales: baseScales,
-            },
-        });
-    }
-
-    // ============================================================================
-    // Modal CRUD
-    // ============================================================================
-    function wireModal() {
-        const modal = document.getElementById('dashModal');
-        const form = document.getElementById('dashForm');
-        document.getElementById('dashAddBtn')?.addEventListener('click', () => openModal(null));
-        document.getElementById('dashEmptyAddBtn')?.addEventListener('click', () => openModal(null));
-        document.getElementById('dashModalClose')?.addEventListener('click', closeModal);
-        modal?.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
-        document.addEventListener('keydown', onEsc);
-
-        // Toggle type achat/vente
-        document.getElementById('dashType')?.addEventListener('click', (e) => {
-            const b = e.target.closest('.dash-type-btn');
-            if (!b) return;
-            document.querySelectorAll('#dashType .dash-type-btn').forEach(x => {
-                const active = x === b;
-                x.classList.toggle('is-active', active);
-                x.setAttribute('aria-checked', active ? 'true' : 'false');
-            });
-        });
-
-        form?.addEventListener('submit', onSubmit);
-    }
-
-    function onEsc(e) {
-        if (e.key === 'Escape') closeModal();
-    }
-
-    function openModal(tx) {
-        const modal = document.getElementById('dashModal');
-        const err = document.getElementById('dashFormError');
-        err?.classList.add('hidden');
-        document.getElementById('dashTxId').value = tx?.id || '';
-        document.getElementById('dashModalTitle').textContent = tx ? 'Modifier la transaction' : 'Nouvelle transaction';
-        document.getElementById('dashLabel').value = tx?.label || '';
-        document.getElementById('dashAmount').value = tx?.amount ?? '';
-        document.getElementById('dashDate').value = tx?.date || new Date().toISOString().slice(0, 10);
-        document.getElementById('dashUrl').value = tx?.url || '';
-        const type = tx?.type || 'achat';
-        document.querySelectorAll('#dashType .dash-type-btn').forEach(x => {
-            const active = x.dataset.type === type;
-            x.classList.toggle('is-active', active);
-            x.setAttribute('aria-checked', active ? 'true' : 'false');
-        });
-        modal?.classList.remove('hidden');
-        setTimeout(() => document.getElementById('dashLabel')?.focus(), 50);
-    }
-
-    function closeModal() {
-        document.getElementById('dashModal')?.classList.add('hidden');
-    }
-
-    async function onSubmit(e) {
-        e.preventDefault();
-        const err = document.getElementById('dashFormError');
-        const submitBtn = document.getElementById('dashSubmit');
-        err.classList.add('hidden');
-
-        const id = document.getElementById('dashTxId').value;
-        const type = document.querySelector('#dashType .dash-type-btn.is-active')?.dataset.type || 'achat';
-        const label = document.getElementById('dashLabel').value.trim();
-        const amount = parseFloat(document.getElementById('dashAmount').value);
-        const date = document.getElementById('dashDate').value;
-        const url = document.getElementById('dashUrl').value.trim() || null;
-
-        if (!label) return showFormError('Indique le nom de l\'article.');
-        if (!(amount > 0)) return showFormError('Le montant doit être supérieur à 0.');
-        if (!date) return showFormError('Choisis une date.');
-
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Enregistrement…';
-        const payload = { type, label, amount, date, search_id: null, url };
-        try {
-            if (id) {
-                const updated = await updateTransaction(id, payload);
-                const i = state.transactions.findIndex(t => t.id === id);
-                if (i >= 0) state.transactions[i] = updated;
-            } else {
-                const created = await createTransaction(payload);
-                state.transactions.unshift(created);
-            }
-            // Re-tri par date décroissante (la création peut être antidatée)
-            state.transactions.sort((a, b) =>
-                (b.date || '').localeCompare(a.date || '') ||
-                (b.created_at || '').localeCompare(a.created_at || ''));
-            closeModal();
-            renderAll();
-        } catch (err2) {
-            showFormError(err2.message);
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Enregistrer';
-        }
-    }
-
-    function showFormError(msg) {
-        const err = document.getElementById('dashFormError');
-        if (err) { err.textContent = msg; err.classList.remove('hidden'); }
-    }
+    submit.disabled = true; submit.textContent = 'Enregistrement…';
+    try {
+      if (id) {
+        const up = await updateTrade(id, payload);
+        const i = state.trades.findIndex(t => t.id === id);
+        if (i >= 0) state.trades[i] = up;
+      } else {
+        const created = await createTrade(payload);
+        state.trades.unshift(created);
+      }
+      state.trades.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+      closeModal(); renderAll();
+    } catch (e2) { showErr(e2.message); }
+    finally { submit.disabled = false; submit.textContent = 'Enregistrer'; }
+  }
+  function showErr(msg) { const e = document.getElementById('jrFormError'); e.textContent = msg; e.classList.remove('hidden'); }
 }
 
-// ── Petits helpers de rendu (hors closure : pas d'état) ─────────────────────
-function kpiCard(emoji, accent, label, value, sub, valueClass = '') {
-    return `
-        <div class="card dash-kpi dash-kpi--${accent}">
-            <div class="dash-kpi-icon" aria-hidden="true">${emoji}</div>
-            <div class="dash-kpi-body">
-                <span class="dash-kpi-label">${label}</span>
-                <span class="dash-kpi-value ${valueClass}">${value}</span>
-                <span class="dash-kpi-sub">${sub}</span>
-            </div>
-        </div>`;
+// ── Helpers hors closure ─────────────────────────────────────────────────────
+function kpi(emoji, accent, label, value, sub, valueClass = '') {
+  return `<div class="card dash-kpi dash-kpi--${accent}">
+      <div class="dash-kpi-icon" aria-hidden="true">${emoji}</div>
+      <div class="dash-kpi-body">
+        <span class="dash-kpi-label">${label}</span>
+        <span class="dash-kpi-value ${valueClass}">${value}</span>
+        <span class="dash-kpi-sub">${sub}</span>
+      </div></div>`;
 }
-
-function kpiSkeleton() {
-    return Array.from({ length: 4 }).map(() => `
-        <div class="card dash-kpi dash-kpi--skeleton">
-            <div class="dash-kpi-icon dash-sk"></div>
-            <div class="dash-kpi-body">
-                <span class="dash-sk dash-sk-line" style="width:60%"></span>
-                <span class="dash-sk dash-sk-line" style="width:80%;height:1.6rem"></span>
-                <span class="dash-sk dash-sk-line" style="width:40%"></span>
-            </div>
-        </div>`).join('');
-}
-
-// Convertit une couleur hex (#rrggbb) en rgba avec alpha. Fallback si déjà rgb.
 function hexA(hex, alpha) {
-    const h = hex.replace('#', '').trim();
-    if (h.length !== 6) return hex;
-    const r = parseInt(h.slice(0, 2), 16);
-    const g = parseInt(h.slice(2, 4), 16);
-    const b = parseInt(h.slice(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  const h = String(hex).replace('#', '').trim();
+  if (h.length !== 6) return hex;
+  return `rgba(${parseInt(h.slice(0,2),16)}, ${parseInt(h.slice(2,4),16)}, ${parseInt(h.slice(4,6),16)}, ${alpha})`;
 }
