@@ -47,7 +47,7 @@ export async function renderHeader() {
   const dockItems = [
     { href: '/feed',      ic: 'home',    label: 'Accueil' },
     { href: '/watchlist', ic: 'radar',   label: 'Suivis' },
-    { href: '/dashboard', ic: 'chart',   label: 'Dashboard' },
+    { href: '/dashboard', ic: 'book',    label: 'Journal' },
   ];
   if (profile?.role === 'admin') dockItems.push({ href: '/admin', ic: 'sliders', label: 'Admin' });
 

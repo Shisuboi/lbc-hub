@@ -7,6 +7,7 @@ const PATHS = {
   heart:   '<path d="M20.8 5.1a5 5 0 0 0-7.1 0L12 6.8l-1.7-1.7a5 5 0 1 0-7.1 7.1L12 21l8.8-8.8a5 5 0 0 0 0-7.1z"/>',
   radar:   '<path d="M22 12h-4l-3 8L9 4l-3 8H2"/>',
   chart:   '<path d="M3 20h18"/><path d="M6 20v-5"/><path d="M12 20V8"/><path d="M18 20v-9"/>',
+  book:    '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M19 3v18"/>',
   sliders: '<path d="M4 21v-6"/><path d="M4 11V3"/><path d="M12 21v-9"/><path d="M12 7V3"/><path d="M20 21v-4"/><path d="M20 13V3"/><path d="M2 13h4"/><path d="M10 7h4"/><path d="M18 17h4"/>',
   user:    '<circle cx="12" cy="8" r="4"/><path d="M5.5 21a7 7 0 0 1 13 0"/>',
   search:  '<circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-3.6-3.6"/>',
