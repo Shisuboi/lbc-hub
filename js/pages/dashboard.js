@@ -33,15 +33,6 @@ function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
-function fmtDate(d) {
-  if (!d) return '';
-  return new Date(d + 'T00:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
-}
-const STATUS = {
-  contacted: { label: '🤝 Contacté', col: 'Contactés', icon: '🤝' },
-  bought:    { label: '🛒 Acheté',   col: 'Achetés',   icon: '🛒' },
-  sold:      { label: '✅ Revendu',  col: 'Revendus',  icon: '✅' },
-};
 const CAT_DOT = { urgent: '🔴', interesting: '🟡', passable: '⚫' };
 function avatar(t) {
   const name = t.author?.username || '?';
