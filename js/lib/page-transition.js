@@ -49,7 +49,7 @@ const SVGS = {
   user: `<svg viewBox="0 0 48 48" class="pfx-svg pfx-draw" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
       <circle pathLength="100" cx="24" cy="17" r="8"/><path pathLength="100" d="M9 41 a15 15 0 0 1 30 0"/></svg>`,
   bolt: `<svg viewBox="0 0 48 48" class="pfx-svg pfx-bolt" fill="currentColor">
-      <path d="M27 4 L10 27 h11 l-2 17 17-25 H32 l2-15 z"/></svg>`,
+      <path d="M27 4 L9 28 h14 l-2 16 18-24 h-14 l2-16 z"/></svg>`,
   // Journal : le livre se dessine (posé) → 5 pages se tournent en 3D (rafale) →
   // le livre se ferme (ralenti) ; le texte intérieur s'efface pendant la fermeture.
   book: `<svg viewBox="0 0 48 48" class="pfx-svg pfx-book" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
