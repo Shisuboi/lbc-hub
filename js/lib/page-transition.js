@@ -79,7 +79,7 @@ export function startTransition(path) {
   // le temps de la jouer entièrement. Les autres pictos bouclent → 880 ms suffisent.
   currentMin = (type === 'book') ? BOOK_MIN_MS : MIN_MS;
   overlay = document.createElement('div');
-  overlay.className = 'pagefx';
+  overlay.className = document.querySelector('.rail') ? 'pagefx pagefx-chrome' : 'pagefx';
   overlay.setAttribute('aria-hidden', 'true');
   overlay.innerHTML = `<div class="pagefx-badge">${SVGS[type] || SVGS.bolt}</div>`;
   // Injecté DANS .app-container (et non body) pour rester dans le même contexte

@@ -708,7 +708,7 @@ body {
     var(--fx-veil);
   opacity: 1;
 }
-@media (min-width: 760px) { .pagefx { padding-left: var(--rail-w); padding-bottom: var(--dock-h); } }
+@media (min-width: 760px) { .pagefx.pagefx-chrome { padding-left: var(--rail-w); padding-bottom: var(--dock-h); } }
 /* halo doux derrière le picto (élégance épurée) */
 .pagefx::before {
   content: ''; position: absolute; inset: 0; pointer-events: none;
