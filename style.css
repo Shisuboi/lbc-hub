@@ -1409,6 +1409,27 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.65) opa
   .item-hero-panel { width: auto; margin: 70px 12px 12px; }
   .profile-header { flex-direction: column; align-items: flex-start; }
   .profile-stats { width: 100%; justify-content: space-between; gap: 10px; }
+}
+
+/* =================== Tendances — Leaderboard groupe =================== */
+.jr-leaderboard { margin: 18px 0 0; padding: 16px 18px; }
+.jr-leaderboard-title { font-size: .95rem; font-weight: 700; margin: 0 0 12px; }
+.jr-lb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.jr-lb-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 10px;
+  background: var(--glass-1, rgba(255,255,255,.55));
+  border: 1px solid rgba(0,0,0,.06);
+}
+.jr-lb-gold { border-color: rgba(250,204,21,.45); background: rgba(250,204,21,.08); }
+.jr-lb-rank { font-weight: 700; font-size: .85rem; min-width: 26px; color: var(--text-secondary, #78716c); }
+.jr-lb-gold .jr-lb-rank { color: #ca8a04; }
+.jr-lb-name { font-weight: 600; font-size: .9rem; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jr-lb-profit { font-weight: 700; font-size: .9rem; white-space: nowrap; }
+.jr-lb-profit.is-positive { color: var(--accent-green, #34d399); }
+.jr-lb-profit.is-negative { color: var(--accent-rose, #fb5b76); }
+.jr-lb-roi, .jr-lb-count { font-size: .78rem; white-space: nowrap; }
+@media (max-width: 500px) { .jr-lb-roi { display: none; } }
   .wl-add-row { grid-template-columns: 1fr; }
   .item-stats { grid-template-columns: 1fr 1fr; }
 }

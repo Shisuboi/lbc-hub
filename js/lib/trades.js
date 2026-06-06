@@ -103,6 +103,34 @@ export function formatMonthLabel(key) {
   return `${MONTH_FR[Number(m) - 1]} ${y.slice(2)}`;
 }
 
+/** Classement des membres par profit net réalisé (deals sold uniquement). */
+export function computeLeaderboard(trades) {
+  const map = new Map();
+  for (const t of trades) {
+    if (t.status !== 'sold') continue;
+    const uid = t.user_id;
+    if (!map.has(uid)) {
+      map.set(uid, {
+        user_id: uid,
+        username: t.author?.username || 'Anonyme',
+        avatar_color: t.author?.avatar_color || 'var(--accent)',
+        invested: 0, earned: 0, soldCount: 0,
+      });
+    }
+    const m = map.get(uid);
+    m.invested += Number(t.buy_price || 0);
+    m.earned   += Number(t.sell_price || 0);
+    m.soldCount++;
+  }
+  return [...map.values()]
+    .map(m => ({
+      ...m,
+      profit: m.earned - m.invested,
+      roi: m.invested > 0 ? (m.earned - m.invested) / m.invested * 100 : null,
+    }))
+    .sort((a, b) => b.profit - a.profit || b.soldCount - a.soldCount);
+}
+
 /** Séries mensuelles pour les graphes : cumul achats/ventes + profit mensuel réalisé. */
 export function buildMonthlySeries(trades) {
   const buysByMonth = new Map(), sellsByMonth = new Map();

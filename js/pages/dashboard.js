@@ -7,7 +7,7 @@ import { requireAuth, getProfile } from '../auth.js';
 import { navState } from '../router.js';
 import {
   listTrades, createTrade, updateTrade, deleteTrade, searchOpportunities,
-  computeGroupKpis, buildMonthlySeries, formatMonthLabel,
+  computeGroupKpis, computeLeaderboard, buildMonthlySeries, formatMonthLabel,
 } from '../lib/trades.js';
 
 // ── Lazy-load Chart.js (chargé une fois, à la demande) ───────────────────────
@@ -74,6 +74,11 @@ export async function render() {
           <div class="dash-chart-head"><h3>Profit net <span class="dash-chart-sub">par mois</span></h3></div>
           <div class="dash-chart-canvas-wrap"><canvas id="jrBarChart" role="img" aria-label="Profit net mensuel"></canvas></div>
         </div>
+      </div>
+
+      <div class="jr-leaderboard card hidden" id="jrLeaderboard">
+        <h3 class="jr-leaderboard-title">🏆 Classement du groupe</h3>
+        <ol class="jr-lb-list" id="jrLbList"></ol>
       </div>
 
       <div class="jr-board" id="jrBoard">
@@ -177,6 +182,7 @@ export async function render() {
     document.getElementById('jrCharts').classList.toggle('hidden', !has);
     document.getElementById('jrBoard').classList.toggle('hidden', !has);
     renderKpis();
+    renderLeaderboard();
     if (has) { renderBoard(); renderCharts(); }
   }
 
@@ -196,6 +202,31 @@ export async function render() {
       ${kpi('💵', 'accent-green', 'Total encaissé', eur.format(k.earned), 'ventes réalisées')}
       ${kpi('📈', 'accent-purple', 'Profit net', `${sign}${eur.format(k.profit)}`, 'marge réalisée', pClass)}
       ${kpi('🎯', 'accent-amber', 'ROI', roiTxt, 'retour sur investissement')}`;
+  }
+
+  function renderLeaderboard() {
+    const section = document.getElementById('jrLeaderboard');
+    const list    = document.getElementById('jrLbList');
+    if (!section || !list) return;
+    const board = computeLeaderboard(state.trades);
+    section.classList.toggle('hidden', board.length === 0);
+    if (!board.length) return;
+    list.innerHTML = board.map((m, i) => {
+      const sign   = m.profit >= 0 ? '+' : '';
+      const pClass = m.profit > 0 ? 'is-positive' : m.profit < 0 ? 'is-negative' : '';
+      const roiTxt = m.roi == null
+        ? 'n/d'
+        : `${m.roi > 0 ? '+' : ''}${m.roi.toFixed(1).replace('.', ',')} %`;
+      return `
+        <li class="jr-lb-row${i === 0 ? ' jr-lb-gold' : ''}">
+          <span class="jr-lb-rank">#${i + 1}</span>
+          <span class="jr-avatar" style="background:${esc(m.avatar_color)}">${esc(m.username[0].toUpperCase())}</span>
+          <span class="jr-lb-name">${esc(m.username)}</span>
+          <span class="jr-lb-profit ${pClass}">${sign}${eur2.format(m.profit)}</span>
+          <span class="jr-lb-roi muted">${roiTxt}</span>
+          <span class="jr-lb-count muted">${m.soldCount} revendu${m.soldCount > 1 ? 's' : ''}</span>
+        </li>`;
+    }).join('');
   }
 
   function cardHtml(t) {
