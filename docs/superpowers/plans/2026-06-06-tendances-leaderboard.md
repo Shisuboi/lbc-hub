@@ -1,6 +1,6 @@
 # Tendances v1 — Leaderboard groupe dans le Journal — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Ajouter une section « 🏆 Classement du groupe » dans `/dashboard`, entre les graphiques et le Kanban, affichant les membres triés par profit net réalisé sur leurs deals revendus.
 
@@ -25,7 +25,7 @@
 **Files:**
 - Modify: `js/lib/trades.js`
 
-- [ ] **Step 1 : Ajouter la fonction en fin de fichier**
+- [x] **Step 1 : Ajouter la fonction en fin de fichier**
 
 À la toute fin de `js/lib/trades.js`, après `buildMonthlySeries`, ajouter :
 
@@ -63,7 +63,7 @@ export function computeLeaderboard(trades) {
 }
 ```
 
-- [ ] **Step 2 : Vérifier (console F12, serveur lancé + connecté)**
+- [x] **Step 2 : Vérifier (console F12, serveur lancé + connecté)**
 
 ```js
 const m = await import('/js/lib/trades.js?v=' + Date.now());
@@ -83,7 +83,7 @@ console.log(m.computeLeaderboard(fakes));
 // Charlie (contacted) = absent du tableau
 ```
 
-- [ ] **Step 3 : Commit**
+- [x] **Step 3 : Commit**
 
 ```bash
 git add js/lib/trades.js
@@ -97,7 +97,7 @@ git commit -m "feat(tendances): computeLeaderboard — classement membres par pr
 **Files:**
 - Modify: `js/pages/dashboard.js`
 
-- [ ] **Step 1 : Ajouter `computeLeaderboard` à l'import**
+- [x] **Step 1 : Ajouter `computeLeaderboard` à l'import**
 
 Remplacer :
 
@@ -117,7 +117,7 @@ import {
 } from '../lib/trades.js';
 ```
 
-- [ ] **Step 2 : Insérer la section HTML entre les graphiques et le Kanban**
+- [x] **Step 2 : Insérer la section HTML entre les graphiques et le Kanban**
 
 Remplacer :
 
@@ -142,7 +142,7 @@ par :
 
 > La section suit `#jrCharts` (fermeture `</div>`) et précède `#jrBoard`. Elle est `hidden` par défaut ; `renderLeaderboard()` l'affiche si des deals sold existent.
 
-- [ ] **Step 3 : Ajouter `renderLeaderboard()` dans `renderAll()`**
+- [x] **Step 3 : Ajouter `renderLeaderboard()` dans `renderAll()`**
 
 Remplacer :
 
@@ -171,7 +171,7 @@ par :
   }
 ```
 
-- [ ] **Step 4 : Ajouter la fonction `renderLeaderboard()` après `renderKpis()`**
+- [x] **Step 4 : Ajouter la fonction `renderLeaderboard()` après `renderKpis()`**
 
 Repérer la ligne de fermeture de `renderKpis()` :
 
@@ -210,7 +210,7 @@ Ajouter juste après (avant `function cardHtml`) :
   }
 ```
 
-- [ ] **Step 5 : Vérifier (page + console)**
+- [x] **Step 5 : Vérifier (page + console)**
 
 Serveur lancé, connecté, sur `/dashboard` :
 - Si aucun deal `sold` : section absente (`.hidden`), le reste de la page inchangé.
@@ -218,7 +218,7 @@ Serveur lancé, connecté, sur `/dashboard` :
 - Avec deux membres ayant des deals sold : classement trié par profit décroissant.
 - Console F12 propre (aucune erreur).
 
-- [ ] **Step 6 : Commit**
+- [x] **Step 6 : Commit**
 
 ```bash
 git add js/pages/dashboard.js
@@ -232,7 +232,7 @@ git commit -m "feat(tendances): section leaderboard groupe dans le Journal"
 **Files:**
 - Modify: `style.css` (append)
 
-- [ ] **Step 1 : Ajouter le bloc CSS à la fin de `style.css`**
+- [x] **Step 1 : Ajouter le bloc CSS à la fin de `style.css`**
 
 ```css
 /* ===== Tendances : leaderboard groupe ===== */
@@ -257,7 +257,7 @@ git commit -m "feat(tendances): section leaderboard groupe dans le Journal"
 @media (max-width: 500px) { .jr-lb-roi { display: none; } }
 ```
 
-- [ ] **Step 2 : Vérifier le rendu**
+- [x] **Step 2 : Vérifier le rendu**
 
 Recharger `/dashboard` avec au moins un deal sold :
 - Section alignée, lisible, dans la DA du Journal (glassmorphism).
@@ -265,7 +265,7 @@ Recharger `/dashboard` avec au moins un deal sold :
 - Sur mobile (< 500 px) le ROI est masqué, le reste reste lisible.
 - Console F12 propre.
 
-- [ ] **Step 3 : Commit**
+- [x] **Step 3 : Commit**
 
 ```bash
 git add style.css
