@@ -67,6 +67,10 @@ async def process_search(scrape_fn, brain, sink, search: dict) -> dict:
         counts[event] += 1
 
     brain.log_scrape(search.get("id", "?"), "ok", new_ads=counts["new"])
+    # Log détaillé
+    print(f"  📊 Scrape {search.get('title', '?')}: trouvé={len(ads)} | "
+          f"nouveau={counts['new']} | baisse_prix={counts['price_drop']} | "
+          f"vu={counts['seen']} | filtré={counts['filtered']}")
     return counts
 
 

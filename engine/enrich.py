@@ -87,6 +87,7 @@ async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch
             "category": t["category"], "resale_score": t["score"],
             "explanation": t.get("reason", ""),  # raison du triage, même pour passable
         })
+        print(f"  ✓ Triage {ad_id}: {t['category']} (score={t['score']}) — {t.get('reason', '')[:40]}…")
         # Géocodage best-effort : remplit lat/lon depuis la ville (cache → BAN). Pour la proximité.
         await fill_latlon(brain, supa.session, payload)
         try:
@@ -126,6 +127,10 @@ async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch
                 continue
 
             payload = merge_enrichment(payload, ia)
+            cat = payload.get("category", "?")
+            score = payload.get("resale_score", "?")
+            margin = payload.get("est_margin_eur")
+            print(f"  ✓ Vérif {ad_id}: {cat} (score={score}, marge={margin}€)")
 
             # photo sur les 🔴 uniquement
             if payload.get("category") == "urgent" and ad.get("image_url") and image_fetch:
@@ -133,6 +138,7 @@ async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch
                     img = await image_fetch(ad["image_url"])
                     photo = await photo_one(ad, img, router)
                     payload = merge_enrichment(payload, photo)
+                    print(f"  📸 Photo {ad_id}: {photo.get('verdict', '?')} (scam_risk={photo.get('scam_risk', '?')})")
                     # Règle de rétrogradation : un signal d'arnaque fort retire le 🔴 (spec §4).
                     if photo.get("scam_risk") == "high":
                         payload["category"] = "interesting"
