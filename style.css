@@ -1430,6 +1430,18 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.65) opa
 .jr-lb-profit.is-negative { color: var(--accent-rose, #fb5b76); }
 .jr-lb-roi, .jr-lb-count { font-size: .78rem; white-space: nowrap; }
 @media (max-width: 500px) { .jr-lb-roi { display: none; } }
+
+/* =================== Watchlist — alerte quota IA =================== */
+.wl-quota-warn {
+  margin: 8px 0 4px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(250,204,21,.12);
+  border: 1px solid rgba(250,204,21,.35);
+  color: var(--text-primary, #1c1917);
+  font-size: .82rem;
+  line-height: 1.4;
+}
   .wl-add-row { grid-template-columns: 1fr; }
   .item-stats { grid-template-columns: 1fr 1fr; }
 }

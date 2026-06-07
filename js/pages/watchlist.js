@@ -69,6 +69,7 @@ export async function render() {
     const lastPass = hb && hb.last_pass_at ? ago((Date.now() - new Date(hb.last_pass_at).getTime()) / 1000) : '—';
     const seen = hb && hb.ads_seen_total != null ? hb.ads_seen_total : 0;
     const blocked = hb && hb.blocked_recent != null ? hb.blocked_recent : 0;
+    const quotaPaused = hb && hb.enrichment_paused === true;
     el.innerHTML = `
       <div class="wl-live wl-hero liquid is-live">
         <div class="wl-live-head">
@@ -77,6 +78,7 @@ export async function render() {
         </div>
         <div class="wl-live-by">par @${esc(active.author?.username || '?')}
           ${active.source_url ? `· <a href="${esc(active.source_url)}" target="_blank" rel="noopener noreferrer">voir la recherche ↗</a>` : ''}</div>
+        ${quotaPaused ? `<div class="wl-quota-warn">⚠️ Quotas IA Gemini épuisés pour aujourd'hui — le scraping continue mais l'analyse IA reprendra demain.</div>` : ''}
         <div class="wl-metrics">
           <div class="wl-metric"><div class="wl-mval">${rate}</div><div class="wl-mlabel">annonces / min</div></div>
           <div class="wl-metric"><div class="wl-mval">${lastPass}</div><div class="wl-mlabel">dernière passe</div></div>

@@ -59,6 +59,48 @@ _EXTRACT_JS = r"""
 """
 
 
+# Script exécuté dans une PAGE D'ANNONCE individuelle pour extraire la description vendeur.
+# Stratégie : sélecteurs data-qa-id stables d'abord, puis heuristique (plus long paragraphe).
+_EXTRACT_DESC_JS = r"""
+() => {
+  const selectors = [
+    '[data-qa-id="adview_description_container"]',
+    '[data-qa-id="adview_description"]',
+    'div[class*="Description"]',
+    'section[class*="description"]',
+  ];
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (el) {
+      const t = (el.innerText || '').replace(/\s+/g, ' ').trim();
+      if (t.length > 20) return t.slice(0, 1500);
+    }
+  }
+  // Fallback : plus long paragraphe dans la zone principale
+  const zone = document.querySelector('main') || document.body;
+  let best = '', bestLen = 0;
+  for (const p of zone.querySelectorAll('p')) {
+    const t = (p.innerText || '').replace(/\s+/g, ' ').trim();
+    if (t.length > bestLen && t.length > 30) { best = t; bestLen = t.length; }
+  }
+  return bestLen > 30 ? best.slice(0, 1500) : null;
+}
+"""
+
+
+async def fetch_ad_description(page, url: str) -> str | None:
+    """Navigue vers la page d'une annonce individuelle et en extrait la description.
+
+    Best-effort : retourne None en cas d'erreur ou si la description est vide.
+    """
+    try:
+        await page.goto(url, wait_until="domcontentloaded", timeout=12000)
+        desc = await page.evaluate(_EXTRACT_DESC_JS)
+        return (desc or "").strip() or None
+    except Exception:
+        return None
+
+
 async def extract_ads_from_results(page) -> list[dict]:
     """Retourne une liste d'annonces depuis la page de résultats déjà chargée."""
     raw = await page.evaluate(_EXTRACT_JS)

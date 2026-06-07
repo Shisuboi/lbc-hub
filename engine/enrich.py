@@ -8,6 +8,7 @@ met à jour après vérif puis photo. Résilient :
 - scam_risk "high" → rétrograde un 🔴 en 🟡 (spec §4 : un signal d'arnaque fort peut rétrograder).
 """
 import asyncio
+from datetime import date
 from engine.parse import extract_category
 from engine.cascade import triage_batch, verify_one, photo_one
 from engine.supa import merge_enrichment
@@ -16,6 +17,20 @@ from engine.router import QuotaExhausted
 from engine.telegram import send_opportunity
 
 _MAX_PENDING_RETRIES = 5
+
+# ── Quota state (module-level, reset automatiquement le lendemain) ────────────
+_quota_exhausted_day: str = ""
+
+
+def quota_paused() -> bool:
+    """True si les quotas IA ont été épuisés aujourd'hui."""
+    return _quota_exhausted_day == date.today().isoformat()
+
+
+def _mark_quota_exhausted() -> None:
+    global _quota_exhausted_day
+    _quota_exhausted_day = date.today().isoformat()
+    print("🔴 [quota] Quotas IA épuisés pour aujourd'hui — enrichissement en pause jusqu'à minuit.")
 
 
 def _ad_from_payload(payload: dict) -> dict:
@@ -26,11 +41,12 @@ def _ad_from_payload(payload: dict) -> dict:
         "url": payload.get("url"),
         "image_url": payload.get("image_url"),
         "city": payload.get("location_city"),
+        "description": payload.get("description"),
         "category": extract_category(payload.get("url") or ""),
     }
 
 
-async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch, batch_size=15, telegram=None) -> int:
+async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch, batch_size=15, telegram=None, desc_fetch=None) -> int:
     """Traite un lot. Retourne le nombre d'opportunités écrites (post-triage). 0 si rien/quota."""
     raw = brain.peek_pending(limit=batch_size)
     # Garde anti-poison : un item ayant échoué trop de fois est abandonné (file jamais bloquée).
@@ -50,6 +66,7 @@ async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch
     try:
         triaged = await triage_batch(ads, router, brain)
     except QuotaExhausted:
+        _mark_quota_exhausted()
         return 0  # rien consommé, tout reste en file
     except Exception as exc:  # réponse LLM malformée / inattendue : on reporte sans boucler
         print(f"[enrich] triage échoué ({type(exc).__name__}: {exc}) — lot reporté")
@@ -78,6 +95,16 @@ async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch
 
         # vérif des candidates
         if t["dig_deeper"] or t["score"] >= threshold:
+            # Description page annonce (best-effort, avant vérif pour enrichir le prompt).
+            if desc_fetch and not ad.get("description"):
+                try:
+                    desc = await desc_fetch(ad.get("url", ""))
+                    if desc:
+                        ad["description"] = desc
+                        item["payload"]["description"] = desc
+                except Exception as exc:
+                    print(f"[desc] fetch échoué pour {ad_id} ({type(exc).__name__}) — on continue sans")
+
             # Recherche inconnue/supprimée → on retombe sur les seuils par défaut de la
             # config (PAS sur 0 : sinon toute marge positive promeut en 🔴 une fois Pro activé).
             search = searches_by_id.get(item["search_id"]) or {
@@ -87,6 +114,7 @@ async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch
             try:
                 ia = await verify_one(ad, search, router, brain, urgent_score_threshold=threshold)
             except QuotaExhausted:
+                _mark_quota_exhausted()
                 brain.delete_pending(item["id"])  # déjà écrit au triage ; on n'insiste pas
                 written += 1
                 break  # quota fini : on arrête le lot, le reste attend
@@ -130,14 +158,15 @@ async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch
 
 
 async def enrichment_worker(brain, supa, router, settings, fetch_searches, image_fetch,
-                            stop_event, pause: float = 5.0, max_loops=None, telegram=None) -> None:
+                            stop_event, pause: float = 5.0, max_loops=None, telegram=None,
+                            desc_fetch=None) -> None:
     """Boucle du worker. `fetch_searches` → {search_id: {min_margin_eur, min_margin_pct}}."""
     loops = 0
     while not stop_event.is_set():
         try:
             searches_by_id = await fetch_searches()
             await enrich_once(brain, supa, router, settings, searches_by_id, image_fetch,
-                              telegram=telegram)
+                              telegram=telegram, desc_fetch=desc_fetch)
         except Exception as exc:
             print(f"[enrich] erreur cycle: {exc}")
         loops += 1

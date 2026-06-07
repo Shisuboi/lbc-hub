@@ -14,7 +14,7 @@ def _iso(ts: int | None) -> str | None:
     return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
 
 
-def build_heartbeat_payload(brain, search_id: str, now: int | None = None) -> dict:
+def build_heartbeat_payload(brain, search_id: str, now: int | None = None, enrichment_paused: bool = False) -> dict:
     """Construit la ligne `scrape_heartbeats` pour une recherche, à partir du Brain local."""
     now = int(now if now is not None else time.time())
     return {
@@ -24,13 +24,16 @@ def build_heartbeat_payload(brain, search_id: str, now: int | None = None) -> di
         "new_ads_per_min": round(brain.new_ads_rate(search_id, now=now), 2),
         "ads_seen_total": brain.ads_seen_total(search_id),
         "blocked_recent": brain.blocked_recent(search_id, now=now),
+        "enrichment_paused": enrichment_paused,
     }
 
 
-async def heartbeat_worker(brain, supa, stop_event, interval: float = 15.0, max_loops=None) -> None:
+async def heartbeat_worker(brain, supa, stop_event, interval: float = 15.0, max_loops=None,
+                           get_quota_paused=None) -> None:
     """Tick périodique : pour chaque recherche active, upsert sa télémétrie. Best-effort.
 
     `supa` doit exposer `fetch_active_searches()` et `upsert_heartbeat(payload)`.
+    `get_quota_paused` : callable optionnel → bool (quotas IA épuisés aujourd'hui).
     `max_loops` (tests) limite le nombre de tours ; None = infini.
     """
     loops = 0
@@ -38,11 +41,12 @@ async def heartbeat_worker(brain, supa, stop_event, interval: float = 15.0, max_
         try:
             searches = await supa.fetch_active_searches()
             now = int(time.time())
+            paused = get_quota_paused() if get_quota_paused else False
             for s in searches:
                 sid = s.get("id")
                 if not sid:
                     continue
-                payload = build_heartbeat_payload(brain, sid, now)
+                payload = build_heartbeat_payload(brain, sid, now, enrichment_paused=paused)
                 try:
                     await supa.upsert_heartbeat(payload)
                 except Exception as exc:

@@ -16,17 +16,19 @@ from engine.supa import Supa
 from engine.sink import LocalSink
 from engine.router import LLMRouter
 from engine.llm_client import GeminiClient
-from engine.enrich import enrichment_worker
+from engine.enrich import enrichment_worker, quota_paused
 from engine.scheduler import run_engine
 from engine.telemetry import heartbeat_worker
 from engine.maintenance import run_maintenance
 from engine.telegram import TelegramClient
 from engine.telegram_bot import telegram_poll_worker
 from engine.bootstrap import make_scrape_fn, build_searches_lookup
-from engine.scraper import extract_ads_from_results, RESULTS_CONTAINER_SELECTOR
+from engine.scraper import extract_ads_from_results, RESULTS_CONTAINER_SELECTOR, fetch_ad_description
 
 # Verrou global : scrape manuel et scrape auto ne naviguent jamais en même temps.
 scrape_lock = asyncio.Lock()
+# Sémaphore description : au plus 1 fetch de page annonce individuelle à la fois (Datadome).
+_desc_sem = asyncio.Semaphore(1)
 
 # Force UTF-8 on stdout/stderr to support emojis on Windows terminals
 try:
@@ -609,16 +611,35 @@ async def start_autonomous_engine(app):
                  "min_margin_pct": ai["default_min_margin_pct"]},
             )
 
+        async def description_fetch(url: str) -> str | None:
+            """Ouvre une page annonce LBC, extrait la description vendeur (best-effort)."""
+            if not url or scrape_lock.locked():
+                return None
+            async with _desc_sem:
+                if scrape_lock.locked():
+                    return None
+                try:
+                    ctx = await get_context()
+                    page = await ctx.new_page()
+                    try:
+                        return await fetch_ad_description(page, url)
+                    finally:
+                        await page.close()
+                        await asyncio.sleep(0.5)  # pause Datadome entre fetches
+                except Exception as exc:
+                    print(f"[desc] erreur fetch {url}: {exc}")
+                    return None
+
         tasks.append(asyncio.create_task(
             enrichment_worker(brain, supa, router, ai, fetch_searches, image_fetch, stop_event,
-                              telegram=telegram)
+                              telegram=telegram, desc_fetch=description_fetch)
         ))
-        print("🧠 Worker d'enrichissement IA démarré (cascade).")
+        print("🧠 Worker d'enrichissement IA démarré (cascade + descriptions).")
     else:
         print("⚠️ Pas de GEMINI_API_KEY : enrichissement IA désactivé (opportunités restent en file).")
 
     # Heartbeat de télémétrie : tourne TOUJOURS sous --auto (indépendant de la clé IA).
-    tasks.append(asyncio.create_task(heartbeat_worker(brain, supa, stop_event)))
+    tasks.append(asyncio.create_task(heartbeat_worker(brain, supa, stop_event, get_quota_paused=quota_paused)))
     print("📡 Heartbeat de télémétrie démarré (scrape_heartbeats).")
 
     if telegram:

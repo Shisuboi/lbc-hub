@@ -134,6 +134,8 @@ def build_verify_prompt(ad: dict, grounding: dict) -> str:
         f"{_grounding_line(grounding)}\n\n"
         f"Annonce : {ad.get('title','')} | prix demandé {ad.get('price',0):.0f} € | "
         f"{ad.get('city','')} | catégorie {ad.get('category','?')}."
+        + (f"\nDescription vendeur : {ad['description'][:800]}" if ad.get('description') else
+           "\nDescription vendeur : non disponible.")
     )
 
 
