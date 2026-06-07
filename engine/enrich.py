@@ -85,6 +85,7 @@ async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch
 
         payload = merge_enrichment(item["payload"], {
             "category": t["category"], "resale_score": t["score"],
+            "explanation": t.get("reason", ""),  # raison du triage, même pour passable
         })
         # Géocodage best-effort : remplit lat/lon depuis la ville (cache → BAN). Pour la proximité.
         await fill_latlon(brain, supa.session, payload)
