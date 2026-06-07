@@ -22,11 +22,13 @@ CREATE INDEX IF NOT EXISTS price_obs_ad_idx ON price_observations(ad_id);
 
 CREATE TABLE IF NOT EXISTS market_observations (
     categorie TEXT,
+    model_name TEXT,
     prix REAL,
     ville TEXT,
     observed_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS market_obs_cat_idx ON market_observations(categorie);
+CREATE INDEX IF NOT EXISTS market_obs_model_idx ON market_observations(model_name);
 
 CREATE TABLE IF NOT EXISTS scrape_log (
     search_id TEXT,
@@ -155,11 +157,12 @@ class Brain:
         ).fetchone()
         return row["prev_price"] if row else None
 
-    def record_market_obs(self, categorie: str, prix: float, ville: str | None, now: int | None = None) -> None:
+    def record_market_obs(self, categorie: str, prix: float, ville: str | None = None,
+                          model_name: str | None = None, now: int | None = None) -> None:
         now = int(now if now is not None else time.time())
         self.conn.execute(
-            "INSERT INTO market_observations (categorie, prix, ville, observed_at) VALUES (?, ?, ?, ?)",
-            (categorie, prix, ville, now),
+            "INSERT INTO market_observations (categorie, model_name, prix, ville, observed_at) VALUES (?, ?, ?, ?, ?)",
+            (categorie, model_name, prix, ville, now),
         )
         self.conn.commit()
 

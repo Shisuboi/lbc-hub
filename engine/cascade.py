@@ -3,6 +3,7 @@
 Le batching (10-20 annonces → 1 appel triage) vit dans enrichment_worker ; ici on expose
 des fonctions de stage qui prennent un 'router' injecté (LLMRouter ou fake) → testables.
 """
+from engine.parse import extract_model_name
 from engine.prompts import (
     TRIAGE_SCHEMA, VERIFY_SCHEMA, PHOTO_SCHEMA,
     build_triage_prompt, build_verify_prompt, build_photo_prompt,
@@ -45,14 +46,16 @@ def compute_margin_and_category(
 async def triage_batch(ads: list[dict], router, brain) -> dict:
     """Étage 1 : 1 appel pour N annonces. Retourne {ad_id: {category, score, dig_deeper, reason}}.
 
-    - Enregistre chaque annonce comme observation marché (byproduct).
+    - Enregistre chaque annonce comme observation marché (byproduct), avec modèle exact si détecté.
     - Force category ∈ {interesting, passable} (le triage ne déclare JAMAIS urgent).
     """
     for a in ads:
         if a.get("category") and a.get("price"):
-            brain.record_market_obs(a["category"], float(a["price"]), a.get("city"))
+            model = extract_model_name(a.get("title", ""))
+            brain.record_market_obs(a["category"], float(a["price"]), a.get("city"), model_name=model)
 
-    grounding = market_grounding(brain, ads[0].get("category") if ads else None)
+    grounding = market_grounding(brain, ads[0].get("category") if ads else None,
+                                 model_name=extract_model_name(ads[0].get("title", "")) if ads else None)
     prompt = build_triage_prompt(ads, grounding)
     data, _model, _tier = await router.generate("triage", prompt, TRIAGE_SCHEMA)
 
@@ -72,7 +75,8 @@ async def triage_batch(ads: list[dict], router, brain) -> dict:
 
 async def verify_one(ad: dict, search: dict, router, brain, urgent_score_threshold: float) -> dict:
     """Étage 2 : vérification fine d'une annonce. Seul un tier >= min peut donner 🔴."""
-    grounding = market_grounding(brain, ad.get("category"))
+    model = extract_model_name(ad.get("title", ""))
+    grounding = market_grounding(brain, ad.get("category"), model_name=model)
     prompt = build_verify_prompt(ad, grounding)
     data, model_id, tier_rank = await router.generate("verify", prompt, VERIFY_SCHEMA)
 
