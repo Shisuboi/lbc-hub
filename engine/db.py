@@ -104,9 +104,17 @@ class Brain:
 
     def _migrate(self) -> None:
         """Migrations légères des bases déjà créées (CREATE TABLE IF NOT EXISTS ne les altère pas)."""
+        # Migration 1 : scrape_log.new_ads (ancienne)
         cols = [r["name"] for r in self.conn.execute("PRAGMA table_info(scrape_log)").fetchall()]
         if "new_ads" not in cols:
             self.conn.execute("ALTER TABLE scrape_log ADD COLUMN new_ads INTEGER DEFAULT 0")
+
+        # Migration 2 : market_observations.model_name (2026-06-07)
+        cols = [r["name"] for r in self.conn.execute("PRAGMA table_info(market_observations)").fetchall()]
+        if "model_name" not in cols:
+            self.conn.execute("ALTER TABLE market_observations ADD COLUMN model_name TEXT")
+            self.conn.execute("CREATE INDEX IF NOT EXISTS market_obs_model_idx ON market_observations(model_name)")
+            print("[db] Migration 2026-06-07: ajouté model_name à market_observations")
 
     def close(self) -> None:
         self.conn.close()
