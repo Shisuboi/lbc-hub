@@ -67,6 +67,7 @@ export function opportunityGridCardHtml(o, { isFav = false, distanceKm = null } 
           <span class="deal-resale">${o.est_market_price != null ? `Revente ~${eur(o.est_market_price)}` : 'Revente n/d'}</span>
           ${hasMargin ? `<span class="deal-gain">+${eur(o.est_margin_eur)}</span>` : ''}
         </div>
+        ${o.explanation ? `<div class="deal-explain">📋 ${esc(o.explanation)}</div>` : ''}
       </div>
     </a>`;
 }
