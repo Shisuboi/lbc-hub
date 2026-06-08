@@ -70,13 +70,15 @@ export async function render() {
       </div>
 
       <div id="feedList" class="deal-grid"></div>
+      <nav id="feedPagination" class="pagination hidden"></nav>
       <div id="feedEmpty" class="empty-state glass-panel hidden">
         <h3>Aucune opportunité pour l'instant</h3>
         <p>Le moteur n'a encore rien remonté, ou aucune recherche n'est active.</p>
       </div>
     </section>`;
 
-  const state = { items: [], category: 'all', sort: 'recent', text: '', favOnly: false };
+  const PAGE_SIZE = 50;
+  const state = { items: [], category: 'all', sort: 'recent', text: '', favOnly: false, page: 1 };
   let firstPaint = true;
 
   const me = await getProfile();
@@ -97,14 +99,15 @@ export async function render() {
   renderList();
 
   // Recherche / tri
-  document.getElementById('feedSearch').addEventListener('input', e => { state.text = e.target.value.trim(); renderList(); });
-  document.getElementById('feedSort').addEventListener('change', e => { state.sort = e.target.value; renderList(); });
+  document.getElementById('feedSearch').addEventListener('input', e => { state.text = e.target.value.trim(); state.page = 1; renderList(); });
+  document.getElementById('feedSort').addEventListener('change', e => { state.sort = e.target.value; state.page = 1; renderList(); });
 
   // Catégories (pills)
   document.getElementById('feedChips').addEventListener('click', e => {
     const cat = e.target.closest('[data-cat]');
     if (!cat) return;
     state.category = cat.dataset.cat;
+    state.page = 1;
     document.querySelectorAll('#feedChips [data-cat]').forEach(b => b.classList.toggle('on', b === cat));
     renderList();
   });
@@ -113,6 +116,7 @@ export async function render() {
   const favBtn = document.getElementById('feedFav');
   favBtn.addEventListener('click', () => {
     state.favOnly = !state.favOnly;
+    state.page = 1;
     favBtn.classList.toggle('on', state.favOnly);
     renderList();
   });
@@ -134,7 +138,7 @@ export async function render() {
       renderList();
     } catch (err) { geoMsg.textContent = '❌ ' + err.message; }
   });
-  radiusEl.addEventListener('change', () => { setRadius(radiusEl.value); renderList(); });
+  radiusEl.addEventListener('change', () => { setRadius(radiusEl.value); state.page = 1; renderList(); });
 
   // Favori : toggle (délégation sur la grille) — bascule de classe, pas de texte
   document.getElementById('feedList').addEventListener('click', async e => {
@@ -170,7 +174,8 @@ export async function render() {
     const grid = document.getElementById('feedList');
     const sub = document.getElementById('feedHeroSub');
     const empty = document.getElementById('feedEmpty');
-    if (!grid || !sub || !empty) return; // navigated away
+    const paginationEl = document.getElementById('feedPagination');
+    if (!grid || !sub || !empty || !paginationEl) return; // navigated away
 
     const list = filterAndSort(state.items, { category: state.category, sort: state.sort, text: state.text });
     let finalList = state.favOnly ? list.filter(o => isFav(o.id)) : list;
@@ -183,21 +188,71 @@ export async function render() {
         o.lat != null && o.lon != null && haversineKm(home.lat, home.lon, o.lat, o.lon) <= rad);
     }
 
-    grid.innerHTML = finalList.map(o => {
+    const totalItems = finalList.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+    if (state.page > totalPages) state.page = totalPages;
+    const start = (state.page - 1) * PAGE_SIZE;
+    const pageItems = finalList.slice(start, start + PAGE_SIZE);
+
+    grid.innerHTML = pageItems.map(o => {
       const dist = (home && o.lat != null && o.lon != null) ? haversineKm(home.lat, home.lon, o.lat, o.lon) : null;
       return opportunityGridCardHtml(o, { isFav: isFav(o.id), distanceKm: dist });
     }).join('');
 
-    empty.classList.toggle('hidden', finalList.length > 0);
-    const n = finalList.length;
-    sub.textContent = n > 0
-      ? `${n} opportunité${n > 1 ? 's' : ''} correspondent à tes critères de revente.`
+    empty.classList.toggle('hidden', totalItems > 0);
+    sub.textContent = totalItems > 0
+      ? `${totalItems} opportunité${totalItems > 1 ? 's' : ''} — page ${state.page}/${totalPages}`
       : 'Aucune opportunité ne correspond à ces filtres.';
 
-    if (firstPaint && n) {
+    // Pagination
+    if (totalPages > 1) {
+      paginationEl.classList.remove('hidden');
+      let html = '';
+      html += `<button class="pg-btn pg-prev${state.page <= 1 ? ' pg-disabled' : ''}" data-pg="prev">← Préc.</button>`;
+      const range = paginationRange(state.page, totalPages);
+      for (const p of range) {
+        if (p === '…') {
+          html += `<span class="pg-ellipsis">…</span>`;
+        } else {
+          html += `<button class="pg-btn pg-num${p === state.page ? ' pg-active' : ''}" data-pg="${p}">${p}</button>`;
+        }
+      }
+      html += `<button class="pg-btn pg-next${state.page >= totalPages ? ' pg-disabled' : ''}" data-pg="next">Suiv. →</button>`;
+      paginationEl.innerHTML = html;
+    } else {
+      paginationEl.classList.add('hidden');
+      paginationEl.innerHTML = '';
+    }
+
+    if (firstPaint && totalItems) {
       firstPaint = false;
       grid.classList.add('is-entering');
       setTimeout(() => grid.classList.remove('is-entering'), 1200);
     }
+  }
+
+  // Pagination click handler
+  document.getElementById('feedPagination').addEventListener('click', e => {
+    const btn = e.target.closest('[data-pg]');
+    if (!btn || btn.classList.contains('pg-disabled')) return;
+    const val = btn.dataset.pg;
+    const totalPages = Math.max(1, Math.ceil(state.items.length / PAGE_SIZE));
+    if (val === 'prev') state.page = Math.max(1, state.page - 1);
+    else if (val === 'next') state.page = Math.min(totalPages, state.page + 1);
+    else state.page = Number(val);
+    renderList();
+    document.querySelector('.feed-hero')?.scrollIntoView({ behavior: 'smooth' });
+  });
+
+  /** Génère la liste de numéros de pages à afficher (avec ellipses). */
+  function paginationRange(current, total) {
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+    const pages = [];
+    pages.push(1);
+    if (current > 3) pages.push('…');
+    for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) pages.push(i);
+    if (current < total - 2) pages.push('…');
+    pages.push(total);
+    return pages;
   }
 }

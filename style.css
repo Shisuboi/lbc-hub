@@ -586,6 +586,32 @@ body {
 .pill-field select option { background: hsl(258 24% 10%); color: var(--text-1); }
 .feed-geo-msg { font-size: 0.8rem; color: var(--accent-light); }
 
+/* Pagination */
+.pagination {
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px; padding: 28px 0 8px; flex-wrap: wrap;
+}
+.pg-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 38px; height: 38px; padding: 0 12px;
+  border-radius: var(--r-pill); border: 1px solid var(--glass-border);
+  background: var(--glass-2); color: var(--text-2);
+  font-family: var(--font-body); font-weight: 600; font-size: 0.84rem;
+  cursor: pointer; transition: all var(--t-ui);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+}
+.pg-btn:hover:not(.pg-disabled):not(.pg-active) {
+  border-color: var(--glass-border-hover); color: var(--text-1);
+  transform: translateY(-1px);
+}
+.pg-active {
+  background: var(--accent); border-color: var(--accent); color: hsl(258 40% 8%);
+  box-shadow: 0 3px 14px var(--accent-glow); font-weight: 700;
+}
+.pg-disabled { opacity: 0.35; cursor: default; }
+.pg-ellipsis { color: var(--text-3); font-size: 0.9rem; padding: 0 4px; }
+.pg-prev, .pg-next { font-size: 0.82rem; gap: 4px; }
+
 /* Grille de cartes (streaming) */
 .deal-grid {
   display: grid;
