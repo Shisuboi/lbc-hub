@@ -12,7 +12,7 @@ const SELECT = [
 ].join(', ');
 
 /** Liste les opportunités actives, plus récentes d'abord. */
-export async function listOpportunities({ limit = 100 } = {}) {
+export async function listOpportunities({ limit = 1000 } = {}) {
   const { data, error } = await supa
     .from('opportunities')
     .select(SELECT)
