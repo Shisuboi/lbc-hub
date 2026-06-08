@@ -126,9 +126,10 @@ export async function render() {
         <input name="title" placeholder="Titre (ex. PS5 d'occasion)" required>
         <input name="source_url" placeholder="URL de recherche Leboncoin" required>
         <div class="wl-add-row">
+          <input name="price_min" type="number" min="0" placeholder="Prix min (€, optionnel)">
           <input name="price_max" type="number" min="0" placeholder="Prix max (€, optionnel)">
-          <input name="exclude_keywords" placeholder="Mots exclus, séparés par des virgules (optionnel)">
         </div>
+        <input name="exclude_keywords" placeholder="Mots exclus, séparés par des virgules (optionnel)">
         <div class="wl-add-foot">
           <button type="submit" class="btn btn-primary">Ajouter</button>
           <span id="wlAddMsg" class="muted"></span>
@@ -142,7 +143,8 @@ export async function render() {
       try {
         await createSearch(me.id, {
           title: f.title.value, source_url: f.source_url.value,
-          price_max: f.price_max.value, exclude_keywords: f.exclude_keywords.value,
+          price_min: f.price_min.value, price_max: f.price_max.value,
+          exclude_keywords: f.exclude_keywords.value,
         });
         f.reset();
         msg.textContent = '✅ Ajoutée.';
@@ -172,7 +174,16 @@ export async function render() {
         if (title === null) { btn.disabled = false; return; }
         const url = prompt('URL de recherche :', s.source_url);
         if (url === null) { btn.disabled = false; return; }
-        await updateSearch(id, { title, source_url: url });
+        const minPriceStr = prompt('Prix minimum (€, vide pour aucun) :', s.price_min ?? '');
+        if (minPriceStr === null) { btn.disabled = false; return; }
+        const maxPriceStr = prompt('Prix maximum (€, vide pour aucun) :', s.price_max ?? '');
+        if (maxPriceStr === null) { btn.disabled = false; return; }
+        await updateSearch(id, { 
+          title, 
+          source_url: url,
+          price_min: minPriceStr === '' ? null : minPriceStr,
+          price_max: maxPriceStr === '' ? null : maxPriceStr
+        });
       }
       await reload();
     } catch (err) {

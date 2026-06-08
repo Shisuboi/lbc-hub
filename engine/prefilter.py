@@ -31,6 +31,10 @@ def passes_prefilter(ad: dict, search: dict) -> bool:
     if price <= 0:
         return False
 
+    price_min = search.get("price_min")
+    if price_min is not None and price < float(price_min):
+        return False
+
     price_max = search.get("price_max")
     if price_max is not None and price > float(price_max):
         return False

@@ -3,7 +3,7 @@
 // "Une seule active à la fois" passe par la RPC set_active_watchlist (atomique).
 import { supa } from '../supabase-client.js';
 
-const SELECT = 'id, owner_id, title, source_url, platform, price_max, exclude_keywords, ' +
+const SELECT = 'id, owner_id, title, source_url, platform, price_max, price_min, exclude_keywords, ' +
   'min_margin_eur, min_margin_pct, active, created_at, author:profiles(username, avatar_color)';
 
 /** Déduit la plateforme depuis l'URL (badge + colonne platform). */
@@ -26,7 +26,7 @@ export async function listSearches() {
 }
 
 /** Crée une recherche (owner_id = moi). */
-export async function createSearch(ownerId, { title, source_url, price_max, exclude_keywords }) {
+export async function createSearch(ownerId, { title, source_url, price_max, price_min, exclude_keywords }) {
   const t = (title || '').trim();
   const url = (source_url || '').trim();
   if (!t) throw new Error('Titre requis.');
@@ -37,6 +37,7 @@ export async function createSearch(ownerId, { title, source_url, price_max, excl
     source_url: url,
     platform: deducePlatform(url),
     price_max: price_max != null && price_max !== '' ? Number(price_max) : null,
+    price_min: price_min != null && price_min !== '' ? Number(price_min) : null,
     exclude_keywords: (exclude_keywords || '').trim(),
     active: false, // on n'active jamais à la création (l'utilisateur clique "Activer")
   };
@@ -56,6 +57,8 @@ export async function updateSearch(id, fields) {
   }
   if (fields.price_max !== undefined)
     patch.price_max = fields.price_max === '' || fields.price_max == null ? null : Number(fields.price_max);
+  if (fields.price_min !== undefined)
+    patch.price_min = fields.price_min === '' || fields.price_min == null ? null : Number(fields.price_min);
   if (fields.exclude_keywords != null) patch.exclude_keywords = String(fields.exclude_keywords).trim();
   const { data, error } = await supa
     .from('watchlist_searches').update(patch).eq('id', id).select(SELECT).single();

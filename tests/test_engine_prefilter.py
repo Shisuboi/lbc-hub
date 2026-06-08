@@ -48,6 +48,21 @@ def test_accepts_ad_at_exact_price_max():
     assert passes_prefilter(ad(price=200.0), search) is True
 
 
+def test_rejects_below_price_min():
+    search = {"price_min": 150}
+    assert passes_prefilter(ad(price=100.0), search) is False
+
+
+def test_accepts_above_price_min():
+    search = {"price_min": 150}
+    assert passes_prefilter(ad(price=200.0), search) is True
+
+
+def test_accepts_ad_at_exact_price_min():
+    search = {"price_min": 150}
+    assert passes_prefilter(ad(price=150.0), search) is True
+
+
 # --- Blacklist intégrée "pour pièces / HS / cassé" (étage 0, sans réglage utilisateur) ---
 
 import pytest

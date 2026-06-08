@@ -14,6 +14,7 @@ create table if not exists public.watchlist_searches (
     geo_postal      text,
     geo_radius_km   int,
     price_max       float,
+    price_min       float,
     exclude_keywords text default '',
     min_margin_eur  float,
     min_margin_pct  float,
