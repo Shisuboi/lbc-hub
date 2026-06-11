@@ -6,7 +6,9 @@
 
 create table if not exists public.trades (
     id              uuid primary key default gen_random_uuid(),
-    user_id         uuid not null references auth.users(id) on delete cascade,
+    -- FK vers profiles (et NON auth.users) : PostgREST joint trades→profiles via cette FK
+    -- pour l'embed `author:profiles(...)`. profiles.id == auth.uid() (convention projet).
+    user_id         uuid not null references public.profiles(id) on delete cascade,
     opportunity_id  uuid references public.opportunities(id) on delete set null,
     title           text not null check (char_length(title) between 1 and 200),
     status          text not null default 'contacted'
