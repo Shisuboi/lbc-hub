@@ -701,10 +701,37 @@ def create_app(auto: bool = False) -> web.Application:
     return app
 
 
+async def flush_feed():
+    """Vide le feed : supprime les opportunités Supabase ET réinitialise seen_ads.
+
+    Les deux sont nécessaires : sans reset seen_ads, le moteur considère toutes les annonces
+    déjà « vues » et ne republie rien (le feed resterait vide). À lancer ponctuellement,
+    moteur arrêté, par l'admin : `python server.py --flush-feed`.
+    """
+    cfg = load_config()
+    brain = Brain("lbc_brain.sqlite3")
+    async with aiohttp.ClientSession() as session:
+        supa = Supa(cfg["SUPABASE_URL"], cfg["SUPABASE_SERVICE_KEY"], session)
+        try:
+            n_opp = await supa.delete_all_opportunities()
+            print(f"🧹 Feed Supabase vidé : {n_opp} opportunité(s) supprimée(s).")
+        except Exception as exc:
+            print(f"⚠️ Échec suppression Supabase ({type(exc).__name__}: {exc}) — on réinitialise quand même seen_ads.")
+    n_seen = brain.flush_seen_ads()
+    print(f"🧠 Cache local réinitialisé : {n_seen} annonce(s) oubliée(s) — elles seront re-scrapées.")
+    print("✅ Flush terminé. Relance le moteur avec : python server.py --auto")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Serveur LBC scraper + moteur autonome")
     parser.add_argument("--auto", action="store_true", help="Démarre le moteur autonome 24/7")
+    parser.add_argument("--flush-feed", action="store_true",
+                        help="Vide le feed (opportunités Supabase + cache seen_ads local) puis quitte")
     args = parser.parse_args()
+
+    if args.flush_feed:
+        asyncio.run(flush_feed())
+        return
 
     # Supprime les messages de shutdown inoffensifs sur Windows Python 3.12+
     # (race condition aiohttp/asyncio ProactorEventLoop au moment du CTRL+C)

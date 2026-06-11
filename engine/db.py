@@ -165,6 +165,17 @@ class Brain:
         ).fetchone()
         return row["prev_price"] if row else None
 
+    def flush_seen_ads(self) -> int:
+        """Vide la table de déduplication seen_ads. Retourne le nombre d'annonces oubliées.
+
+        Après un flush, les annonces de Leboncoin seront re-scrapées et re-publiées comme
+        neuves. Utilisé par `--flush-feed` (le feed se fige sinon : tout est déjà « vu »).
+        """
+        n = self.conn.execute("SELECT COUNT(*) AS c FROM seen_ads").fetchone()["c"]
+        self.conn.execute("DELETE FROM seen_ads")
+        self.conn.commit()
+        return n
+
     def record_market_obs(self, categorie: str, prix: float, ville: str | None = None,
                           model_name: str | None = None, now: int | None = None) -> None:
         now = int(now if now is not None else time.time())

@@ -99,6 +99,23 @@ class Supa:
         async with self.session.post(url, params=params, json=payload, headers=headers) as resp:
             resp.raise_for_status()
 
+    async def delete_all_opportunities(self) -> int:
+        """Supprime TOUTES les opportunités du feed (service_role). Retourne le nombre supprimé.
+
+        Utilisé par `--flush-feed`. Les commentaires/favoris/signaux liés cascadent (FK).
+        Les trades gardent leur titre (opportunity_id → NULL via ON DELETE SET NULL).
+        """
+        url = f"{self.base}/rest/v1/opportunities"
+        params = {"id": "not.is.null"}  # filtre « tout » (PostgREST refuse un DELETE sans filtre)
+        headers = self._headers({"Prefer": "count=exact"})
+        async with self.session.delete(url, params=params, headers=headers) as resp:
+            resp.raise_for_status()
+            cr = resp.headers.get("Content-Range", "*/0")
+            try:
+                return int(cr.split("/")[-1])
+            except (ValueError, IndexError):
+                return 0
+
     async def create_contact_from_telegram(self, opportunity_id: str, first_name: str) -> bool:
         """Insère un signal de contact via Telegram (service_role, bypass RLS).
 
