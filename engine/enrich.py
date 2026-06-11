@@ -156,8 +156,10 @@ async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch
             if telegram and payload.get("category") == "urgent":
                 ad_id_str = payload.get("ad_id", "")
                 if ad_id_str and not brain.is_telegram_sent(ad_id_str):
-                    await send_opportunity(telegram, payload)
-                    brain.mark_telegram_sent(ad_id_str)
+                    # On ne marque « notifiée » QUE si l'envoi a réussi : sinon un échec
+                    # transitoire (400 parse / réseau) bloquerait à jamais la notification.
+                    if await send_opportunity(telegram, payload):
+                        brain.mark_telegram_sent(ad_id_str)
 
         brain.delete_pending(item["id"])
         written += 1

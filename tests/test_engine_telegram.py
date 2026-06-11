@@ -52,7 +52,7 @@ async def test_send_opportunity_posts_to_group(aiohttp_server, monkeypatch):
         await send_opportunity(client, {"title": "T", "price": 10, "id": "x1", "url": "https://lbc.fr/ad/1"})
     assert captured["body"]["chat_id"] == "GROUP123"
     assert "🔴" in captured["body"]["text"]
-    assert captured["body"]["parse_mode"] == "Markdown"
+    assert captured["body"]["parse_mode"] == "HTML"
 
 
 async def test_send_alert_posts_to_tristan(aiohttp_server, monkeypatch):
@@ -128,3 +128,50 @@ async def test_answer_callback_posts_to_answer_api(aiohttp_server, monkeypatch):
         await answer_callback(client, "cq-42", "🤝 Enregistré !")
     assert captured["body"]["callback_query_id"] == "cq-42"
     assert "Enregistré" in captured["body"]["text"]
+
+
+# ── Fix : échappement HTML + envoi qui renvoie un statut ──────────────────────
+
+def test_format_opportunity_escapes_html_special_chars():
+    """Un titre avec & < > est échappé pour parse_mode HTML (pas de 400 Telegram)."""
+    opp = {"title": "Casque <Sony> & co", "price": 50, "id": "x", "url": "https://lbc.fr/ad/1"}
+    msg = _format_opportunity(opp)
+    assert "&lt;Sony&gt;" in msg
+    assert "&amp;" in msg
+    assert "<Sony>" not in msg  # le chevron brut ne doit plus apparaître
+
+
+def test_format_opportunity_markdown_chars_are_literal():
+    """Les caractères Markdown (_ * [ ]) ne cassent rien en HTML (restent littéraux)."""
+    opp = {"title": "iPhone 13 [comme neuf] _pro_ *TOP*", "price": 200, "id": "y", "url": "https://lbc.fr/ad/2"}
+    msg = _format_opportunity(opp)
+    assert "[comme neuf]" in msg and "_pro_" in msg and "*TOP*" in msg
+
+
+async def test_send_opportunity_returns_true_on_success(aiohttp_server, monkeypatch):
+    captured = {}
+    server = await aiohttp_server(_make_tg_app(captured, status=200))
+    monkeypatch.setattr(tg_mod, "TG_API", str(server.make_url("/")) + "bot{token}/sendMessage")
+    async with ClientSession() as session:
+        client = TelegramClient("TOKEN", "G", "T", session)
+        ok = await send_opportunity(client, {"title": "OK", "id": "z", "url": "https://lbc.fr/ad/3"})
+    assert ok is True
+    assert captured["body"]["parse_mode"] == "HTML"
+
+
+async def test_send_opportunity_returns_false_on_http_error(aiohttp_server, monkeypatch):
+    captured = {}
+    server = await aiohttp_server(_make_tg_app(captured, status=400))
+    monkeypatch.setattr(tg_mod, "TG_API", str(server.make_url("/")) + "bot{token}/sendMessage")
+    async with ClientSession() as session:
+        client = TelegramClient("TOKEN", "G", "T", session)
+        ok = await send_opportunity(client, {"title": "Bad", "id": "z"})
+    assert ok is False  # échec → False → l'appelant NE marque PAS comme envoyé
+
+
+async def test_send_opportunity_returns_false_on_network_error(monkeypatch):
+    monkeypatch.setattr(tg_mod, "TG_API", "http://localhost:1/bot{token}/sendMessage")
+    async with ClientSession() as session:
+        client = TelegramClient("TOKEN", "G", "T", session)
+        ok = await send_opportunity(client, {"title": "x", "id": "z"})
+    assert ok is False

@@ -199,6 +199,7 @@ async def test_enrich_once_sends_telegram_for_urgent(monkeypatch):
     sent = []
     async def fake_send(client, opp):
         sent.append(opp.get("ad_id"))
+        return True  # contrat : True = envoyé → l'appelant marque comme notifié
     monkeypatch.setattr("engine.enrich.send_opportunity", fake_send)
 
     brain = Brain(":memory:")

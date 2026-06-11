@@ -56,8 +56,18 @@ class TelegramClient:
             print(f"[telegram] erreur answer_callback : {exc}")
 
 
+def _esc(s) -> str:
+    """Échappe les 3 caractères réservés du parse_mode HTML de Telegram (& < >).
+
+    On utilise HTML (et non Markdown) : un titre Leboncoin contient souvent des caractères
+    qui cassent le Markdown (_ * [ ] ( )) et provoquent un HTTP 400 « can't parse entities ».
+    En HTML, seuls & < > doivent être échappés ; tout le reste passe littéralement.
+    """
+    return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def _format_opportunity(opp: dict) -> str:
-    """Formate un message Markdown pour une opportunité 🔴."""
+    """Formate un message HTML pour une opportunité 🔴 (robuste aux titres arbitraires)."""
     title = opp.get("title") or "Sans titre"
     price = opp.get("price")
     margin = opp.get("est_margin_eur")
@@ -65,30 +75,35 @@ def _format_opportunity(opp: dict) -> str:
     url = opp.get("url", "")
     opp_id = opp.get("id") or opp.get("ad_id", "")
 
-    lines = [f"🔴 *{title}*", ""]
+    lines = [f"🔴 <b>{_esc(title)}</b>", ""]
     if price is not None:
         lines.append(f"💰 Prix : {int(price)} €")
     if margin and float(margin) > 0:
         lines.append(f"📈 Marge estimée : +{int(margin)} €")
     if city:
-        lines.append(f"📍 {city}")
+        lines.append(f"📍 {_esc(city)}")
     lines.append("")
     if url:
-        lines.append(f"🔗 [Voir sur LBC]({url})")
+        lines.append(f'🔗 <a href="{_esc(url)}">Voir sur LBC</a>')
     if opp_id:
-        lines.append(f"🏠 [Voir sur le hub]({HUB_BASE}/item/{opp_id})")
+        lines.append(f'🏠 <a href="{HUB_BASE}/item/{opp_id}">Voir sur le hub</a>')
 
     return "\n".join(lines)
 
 
-async def send_opportunity(client: TelegramClient, opp: dict) -> None:
-    """Envoie une notification d'opportunité 🔴 au groupe. Best-effort."""
+async def send_opportunity(client: TelegramClient, opp: dict) -> bool:
+    """Envoie une notification d'opportunité 🔴 au groupe.
+
+    Best-effort (ne lève jamais) mais renvoie True SEULEMENT si l'envoi a réussi (HTTP 2xx).
+    L'appelant doit ne marquer l'annonce « notifiée » que sur un True → sinon un échec
+    transitoire (400/réseau) la supprimerait définitivement sans qu'elle soit jamais envoyée.
+    """
     try:
         opp_id = opp.get("id") or opp.get("ad_id", "")
         body = {
             "chat_id": client.group_id,
             "text": _format_opportunity(opp),
-            "parse_mode": "Markdown",
+            "parse_mode": "HTML",
         }
         if opp_id:
             body["reply_markup"] = _json.dumps({
@@ -105,8 +120,11 @@ async def send_opportunity(client: TelegramClient, opp: dict) -> None:
             if resp.status >= 400:
                 txt = await resp.text()
                 print(f"[telegram] erreur envoi opportunité (HTTP {resp.status}): {txt[:200]}")
+                return False
+            return True
     except Exception as exc:
         print(f"[telegram] erreur envoi opportunité : {exc}")
+        return False
 
 
 async def answer_callback(client: TelegramClient, callback_query_id: str, text: str) -> None:
