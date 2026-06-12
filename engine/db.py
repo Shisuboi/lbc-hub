@@ -28,7 +28,10 @@ CREATE TABLE IF NOT EXISTS market_observations (
     observed_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS market_obs_cat_idx ON market_observations(categorie);
-CREATE INDEX IF NOT EXISTS market_obs_model_idx ON market_observations(model_name);
+-- NB : l'index sur model_name n'est PAS créé ici. Sur une base ANCIENNE (table créée
+-- avant l'ajout de la colonne), CREATE TABLE IF NOT EXISTS ne l'altère pas, et un index
+-- sur model_name échouerait ici — avant que _migrate() n'ajoute la colonne. Il est donc
+-- créé dans _migrate(), après garantie que la colonne existe (idempotent, base fraîche OK).
 
 CREATE TABLE IF NOT EXISTS scrape_log (
     search_id TEXT,
@@ -113,8 +116,10 @@ class Brain:
         cols = [r["name"] for r in self.conn.execute("PRAGMA table_info(market_observations)").fetchall()]
         if "model_name" not in cols:
             self.conn.execute("ALTER TABLE market_observations ADD COLUMN model_name TEXT")
-            self.conn.execute("CREATE INDEX IF NOT EXISTS market_obs_model_idx ON market_observations(model_name)")
             print("[db] Migration 2026-06-07: ajouté model_name à market_observations")
+        # Index créé ICI (et non dans SCHEMA) : la colonne est désormais garantie présente,
+        # que la base soit fraîche (CREATE TABLE) ou ancienne (ALTER ci-dessus). Idempotent.
+        self.conn.execute("CREATE INDEX IF NOT EXISTS market_obs_model_idx ON market_observations(model_name)")
 
     def close(self) -> None:
         self.conn.close()
