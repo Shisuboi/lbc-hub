@@ -50,6 +50,21 @@ def test_triage_prompt_flags_implausibly_low_price_and_for_parts():
     assert ("pour pièces" in low) or ("pour pieces" in low)   # mots-clés pièces
 
 
+def test_triage_low_but_credible_price_is_a_deal_not_a_scam():
+    """Un prix bas mais CRÉDIBLE sur un modèle récent identifiable (ex. MacBook M3 à 800 €)
+    est une affaire à CREUSER (dig_deeper, score haut), pas une arnaque à plomber.
+    Le doute « trop beau pour être vrai » est délégué à l'étape photo, pas tranché au triage."""
+    ads = [{"ad_id": "1", "title": "MacBook Air M3 15 pouces 2024", "price": 800.0, "city": "Caen"}]
+    prompt = build_triage_prompt(ads, {})  # médiane marché INCONNUE
+    low = prompt.lower()
+    # un prix nettement sous le marché sur modèle identifiable = affaire à creuser
+    assert "sous le marché" in low
+    # la sensation « trop beau pour être vrai » ne baisse PAS le score au triage
+    assert "trop beau" in low
+    # l'arnaque se tranche à l'étape photo, pas au triage
+    assert "photo" in low
+
+
 def test_triage_prompt_has_score_scale():
     prompt = build_triage_prompt([{"ad_id": "1", "title": "x", "price": 10.0, "city": "P"}], {})
     assert "85" in prompt  # échelle de score ancrée
