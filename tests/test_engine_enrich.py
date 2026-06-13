@@ -220,17 +220,29 @@ async def test_enrich_once_sends_telegram_for_urgent(monkeypatch):
     assert brain.is_telegram_sent("urgent-1"), "ad_id doit être marqué comme envoyé"
 
 
+def _today_iso():
+    from datetime import date
+    return date.today().isoformat()
+
+
 class FakeComparator:
-    """Simule la closure comparator_fetch de server.py : compte les appels, renvoie des annonces."""
-    def __init__(self, prices=(300.0, 320.0, 280.0, 310.0, 290.0), exc=None):
+    """Simule la closure comparator_fetch de server.py : compte les appels, renvoie des annonces.
+
+    - exc  : lève une exception (vrai échec : captcha/timeout) → l'appelant doit poser le cooldown.
+    - skip : renvoie None (le scrape tenait le verrou, recherche NON faite) → pas de cooldown.
+    """
+    def __init__(self, prices=(300.0, 320.0, 280.0, 310.0, 290.0), exc=None, skip=False):
         self.calls = []
         self.prices = prices
         self.exc = exc
+        self.skip = skip
 
     async def __call__(self, model_name, category=None):
         self.calls.append({"model": model_name, "category": category})
         if self.exc:
             raise self.exc
+        if self.skip:
+            return None
         return [{"title": f"{model_name} {i}", "price": p, "city": "Paris",
                  "url": "https://www.leboncoin.fr/ad/informatique/1"} for i, p in enumerate(self.prices)]
 
@@ -314,6 +326,25 @@ async def test_enrich_survives_comparator_failure(monkeypatch):
                           image_fetch=None, comparator_fetch=comp)
     assert n == 1
     assert brain.model_lookup_due("PS5 Slim") is False
+
+
+async def test_enrich_comparator_skip_lock_does_not_cooldown(monkeypatch):
+    """Si le comparateur renvoie None (scrape tenait le verrou → recherche NON faite), on ne pose
+    PAS le cooldown 3 j : le modèle doit rester éligible au prochain cycle (sinon gelé sans données).
+    """
+    monkeypatch.setattr("engine.enrich.extract_model_name", lambda t: "PS5 Slim")
+    import engine.enrich as enrich_mod
+    enrich_mod._comparator_count.clear()
+    brain = Brain(":memory:")
+    supa = FakeSupa()
+    queue_ad(brain, "1")
+    comp = FakeComparator(skip=True)  # renvoie None = « pas pu tourner »
+    await enrich_once(brain, supa, _candidate_router(), settings={"urgent_score_threshold": 75},
+                      searches_by_id={"s1": {"title": "PS5", "min_margin_eur": 30, "min_margin_pct": 30}},
+                      image_fetch=None, comparator_fetch=comp)
+    assert len(comp.calls) == 1                      # on a bien tenté
+    assert brain.model_lookup_due("PS5 Slim") is True  # mais PAS de cooldown posé
+    assert enrich_mod._comparator_count.get(_today_iso(), 0) == 0  # ni de quota consommé
 
 
 async def test_enrich_respects_daily_cap(monkeypatch):
