@@ -21,6 +21,17 @@ def _price_dispersion(prices: list, med: float) -> float | None:
     return (q[2] - q[0]) / med
 
 
+def _price_floor(prices: list) -> float | None:
+    """Plancher du marché = 1ᵉʳ décile (P10) des prix réels du modèle.
+
+    Représente le prix de la génération/version la moins chère. Un prix sous ce plancher est une
+    affaire quelle que soit la génération (utilisé pour autoriser un 🔴 même si la distribution
+    globale est trop large pour ancrer une médiane fiable)."""
+    if len(prices) < 5:
+        return None
+    return float(quantiles(prices, n=10)[0])
+
+
 def market_grounding(brain, categorie: str | None, model_name: str | None = None) -> dict:
     """Retourne {median_price, sample_size, min_price, max_price[, grounding_level, price_dispersion]}.
 
@@ -45,6 +56,7 @@ def market_grounding(brain, categorie: str | None, model_name: str | None = None
                 "max_price": max(prices),
                 "grounding_level": "model",
                 "price_dispersion": _price_dispersion(prices, med),
+                "price_floor": _price_floor(prices),
             }
 
     # Fallback catégorie large

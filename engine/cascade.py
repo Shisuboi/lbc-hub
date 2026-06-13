@@ -15,25 +15,40 @@ def compute_margin_and_category(
     price: float, est_market_price: float, refined_score: float,
     min_margin_eur: float, min_margin_pct: float,
     tier_rank: int, min_urgent_rank: int, urgent_score_threshold: float,
-    grounding_confident: bool = True,
+    grounding_confident: bool = True, market_floor: float | None = None,
 ) -> dict:
     """Calcule marge €/%, prix max d'achat, et la catégorie finale (gate 🔴).
 
-    `grounding_confident` : True seulement si le prix marché est ancré sur de VRAIS comparables du
-    même modèle (≥5 annonces LBC observées). Sans cet ancrage, l'estimation est une supposition « de
-    tête » → on plafonne à 🟡, jamais 🔴 (un 🔴 notifie + dit « fonce » : il exige de la confiance).
+    Prix marché EFFECTIF utilisé pour la marge et la gate :
+    - `grounding_confident` (distribution resserrée) → on fait confiance à l'estimation (médiane) ;
+    - sinon, si un `market_floor` (plancher = 1ᵉʳ décile des prix réels du modèle) est connu → on
+      n'ancre QUE sur ce plancher (`min(estimation, plancher)`) : un 🔴 ne peut alors se déclencher
+      que si le prix bat même la génération la moins chère → « affaire quelle que soit la version » ;
+    - sans modèle (pas de plancher) → pas éligible au 🔴 (plafond 🟡).
+    Un 🔴 notifie + dit « fonce » : il exige soit un ancrage fiable, soit un prix sous le plancher.
     """
     price = float(price or 0.0)
     est = float(est_market_price or 0.0)
-    margin_eur = round(est - price, 2)
+
+    if grounding_confident:
+        eff = est                                   # ancrage médiane fiable
+        eligible = True
+    elif market_floor is not None:
+        eff = min(est, float(market_floor))         # large : on ne value jamais au-dessus du plancher
+        eligible = True
+    else:
+        eff = est                                   # pas de modèle → pas d'ancrage → pas de 🔴
+        eligible = False
+
+    margin_eur = round(eff - price, 2)
     margin_pct = round((margin_eur / price * 100.0), 2) if price > 0 else 0.0
     required = max(min_margin_eur, price * min_margin_pct / 100.0)
-    max_buy = round(est - required, 2)
+    max_buy = round(eff - required, 2)
 
     margin_ok = margin_eur >= min_margin_eur and margin_pct >= min_margin_pct
     score_ok = refined_score >= urgent_score_threshold
     tier_ok = tier_rank >= min_urgent_rank
-    if score_ok and margin_ok and tier_ok and grounding_confident:
+    if score_ok and margin_ok and tier_ok and eligible:
         category = "urgent"
     elif refined_score >= 50:
         category = "interesting"
@@ -41,7 +56,7 @@ def compute_margin_and_category(
         category = "passable"
 
     return {
-        "est_market_price": est,
+        "est_market_price": round(eff, 2),
         "est_margin_eur": margin_eur,
         "est_margin_pct": margin_pct,
         "max_buy_price": max_buy,
@@ -86,9 +101,9 @@ async def verify_one(ad: dict, search: dict, router, brain, urgent_score_thresho
     prompt = build_verify_prompt(ad, grounding)
     data, model_id, tier_rank = await router.generate("verify", prompt, VERIFY_SCHEMA)
 
-    # 🔴 seulement si le prix marché est ancré sur de VRAIS comparables du même modèle (grounding
-    # 'model', ≥5 annonces LBC) ET une distribution resserrée (sinon libellé trop large mélangeant
-    # des générations → médiane non fiable). Sinon estimation peu sûre → plafond 🟡.
+    # 🔴 si le prix marché est ancré fiablement (grounding 'model' resserré) → médiane, OU si le prix
+    # bat le PLANCHER du marché (1ᵉʳ décile) même quand la distribution est large (affaire quelle que
+    # soit la génération). Sans modèle (pas de plancher) → plafond 🟡.
     grounding_confident = is_grounding_confident(grounding)
 
     margin = compute_margin_and_category(
@@ -100,6 +115,7 @@ async def verify_one(ad: dict, search: dict, router, brain, urgent_score_thresho
         tier_rank=tier_rank, min_urgent_rank=router.min_urgent_rank,
         urgent_score_threshold=urgent_score_threshold,
         grounding_confident=grounding_confident,
+        market_floor=grounding.get("price_floor"),
     )
     return {
         **margin,
