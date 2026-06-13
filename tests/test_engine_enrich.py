@@ -246,6 +246,8 @@ def _verify_router(**kw):
 
 
 async def test_enrich_runs_research_on_cache_miss_and_stores_it():
+    import engine.enrich as enrich_mod
+    enrich_mod._research_cooldown.clear()
     brain = Brain(":memory:")
     supa = FakeSupa()
     queue_ad(brain, "1")
@@ -260,6 +262,8 @@ async def test_enrich_runs_research_on_cache_miss_and_stores_it():
 
 
 async def test_enrich_uses_cached_research_no_second_web_call():
+    import engine.enrich as enrich_mod
+    enrich_mod._research_cooldown.clear()
     brain = Brain(":memory:")
     supa = FakeSupa()
     brain.set_market_context("s1", "iPhone 13", "ctx pré-chargé")  # cache déjà chaud
@@ -272,6 +276,8 @@ async def test_enrich_uses_cached_research_no_second_web_call():
 
 
 async def test_enrich_survives_research_failure():
+    import engine.enrich as enrich_mod
+    enrich_mod._research_cooldown.clear()
     brain = Brain(":memory:")
     supa = FakeSupa()
     queue_ad(brain, "1")
@@ -283,6 +289,31 @@ async def test_enrich_survives_research_failure():
     assert n == 1
     assert supa.upserts[-1]["category"] == "urgent"
     assert brain.get_market_context("s1", "iPhone 13") is None  # rien mis en cache sur échec
+
+
+async def test_enrich_research_backs_off_after_failure():
+    """Après un échec recherche, on ne relance PAS sur l'annonce suivante (back-off anti-spam 429)."""
+    import engine.enrich as enrich_mod
+    enrich_mod._research_cooldown.clear()
+    brain = Brain(":memory:")
+    supa = FakeSupa()
+    queue_ad(brain, "1")
+    queue_ad(brain, "2")
+    router = ResearchRouter(
+        triage_items=[
+            {"ad_id": "1", "category": "interesting", "score": 80, "dig_deeper": True},
+            {"ad_id": "2", "category": "interesting", "score": 80, "dig_deeper": True},
+        ],
+        verify={"refined_score": 70, "est_market_price": 300.0, "signals": [], "is_lot": False,
+                "explanation": "ok"},
+        verify_tier=TIER_RANKS["flash"],
+        research_exc=RuntimeError("Gemini HTTP 429: grounding quota"),
+    )
+    await enrich_once(brain, supa, router, settings={"urgent_score_threshold": 75},
+                      searches_by_id={"s1": {"title": "Ordinateurs", "min_margin_eur": 30, "min_margin_pct": 30}},
+                      image_fetch=None)
+    # 2 annonces candidates, MÊME recherche → une seule tentative web (la 2e est en cooldown)
+    assert len(router.research_calls) == 1
 
 
 async def test_enrich_once_no_duplicate_telegram(monkeypatch):

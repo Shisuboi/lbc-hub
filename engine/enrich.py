@@ -8,6 +8,7 @@ met à jour après vérif puis photo. Résilient :
 - scam_risk "high" → rétrograde un 🔴 en 🟡 (spec §4 : un signal d'arnaque fort peut rétrograder).
 """
 import asyncio
+import time
 from datetime import date
 from engine.parse import extract_category
 from engine.cascade import triage_batch, verify_one, photo_one
@@ -21,6 +22,12 @@ _MAX_PENDING_RETRIES = 5
 
 # ── Quota state (module-level, reset automatiquement le lendemain) ────────────
 _quota_exhausted_day: str = ""
+
+# ── Back-off recherche web (module-level) : après un échec sur une (search_id, query_title),
+# on n'y retouche pas avant _RESEARCH_COOLDOWN_S secondes. Évite de mitrailler l'API (429 en
+# rafale) quand la recherche groundée échoue de façon persistante. {(sid, title): retry_after_ts}.
+_research_cooldown: dict = {}
+_RESEARCH_COOLDOWN_S = 1800  # 30 min
 
 
 def quota_paused() -> bool:
@@ -122,19 +129,23 @@ async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch
             search_id = item.get("search_id")
             query_title = (search.get("title") or "").strip()
             if search_id and query_title:
-                try:
-                    market_context = brain.get_market_context(search_id, query_title)
-                    if market_context is None:
-                        print(f"🔍 [researcher] Cache vide ou expiré pour la recherche "
-                              f"« {query_title} » — lancement d'une recherche web…")
+                market_context = brain.get_market_context(search_id, query_title)
+                key = (search_id, query_title)
+                # Cache vide ET pas en cooldown (back-off après un échec) → on tente une recherche.
+                if market_context is None and _research_cooldown.get(key, 0) <= time.time():
+                    print(f"🔍 [researcher] Cache vide ou expiré pour la recherche "
+                          f"« {query_title} » — lancement d'une recherche web…")
+                    try:
                         market_context = await run_market_research(router, query_title)
                         brain.set_market_context(search_id, query_title, market_context)
-                except QuotaExhausted:
-                    market_context = None  # quota épuisé : la vérif retombera dessus et gérera la pause
-                except Exception as exc:
-                    print(f"[researcher] recherche web échouée ({type(exc).__name__}: {exc}) "
-                          "— vérif sans contexte marché web")
-                    market_context = None
+                    except QuotaExhausted:
+                        market_context = None  # quota épuisé : la vérif gérera la pause
+                    except Exception as exc:
+                        _research_cooldown[key] = time.time() + _RESEARCH_COOLDOWN_S
+                        print(f"[researcher] recherche web échouée ({type(exc).__name__}: {exc}) "
+                              f"— nouvelle tentative dans {_RESEARCH_COOLDOWN_S // 60} min "
+                              "(vérif sans contexte marché web d'ici là)")
+                        market_context = None
 
             try:
                 ia = await verify_one(ad, search, router, brain, urgent_score_threshold=threshold,

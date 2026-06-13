@@ -56,7 +56,11 @@ class GeminiClient:
         url = f"{self.base}/v1beta/models/{model_id}:generateContent"
         params = {"key": self.api_key}
         async with self.session.post(url, params=params, json=body) as resp:
-            resp.raise_for_status()
+            if resp.status >= 400:
+                # On conserve le DÉTAIL renvoyé par Google (motif réel du refus : quota grounding,
+                # facturation requise, RPM…) au lieu du laconique "Too Many Requests".
+                detail = (await resp.text())[:500]
+                raise RuntimeError(f"Gemini HTTP {resp.status}: {detail}")
             payload = await resp.json()
         parts = payload["candidates"][0]["content"].get("parts", [])
         text = "".join(p.get("text", "") for p in parts)

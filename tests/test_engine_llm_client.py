@@ -90,3 +90,28 @@ async def test_generate_text_injects_google_search_tool(mock_gemini_text):
         await client.generate_text("gemini-3.1-flash-lite", "prompt", use_search=True)
     body = mock_gemini_text.captured["bodies"][-1]
     assert body["tools"] == [{"googleSearch": {}}]
+
+
+@pytest.fixture
+async def mock_gemini_429(aiohttp_server):
+    async def generate(request):
+        return web.json_response(
+            {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED",
+                       "message": "Google Search grounding is not available on the free tier"}},
+            status=429,
+        )
+    app = web.Application()
+    app.router.add_post("/v1beta/models/{model}:generateContent", generate)
+    return await aiohttp_server(app)
+
+
+async def test_generate_text_surfaces_error_body_on_http_error(mock_gemini_429):
+    """Un 429 doit remonter le DÉTAIL renvoyé par Google (pas juste 'Too Many Requests')."""
+    base = str(mock_gemini_429.make_url("")).rstrip("/")
+    async with ClientSession() as session:
+        client = GeminiClient("test-key", session, base_url=base)
+        with pytest.raises(RuntimeError) as ei:
+            await client.generate_text("gemini-3.1-flash-lite", "prompt", use_search=True)
+    msg = str(ei.value)
+    assert "429" in msg
+    assert "grounding is not available" in msg  # le vrai motif Google est conservé
