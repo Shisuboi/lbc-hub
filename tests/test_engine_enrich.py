@@ -220,6 +220,71 @@ async def test_enrich_once_sends_telegram_for_urgent(monkeypatch):
     assert brain.is_telegram_sent("urgent-1"), "ad_id doit être marqué comme envoyé"
 
 
+class ResearchRouter(ScriptedRouter):
+    """ScriptedRouter + generate_text (Market Researcher) avec compteur d'appels web."""
+    def __init__(self, *a, research_text="Prix web ~300€", research_exc=None, **k):
+        super().__init__(*a, **k)
+        self.research_text = research_text
+        self.research_exc = research_exc
+        self.research_calls = []
+
+    async def generate_text(self, stage, prompt, use_search=False):
+        self.research_calls.append({"stage": stage, "prompt": prompt, "use_search": use_search})
+        if self.research_exc:
+            raise self.research_exc
+        return self.research_text, "research-model", TIER_RANKS["flash-lite"]
+
+
+def _verify_router(**kw):
+    return ResearchRouter(
+        triage_items=[{"ad_id": "1", "category": "interesting", "score": 80, "dig_deeper": True}],
+        verify={"refined_score": 90, "est_market_price": 350.0, "signals": [], "is_lot": False,
+                "explanation": "ok"},
+        verify_tier=TIER_RANKS["pro"],
+        **kw,
+    )
+
+
+async def test_enrich_runs_research_on_cache_miss_and_stores_it():
+    brain = Brain(":memory:")
+    supa = FakeSupa()
+    queue_ad(brain, "1")
+    router = _verify_router()
+    await enrich_once(brain, supa, router, settings={"urgent_score_threshold": 75},
+                      searches_by_id={"s1": {"title": "iPhone 13", "min_margin_eur": 30, "min_margin_pct": 30}},
+                      image_fetch=None)
+    # recherche web déclenchée (cache vide) puis persistée
+    assert len(router.research_calls) == 1
+    assert router.research_calls[0]["use_search"] is True
+    assert brain.get_market_context("s1", "iPhone 13") == "Prix web ~300€"
+
+
+async def test_enrich_uses_cached_research_no_second_web_call():
+    brain = Brain(":memory:")
+    supa = FakeSupa()
+    brain.set_market_context("s1", "iPhone 13", "ctx pré-chargé")  # cache déjà chaud
+    queue_ad(brain, "1")
+    router = _verify_router()
+    await enrich_once(brain, supa, router, settings={"urgent_score_threshold": 75},
+                      searches_by_id={"s1": {"title": "iPhone 13", "min_margin_eur": 30, "min_margin_pct": 30}},
+                      image_fetch=None)
+    assert router.research_calls == []  # cache hit → aucune recherche web
+
+
+async def test_enrich_survives_research_failure():
+    brain = Brain(":memory:")
+    supa = FakeSupa()
+    queue_ad(brain, "1")
+    router = _verify_router(research_exc=RuntimeError("réseau down"))
+    # un échec de recherche web ne doit PAS casser l'enrichissement : la vérif continue
+    n = await enrich_once(brain, supa, router, settings={"urgent_score_threshold": 75},
+                          searches_by_id={"s1": {"title": "iPhone 13", "min_margin_eur": 30, "min_margin_pct": 30}},
+                          image_fetch=None)
+    assert n == 1
+    assert supa.upserts[-1]["category"] == "urgent"
+    assert brain.get_market_context("s1", "iPhone 13") is None  # rien mis en cache sur échec
+
+
 async def test_enrich_once_no_duplicate_telegram(monkeypatch):
     """Si ad_id déjà marqué → send_opportunity pas rappelée."""
     sent = []

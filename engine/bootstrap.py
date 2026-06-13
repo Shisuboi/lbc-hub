@@ -73,14 +73,19 @@ def make_scrape_fn(
 
 
 async def build_searches_lookup(supa, defaults: dict) -> dict:
-    """Construit {search_id: {min_margin_eur, min_margin_pct}} avec défauts si null."""
+    """Construit {search_id: search} avec marges par défaut si null.
+
+    On propage l'objet search COMPLET (notamment `title` et `source_url`) — pas seulement les
+    marges — pour que le worker d'enrichissement connaisse le titre de la recherche (Market
+    Researcher). Les marges null sont remplacées par les défauts de la config.
+    """
     searches = await supa.fetch_active_searches()
     out = {}
     for s in searches:
-        out[s["id"]] = {
-            "min_margin_eur": s.get("min_margin_eur") if s.get("min_margin_eur") is not None
-            else defaults["min_margin_eur"],
-            "min_margin_pct": s.get("min_margin_pct") if s.get("min_margin_pct") is not None
-            else defaults["min_margin_pct"],
-        }
+        entry = dict(s)
+        entry["min_margin_eur"] = (s.get("min_margin_eur") if s.get("min_margin_eur") is not None
+                                   else defaults["min_margin_eur"])
+        entry["min_margin_pct"] = (s.get("min_margin_pct") if s.get("min_margin_pct") is not None
+                                   else defaults["min_margin_pct"])
+        out[s["id"]] = entry
     return out

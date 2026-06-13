@@ -14,6 +14,7 @@ from engine.cascade import triage_batch, verify_one, photo_one
 from engine.supa import merge_enrichment
 from engine.geo import fill_latlon
 from engine.router import QuotaExhausted
+from engine.researcher import run_market_research
 from engine.telegram import send_opportunity
 
 _MAX_PENDING_RETRIES = 5
@@ -113,8 +114,31 @@ async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch
                 "min_margin_eur": settings.get("default_min_margin_eur", 30.0),
                 "min_margin_pct": settings.get("default_min_margin_pct", 30.0),
             }
+
+            # Market Researcher : analyse marché web (cache 3 j par (search_id, query_title)).
+            # On la résout AVANT la vérif pour l'injecter dans le prompt. Best-effort : un échec
+            # (quota, réseau, LLM) ne casse pas la vérif — on retombe sur le grounding LBC.
+            market_context = None
+            search_id = item.get("search_id")
+            query_title = (search.get("title") or "").strip()
+            if search_id and query_title:
+                try:
+                    market_context = brain.get_market_context(search_id, query_title)
+                    if market_context is None:
+                        print(f"🔍 [researcher] Cache vide ou expiré pour la recherche "
+                              f"« {query_title} » — lancement d'une recherche web…")
+                        market_context = await run_market_research(router, query_title)
+                        brain.set_market_context(search_id, query_title, market_context)
+                except QuotaExhausted:
+                    market_context = None  # quota épuisé : la vérif retombera dessus et gérera la pause
+                except Exception as exc:
+                    print(f"[researcher] recherche web échouée ({type(exc).__name__}: {exc}) "
+                          "— vérif sans contexte marché web")
+                    market_context = None
+
             try:
-                ia = await verify_one(ad, search, router, brain, urgent_score_threshold=threshold)
+                ia = await verify_one(ad, search, router, brain, urgent_score_threshold=threshold,
+                                      market_context=market_context)
             except QuotaExhausted:
                 _mark_quota_exhausted()
                 brain.delete_pending(item["id"])  # déjà écrit au triage ; on n'insiste pas
