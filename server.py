@@ -27,6 +27,26 @@ from engine.bootstrap import make_scrape_fn, build_searches_lookup
 from engine.comparator import build_comparator_url
 from engine.scraper import extract_ads_from_results, RESULTS_CONTAINER_SELECTOR, fetch_ad_description
 
+def make_client_session() -> aiohttp.ClientSession:
+    """Session HTTP du moteur, avec vérification TLS via le magasin de certificats NATIF de l'OS.
+
+    Pourquoi : derrière un antivirus/proxy qui intercepte HTTPS (ex. api.telegram.org), la chaîne
+    présentée est signée par une racine auto-signée installée dans le store Windows. OpenSSL (que
+    `ssl.create_default_context()` — donc aiohttp par défaut — utilise) la REJETTE
+    (« self-signed certificate in certificate chain »), alors que SChannel (Chrome/Edge) l'accepte.
+    `truststore` délègue la vérif à l'API native de l'OS → même comportement que les navigateurs.
+    Sans truststore installé, on retombe sur le comportement par défaut (best-effort).
+    """
+    try:
+        import truststore
+        ctx = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        return aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ctx))
+    except ModuleNotFoundError:
+        print("⚠️ truststore non installé (`pip install truststore`) — vérif TLS via OpenSSL. "
+              "Si un antivirus/proxy intercepte HTTPS, Telegram (ou Supabase) peut échouer en SSL.")
+        return aiohttp.ClientSession()
+
+
 # Verrou global : scrape manuel et scrape auto ne naviguent jamais en même temps.
 scrape_lock = asyncio.Lock()
 # Sémaphore description : au plus 1 fetch de page annonce individuelle à la fois (Datadome).
@@ -558,8 +578,7 @@ async def start_autonomous_engine(app):
     cfg = load_config()
     ai = ai_settings(cfg)
     brain = Brain("lbc_brain.sqlite3")
-    _ssl_ctx = ssl.create_default_context()
-    session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=_ssl_ctx))
+    session = make_client_session()
     supa = Supa(cfg["SUPABASE_URL"], cfg["SUPABASE_SERVICE_KEY"], session)
 
     # Telegram (optionnel) : notifications opportunités 🔴 + alertes captcha
@@ -633,14 +652,18 @@ async def start_autonomous_engine(app):
                     print(f"[desc] erreur fetch {url}: {exc}")
                     return None
 
-        async def comparator_fetch(model_name: str, category: str | None = None) -> list:
-            """Recherche LBC ciblée sur un modèle (Chromium partagé, sérialisé par scrape_lock)."""
+        async def comparator_fetch(model_name: str, category: str | None = None) -> list | None:
+            """Recherche LBC ciblée sur un modèle (Chromium partagé, sérialisé par scrape_lock).
+
+            Renvoie une liste (éventuellement vide) si la recherche a tourné, ou None si le scrape
+            principal tenait le verrou (recherche NON faite → l'appelant ne pose pas le cooldown).
+            """
             url = build_comparator_url(model_name, category)
             async with _desc_sem:
                 if scrape_lock.locked():
-                    # le scrape principal a la priorité ; l'appelant marque le cooldown (3 j) donc
-                    # ce modèle ne sera pas re-tenté avant l'expiration du cache (acceptable).
-                    return []
+                    # le scrape principal a la priorité ; on signale « pas pu tourner » (None) pour
+                    # que l'appelant réessaie au prochain cycle au lieu de geler le modèle 3 jours.
+                    return None
                 try:
                     ctx = await get_context()
                     page = await ctx.new_page()
@@ -739,7 +762,7 @@ async def flush_feed():
     """
     cfg = load_config()
     brain = Brain("lbc_brain.sqlite3")
-    async with aiohttp.ClientSession() as session:
+    async with make_client_session() as session:
         supa = Supa(cfg["SUPABASE_URL"], cfg["SUPABASE_SERVICE_KEY"], session)
         try:
             n_opp = await supa.delete_all_opportunities()

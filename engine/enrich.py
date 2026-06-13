@@ -144,21 +144,30 @@ async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch
                 category = lbc_category_from_url(search.get("source_url"))
                 print(f"🔍 [comparateur] Recherche LBC du modèle « {model_name} » "
                       f"(catégorie {category or 'toutes'})…")
-                _bump_comparator_count()
                 try:
                     comparables = await comparator_fetch(model_name, category)
-                    for c in comparables or []:
+                except Exception as exc:
+                    # vrai échec (captcha/timeout) → on traite comme « tenté, 0 résultat » : on
+                    # posera le cooldown pour ne pas marteler LBC avec un modèle qui plante.
+                    print(f"[comparateur] échec recherche « {model_name} » "
+                          f"({type(exc).__name__}: {exc}) — vérif sur les données existantes")
+                    comparables = []
+                if comparables is None:
+                    # None = le scrape principal tenait le verrou, la recherche n'a PAS eu lieu.
+                    # On NE pose PAS le cooldown 3 j (sinon le modèle serait gelé sans données) et
+                    # on ne consomme pas de quota → réessai au prochain cycle.
+                    print(f"  ⏳ [comparateur] « {model_name} » reporté (scrape en cours) — "
+                          f"réessai au prochain cycle.")
+                else:
+                    _bump_comparator_count()
+                    for c in comparables:
                         if c.get("price"):
                             brain.record_market_obs(
                                 extract_category(c.get("url") or "") or ad.get("category"),
                                 float(c["price"]), c.get("city"), model_name=model_name)
-                    print(f"  ✓ [comparateur] {len(comparables or [])} comparable(s) enregistré(s) "
+                    print(f"  ✓ [comparateur] {len(comparables)} comparable(s) enregistré(s) "
                           f"pour « {model_name} ».")
-                except Exception as exc:
-                    print(f"[comparateur] échec recherche « {model_name} » "
-                          f"({type(exc).__name__}: {exc}) — vérif sur les données existantes")
-                finally:
-                    brain.mark_model_lookup(model_name)  # cooldown même en cas d'échec/0 résultat
+                    brain.mark_model_lookup(model_name)  # cooldown (succès OU échec réel)
 
             try:
                 ia = await verify_one(ad, search, router, brain, urgent_score_threshold=threshold)
