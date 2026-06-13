@@ -15,8 +15,14 @@ def compute_margin_and_category(
     price: float, est_market_price: float, refined_score: float,
     min_margin_eur: float, min_margin_pct: float,
     tier_rank: int, min_urgent_rank: int, urgent_score_threshold: float,
+    grounding_confident: bool = True,
 ) -> dict:
-    """Calcule marge €/%, prix max d'achat, et la catégorie finale (gate 🔴)."""
+    """Calcule marge €/%, prix max d'achat, et la catégorie finale (gate 🔴).
+
+    `grounding_confident` : True seulement si le prix marché est ancré sur de VRAIS comparables du
+    même modèle (≥5 annonces LBC observées). Sans cet ancrage, l'estimation est une supposition « de
+    tête » → on plafonne à 🟡, jamais 🔴 (un 🔴 notifie + dit « fonce » : il exige de la confiance).
+    """
     price = float(price or 0.0)
     est = float(est_market_price or 0.0)
     margin_eur = round(est - price, 2)
@@ -27,7 +33,7 @@ def compute_margin_and_category(
     margin_ok = margin_eur >= min_margin_eur and margin_pct >= min_margin_pct
     score_ok = refined_score >= urgent_score_threshold
     tier_ok = tier_rank >= min_urgent_rank
-    if score_ok and margin_ok and tier_ok:
+    if score_ok and margin_ok and tier_ok and grounding_confident:
         category = "urgent"
     elif refined_score >= 50:
         category = "interesting"
@@ -80,6 +86,10 @@ async def verify_one(ad: dict, search: dict, router, brain, urgent_score_thresho
     prompt = build_verify_prompt(ad, grounding)
     data, model_id, tier_rank = await router.generate("verify", prompt, VERIFY_SCHEMA)
 
+    # 🔴 seulement si le prix marché est ancré sur de VRAIS comparables du même modèle
+    # (grounding 'model' = ≥5 annonces LBC observées). Sinon estimation « de tête » → plafond 🟡.
+    grounding_confident = grounding.get("grounding_level") == "model"
+
     margin = compute_margin_and_category(
         price=ad.get("price", 0.0),
         est_market_price=data.get("est_market_price", 0.0),
@@ -88,6 +98,7 @@ async def verify_one(ad: dict, search: dict, router, brain, urgent_score_thresho
         min_margin_pct=search.get("min_margin_pct") or 0.0,
         tier_rank=tier_rank, min_urgent_rank=router.min_urgent_rank,
         urgent_score_threshold=urgent_score_threshold,
+        grounding_confident=grounding_confident,
     )
     return {
         **margin,
