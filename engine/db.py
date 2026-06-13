@@ -91,6 +91,11 @@ CREATE TABLE IF NOT EXISTS search_market_context (
     context_text TEXT NOT NULL,
     updated_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS model_lookup (
+    model_name TEXT PRIMARY KEY,
+    fetched_at INTEGER NOT NULL
+);
 """
 
 # Approximation du reset minuit Pacifique (offset fixe, zéro dépendance tzdata).
@@ -370,6 +375,27 @@ class Brain:
             "query_title = excluded.query_title, context_text = excluded.context_text, "
             "updated_at = excluded.updated_at",
             (search_id, query_title, context_text, now),
+        )
+        self.conn.commit()
+
+    def model_lookup_due(self, model_name: str, max_age_days: int = 3, now: int | None = None) -> bool:
+        """True si ce modèle n'a jamais fait l'objet d'une recherche comparative, ou il y a plus de
+        `max_age_days` jours. Borne la fréquence des recherches LBC ciblées (anti-captcha)."""
+        now = int(now if now is not None else time.time())
+        row = self.conn.execute(
+            "SELECT fetched_at FROM model_lookup WHERE model_name = ?", (model_name,)
+        ).fetchone()
+        if row is None:
+            return True
+        return now - row["fetched_at"] > max_age_days * 86400
+
+    def mark_model_lookup(self, model_name: str, now: int | None = None) -> None:
+        """Enregistre qu'une recherche comparative vient d'être faite pour ce modèle (upsert)."""
+        now = int(now if now is not None else time.time())
+        self.conn.execute(
+            "INSERT INTO model_lookup (model_name, fetched_at) VALUES (?, ?) "
+            "ON CONFLICT(model_name) DO UPDATE SET fetched_at = excluded.fetched_at",
+            (model_name, now),
         )
         self.conn.commit()
 
