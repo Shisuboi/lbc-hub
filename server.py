@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import os
+import ssl
 import sys
 import unicodedata
 import aiohttp
@@ -557,7 +558,8 @@ async def start_autonomous_engine(app):
     cfg = load_config()
     ai = ai_settings(cfg)
     brain = Brain("lbc_brain.sqlite3")
-    session = aiohttp.ClientSession()
+    _ssl_ctx = ssl.create_default_context()
+    session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=_ssl_ctx))
     supa = Supa(cfg["SUPABASE_URL"], cfg["SUPABASE_SERVICE_KEY"], session)
 
     # Telegram (optionnel) : notifications opportunités 🔴 + alertes captcha
