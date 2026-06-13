@@ -50,14 +50,51 @@ def test_passable_when_low_score():
 
 
 def test_no_urgent_when_grounding_not_confident():
-    """Même score/marge/tier parfaits : sans grounding fiable (prix réel du modèle), pas de 🔴."""
+    """Score/marge/tier parfaits mais grounding ni fiable ni de plancher connu → 🟡."""
     out = compute_margin_and_category(
         price=200.0, est_market_price=350.0, refined_score=95,
         min_margin_eur=30, min_margin_pct=30, tier_rank=TIER_RANKS["pro"],
         min_urgent_rank=TIER_RANKS["pro"], urgent_score_threshold=75,
         grounding_confident=False,
     )
-    assert out["category"] == "interesting"  # plafond 🟡 : on n'a pas vu de vrai comparable
+    assert out["category"] == "interesting"  # plafond 🟡 : pas de comparable, pas de plancher
+
+
+def test_wide_grounding_floor_steal_is_urgent():
+    """Distribution large (modèle peu précis) MAIS prix sous le plancher du marché → 🔴 quelle que
+    soit la génération, avec une valeur ancrée conservativement au plancher."""
+    out = compute_margin_and_category(
+        price=90.0, est_market_price=400.0, refined_score=90,
+        min_margin_eur=30, min_margin_pct=30, tier_rank=TIER_RANKS["flash-lite"],
+        min_urgent_rank=TIER_RANKS["flash-lite"], urgent_score_threshold=85,
+        grounding_confident=False, market_floor=150.0,
+    )
+    assert out["category"] == "urgent"
+    assert out["est_market_price"] == 150.0          # ancré au plancher (≤ estimation IA)
+    assert out["est_margin_eur"] == 60.0             # 150 - 90, pas 400 - 90
+
+
+def test_wide_grounding_price_above_floor_not_urgent():
+    """Distribution large + prix au-dessus du plancher → pas une affaire « toutes générations » → 🟡.
+    (cas du MacBook Air 2015 à 140€ : plancher ~130 → marge insuffisante)."""
+    out = compute_margin_and_category(
+        price=140.0, est_market_price=400.0, refined_score=90,
+        min_margin_eur=30, min_margin_pct=30, tier_rank=TIER_RANKS["flash-lite"],
+        min_urgent_rank=TIER_RANKS["flash-lite"], urgent_score_threshold=85,
+        grounding_confident=False, market_floor=150.0,
+    )
+    assert out["category"] == "interesting"          # eff=min(400,150)=150 ; marge 10€ < 30€
+
+
+def test_no_model_grounding_no_floor_stays_interesting():
+    """Aucun modèle (donc pas de plancher) → jamais 🔴, même à prix dérisoire."""
+    out = compute_margin_and_category(
+        price=50.0, est_market_price=200.0, refined_score=95,
+        min_margin_eur=30, min_margin_pct=30, tier_rank=TIER_RANKS["flash-lite"],
+        min_urgent_rank=TIER_RANKS["flash-lite"], urgent_score_threshold=85,
+        grounding_confident=False, market_floor=None,
+    )
+    assert out["category"] == "interesting"
 
 
 # ---- triage_batch (FakeRouter) ----

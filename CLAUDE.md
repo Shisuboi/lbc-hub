@@ -76,8 +76,12 @@ partagée (`/watchlist`) et un dashboard financier (`/dashboard`).
   marché ancré sur de vrais comparables du même modèle (`grounding_level == "model"`, ≥5 annonces LBC)
   **ET** une distribution **resserrée** (IQR/médiane ≤ `MAX_DISPERSION_FOR_CONFIDENCE`=0.6 ; une
   dispersion élevée = libellé de modèle trop large mélangeant des générations, ex. « MacBook Air 13 » =
-  Intel 2015 ~100€ ET M3 ~1200€ → médiane non fiable). Sans (c), estimation peu sûre → plafond 🟡 (un
-  🔴 notifie + dit « fonce », il exige de la confiance). En pratique le
+  Intel 2015 ~100€ ET M3 ~1200€ → médiane non fiable). **OU (c-bis) prix sous le PLANCHER du marché** :
+  même si la distribution est trop large pour ancrer une médiane, un modèle connu expose un plancher
+  (`price_floor` = 1ᵉʳ décile P10 des prix réels). En distribution large, le prix marché EFFECTIF est
+  `min(estimation, plancher)` (conservateur) → un 🔴 ne se déclenche que si le prix bat même la
+  génération la moins chère (« affaire quelle que soit la version »). Sans modèle (pas de plancher),
+  jamais 🔴 → plafond 🟡 (un 🔴 notifie + dit « fonce », il exige de la confiance). En pratique le
   comparateur tourne juste avant la vérif et remplit le grounding → un modèle parsable + ≥5 comparables
   s'ouvre au 🔴 ; un titre vague sans modèle (`extract_model_name` None) reste 🟡 max. Quand le compte
   Pro Gemini sera dispo : `GEMINI_PRO_ENABLED=true` + `GEMINI_VERIFY_MODEL` + clé Pro +
