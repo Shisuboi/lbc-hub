@@ -10,22 +10,52 @@ from engine.prompts import (
 )
 from engine.grounding import market_grounding, is_grounding_confident
 
+# En dessous de cette marge %, une annonce n'est pas une "affaire" de revente convaincante, même
+# si le vendeur produit n'a pas fixé de seuil → on plafonne le score affiché (cf. _reconcile_score).
+MIN_MARGIN_PCT_FOR_FULL_SCORE = 10.0
+
+
+def _reconcile_score(refined_score: float, margin_eur: float, margin_pct: float,
+                     min_margin_pct: float) -> float:
+    """Aligne le score AFFICHÉ sur la marge RÉELLE calculée, pas seulement sur l'avis du LLM.
+
+    Le LLM crache parfois un score élevé (95) en surestimant le marché alors que, prix marché
+    effectif à l'appui, la marge est négative voire nulle. Un tel score trompeur remonterait en tête
+    de feed une non-affaire. Règle :
+    - marge négative (prix ≥ marché) → ce n'est PAS une affaire → score écrasé (→ passable) ;
+    - marge positive mais sous le seuil crédible → plafond modéré (interesting bas) ;
+    - marge confortable → on conserve le score du LLM.
+    """
+    if margin_eur < 0:
+        return min(refined_score, 25.0)
+    floor_pct = max(min_margin_pct, MIN_MARGIN_PCT_FOR_FULL_SCORE)
+    if margin_pct < floor_pct:
+        return min(refined_score, 55.0)
+    return refined_score
+
 
 def compute_margin_and_category(
     price: float, est_market_price: float, refined_score: float,
     min_margin_eur: float, min_margin_pct: float,
     tier_rank: int, min_urgent_rank: int, urgent_score_threshold: float,
     grounding_confident: bool = True, market_floor: float | None = None,
+    market_median: float | None = None,
 ) -> dict:
-    """Calcule marge €/%, prix max d'achat, et la catégorie finale (gate 🔴).
+    """Calcule marge €/%, prix max d'achat, score réconcilié, et la catégorie finale (gate 🔴).
 
     Prix marché EFFECTIF utilisé pour la marge et la gate :
     - `grounding_confident` (distribution resserrée) → on fait confiance à l'estimation (médiane) ;
     - sinon, si un `market_floor` (plancher = 1ᵉʳ décile des prix réels du modèle) est connu → on
       n'ancre QUE sur ce plancher (`min(estimation, plancher)`) : un 🔴 ne peut alors se déclencher
       que si le prix bat même la génération la moins chère → « affaire quelle que soit la version » ;
-    - sans modèle (pas de plancher) → pas éligible au 🔴 (plafond 🟡).
+    - sans modèle (pas de plancher) → pas éligible au 🔴 (plafond 🟡). Dans ce cas non-ancré, si une
+      `market_median` réelle est connue, elle BORNE le prix marché (`min(estimation, médiane)`) :
+      garde-fou anti-hallucination contre les prix internes périmés (et trop hauts) du LLM.
     Un 🔴 notifie + dit « fonce » : il exige soit un ancrage fiable, soit un prix sous le plancher.
+
+    Le `resale_score` retourné est RÉCONCILIÉ avec la marge (cf. _reconcile_score) : un score LLM
+    élevé sur une marge négative/faible est plafonné. La gate 🔴 reste basée sur le score LLM brut
+    (elle exige déjà une marge ≥ seuil, donc un score élevé n'y survit qu'avec une vraie marge).
     """
     price = float(price or 0.0)
     est = float(est_market_price or 0.0)
@@ -39,18 +69,22 @@ def compute_margin_and_category(
     else:
         eff = est                                   # pas de modèle → pas d'ancrage → pas de 🔴
         eligible = False
+        if market_median is not None:               # anti-hallucination : jamais au-dessus du marché réel
+            eff = min(eff, float(market_median))
 
     margin_eur = round(eff - price, 2)
     margin_pct = round((margin_eur / price * 100.0), 2) if price > 0 else 0.0
     required = max(min_margin_eur, price * min_margin_pct / 100.0)
     max_buy = round(eff - required, 2)
 
+    final_score = _reconcile_score(refined_score, margin_eur, margin_pct, min_margin_pct)
+
     margin_ok = margin_eur >= min_margin_eur and margin_pct >= min_margin_pct
     score_ok = refined_score >= urgent_score_threshold
     tier_ok = tier_rank >= min_urgent_rank
     if score_ok and margin_ok and tier_ok and eligible:
         category = "urgent"
-    elif refined_score >= 50:
+    elif final_score >= 50:
         category = "interesting"
     else:
         category = "passable"
@@ -60,6 +94,7 @@ def compute_margin_and_category(
         "est_margin_eur": margin_eur,
         "est_margin_pct": margin_pct,
         "max_buy_price": max_buy,
+        "resale_score": final_score,
         "category": category,
     }
 
@@ -106,6 +141,11 @@ async def verify_one(ad: dict, search: dict, router, brain, urgent_score_thresho
     # soit la génération). Sans modèle (pas de plancher) → plafond 🟡.
     grounding_confident = is_grounding_confident(grounding)
 
+    # Garde-fou anti-hallucination : ne borne le prix marché par la médiane observée QUE si elle
+    # repose sur un échantillon réel (≥5, même barre que le grounding 'model'). Une médiane sur 1-2
+    # obs (souvent l'annonce elle-même, enregistrée au triage) n'est pas un comparable fiable.
+    market_median = grounding.get("median_price") if (grounding.get("sample_size") or 0) >= 5 else None
+
     margin = compute_margin_and_category(
         price=ad.get("price", 0.0),
         est_market_price=data.get("est_market_price", 0.0),
@@ -116,10 +156,10 @@ async def verify_one(ad: dict, search: dict, router, brain, urgent_score_thresho
         urgent_score_threshold=urgent_score_threshold,
         grounding_confident=grounding_confident,
         market_floor=grounding.get("price_floor"),
+        market_median=market_median,
     )
     return {
-        **margin,
-        "resale_score": float(data.get("refined_score", 0.0)),
+        **margin,  # inclut resale_score réconcilié avec la marge
         "signals": data.get("signals", []),
         "is_lot": bool(data.get("is_lot", False)),
         "lot_unit_price": data.get("lot_unit_price"),
