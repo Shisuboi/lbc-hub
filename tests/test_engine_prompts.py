@@ -61,3 +61,19 @@ def test_verify_prompt_uses_product_knowledge_when_grounding_unknown():
     low = prompt.lower()
     assert "connaiss" in low                              # estimer via connaissances produit
     assert ("illusoire" in low) or ("dérisoire" in low) or ("pièces" in low)
+
+
+def test_verify_prompt_injects_market_context_when_provided():
+    ad = {"title": "iPhone 13", "price": 250.0, "city": "Paris", "category": "telephonie"}
+    ctx = "Prix neuf ~600€, occasion ~350€, reconditionné ~420€."
+    prompt = build_verify_prompt(ad, {}, market_context=ctx)
+    assert ctx in prompt
+    low = prompt.lower()
+    assert "recherche web" in low                         # bloc d'analyse web présent
+    assert "explanation" in prompt                        # consigne de résumer dans l'explication
+
+
+def test_verify_prompt_no_market_block_when_context_absent():
+    ad = {"title": "iPhone 13", "price": 250.0, "city": "Paris", "category": "telephonie"}
+    prompt = build_verify_prompt(ad, {})  # pas de market_context
+    assert "ANALYSE MARCHÉ WEB" not in prompt

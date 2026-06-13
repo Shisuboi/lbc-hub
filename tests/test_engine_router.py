@@ -81,3 +81,36 @@ def test_min_tier_rank_helper():
     p = FakeProvider()
     r = make_router(p)
     assert r.min_urgent_rank == TIER_RANKS["pro"]
+
+
+class FakeTextProvider:
+    name = "gemini"
+
+    def __init__(self):
+        self.calls = []
+
+    async def generate_text(self, model_id, prompt, use_search=False):
+        self.calls.append((model_id, use_search))
+        return ("texte de recherche", 3000)  # (text, tokens)
+
+
+async def test_generate_text_research_stage_uses_verify_model_and_search():
+    p = FakeTextProvider()
+    r = make_router(p)
+    text, model_id, tier = await r.generate_text("research", "prompt", use_search=True)
+    assert text == "texte de recherche"
+    assert model_id == "gemini-3.1-flash-lite"  # research mappé sur verify_model
+    assert tier == TIER_RANKS["flash-lite"]
+    assert p.calls == [("gemini-3.1-flash-lite", True)]
+
+
+async def test_generate_text_counts_usage_and_respects_quota():
+    p = FakeTextProvider()
+    brain = Brain(":memory:")
+    r = make_router(p, brain=brain)
+    await r.generate_text("research", "prompt", use_search=True)
+    from engine.db import quota_day
+    assert brain.usage_count("gemini", "gemini-3.1-flash-lite", quota_day()) == 1
+    r.caps["gemini-3.1-flash-lite"] = 1
+    with pytest.raises(QuotaExhausted):
+        await r.generate_text("research", "prompt", use_search=True)

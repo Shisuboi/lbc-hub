@@ -42,3 +42,23 @@ class GeminiClient:
         text = payload["candidates"][0]["content"]["parts"][0]["text"]
         tokens = payload.get("usageMetadata", {}).get("totalTokenCount", 0)
         return json.loads(text), tokens
+
+    async def generate_text(self, model_id: str, prompt: str, use_search: bool = False):
+        """Génère du texte libre. Retourne (text: str, token_count: int). Lève en cas d'erreur HTTP.
+
+        Si use_search=True, active l'outil Google Search natif de Gemini (grounding web). Dans ce
+        mode, on N'IMPOSE PAS de responseSchema/JSON : la recherche groundée renvoie du texte libre
+        (potentiellement en plusieurs `parts` qu'on concatène).
+        """
+        body: dict = {"contents": [{"parts": [{"text": prompt}]}]}
+        if use_search:
+            body["tools"] = [{"googleSearch": {}}]
+        url = f"{self.base}/v1beta/models/{model_id}:generateContent"
+        params = {"key": self.api_key}
+        async with self.session.post(url, params=params, json=body) as resp:
+            resp.raise_for_status()
+            payload = await resp.json()
+        parts = payload["candidates"][0]["content"].get("parts", [])
+        text = "".join(p.get("text", "") for p in parts)
+        tokens = payload.get("usageMetadata", {}).get("totalTokenCount", 0)
+        return text, tokens
