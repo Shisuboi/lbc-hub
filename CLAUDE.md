@@ -85,7 +85,9 @@ partagée (`/watchlist`) et un dashboard financier (`/dashboard`).
   comparateur tourne juste avant la vérif et remplit le grounding → un modèle parsable + ≥5 comparables
   s'ouvre au 🔴 ; un titre vague sans modèle (`extract_model_name` None) reste 🟡 max. Quand le compte
   Pro Gemini sera dispo : `GEMINI_PRO_ENABLED=true` + `GEMINI_VERIFY_MODEL` + clé Pro +
-  `MIN_TIER_FOR_URGENT=pro` pour restreindre. `scam_risk == "high"` à la photo **rétrograde** un 🔴 en 🟡.
+  `MIN_TIER_FOR_URGENT=pro` pour restreindre. La photo (🔴 uniquement) est analysée pour son
+  `photo_verdict` (visible sur la fiche) mais **ne rétrograde PLUS** un 🔴 sur `scam_risk` élevé
+  (choix produit juin 2026 : Tristan vérifie les arnaques lui-même ; l'alerte reste visible, pas bloquante).
 - **Modules `engine/`** : `router` (LLMRouter, quotas `llm_usage`, fallback, gate tier),
   `llm_client` (GeminiClient REST), `cascade`, `prompts` (schémas JSON), `grounding` (médiane marché),
   `sink` (LocalSink), `enrich` (worker).

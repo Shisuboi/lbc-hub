@@ -4,8 +4,9 @@ Découplé du scrape (2e coroutine sous --auto). Écrit l'opportunité dès le t
 met à jour après vérif puis photo. Résilient :
 - QuotaExhausted → on s'arrête, les items restent en file (dégradation gracieuse, §6 de la spec) ;
 - réponse LLM malformée → on ne boucle pas à l'infini (bump retry / skip) ;
-- garde anti-poison → un item échouant trop de fois est abandonné pour ne pas bloquer la file ;
-- scam_risk "high" → rétrograde un 🔴 en 🟡 (spec §4 : un signal d'arnaque fort peut rétrograder).
+- garde anti-poison → un item échouant trop de fois est abandonné pour ne pas bloquer la file.
+La photo (🔴 uniquement) reste analysée pour son verdict, mais NE rétrograde PLUS sur scam_risk
+élevé (choix produit : Tristan vérifie les arnaques lui-même ; l'alerte reste visible, pas bloquante).
 """
 import asyncio
 from datetime import date
@@ -195,9 +196,9 @@ async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch
                     photo = await photo_one(ad, img, router)
                     payload = merge_enrichment(payload, photo)
                     print(f"  📸 Photo {ad_id}: {photo.get('verdict', '?')} (scam_risk={photo.get('scam_risk', '?')})")
-                    # Règle de rétrogradation : un signal d'arnaque fort retire le 🔴 (spec §4).
-                    if photo.get("scam_risk") == "high":
-                        payload["category"] = "interesting"
+                    # NB : la photo NE rétrograde PLUS un 🔴 sur scam_risk élevé (choix produit :
+                    # Tristan vérifie les arnaques lui-même). On garde verdict + scam_risk attachés
+                    # → l'alerte reste VISIBLE dans le feed/la notif, sans bloquer l'opportunité.
                 except QuotaExhausted:
                     pass  # déjà 🔴 sans photo, acceptable
                 except Exception as exc:
