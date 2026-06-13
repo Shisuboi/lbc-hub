@@ -106,11 +106,13 @@ async def test_enrich_once_quota_exhausted_keeps_items():
     assert len(brain.peek_pending(limit=10)) == 1  # rien perdu, reste en file
 
 
-async def test_enrich_once_downgrades_urgent_on_high_scam():
+async def test_enrich_once_keeps_urgent_on_high_scam_but_attaches_warning():
+    """Choix produit : la photo NE rétrograde PLUS un 🔴 sur scam_risk élevé (Tristan vérifie les
+    arnaques lui-même). Le 🔴 reste 🔴, mais le verdict + scam_risk restent attachés (alerte visible)."""
     brain = Brain(":memory:")
     supa = FakeSupa()
     queue_ad(brain, "1", image_url="https://img.leboncoin.fr/a.jpg", title="MacBook Air M1")
-    seed_model_grounding(brain, "MacBook Air M1")  # grounding fiable → 🔴 (avant rétrogradation photo)
+    seed_model_grounding(brain, "MacBook Air M1")  # grounding fiable → 🔴
     router = ScriptedRouter(
         triage_items=[{"ad_id": "1", "category": "interesting", "score": 85, "dig_deeper": True}],
         verify={"refined_score": 92, "est_market_price": 350.0, "signals": [], "is_lot": False,
@@ -126,9 +128,8 @@ async def test_enrich_once_downgrades_urgent_on_high_scam():
                       settings={"urgent_score_threshold": 75},
                       searches_by_id={"s1": {"min_margin_eur": 30, "min_margin_pct": 30}},
                       image_fetch=image_fetch)
-    # malgré un score+marge dignes d'un 🔴, le scam_risk high rétrograde en 🟡
-    assert supa.upserts[-1]["category"] == "interesting"
-    assert supa.upserts[-1]["photo_verdict"] == "douteux"
+    assert supa.upserts[-1]["category"] == "urgent"          # plus de rétrogradation sur scam_risk
+    assert supa.upserts[-1]["photo_verdict"] == "douteux"    # verdict photo conservé (alerte visible)
 
 
 async def test_enrich_once_survives_malformed_verify():
