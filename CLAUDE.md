@@ -72,9 +72,12 @@ partagée (`/watchlist`) et un dashboard financier (`/dashboard`).
   uniquement) → état réel + `scam_risk`.
 - **Gate 🔴** : `urgent` seulement si **(a)** le vérificateur a un **tier ≥ `MIN_TIER_FOR_URGENT`**
   (défaut `"flash-lite"` → gate ouverte aux modèles gratuits), **(b)** un score ≥ `URGENT_SCORE_THRESHOLD`
-  (défaut 85), **ET (c)** un **grounding FIABLE** : prix marché ancré sur de vrais comparables du même
-  modèle (`grounding_level == "model"`, ≥5 annonces LBC observées). Sans (c), l'estimation est « de
-  tête » → plafond 🟡 (un 🔴 notifie + dit « fonce », il exige de la confiance). En pratique le
+  (défaut 85), **ET (c)** un **grounding FIABLE** (`engine.grounding.is_grounding_confident`) : prix
+  marché ancré sur de vrais comparables du même modèle (`grounding_level == "model"`, ≥5 annonces LBC)
+  **ET** une distribution **resserrée** (IQR/médiane ≤ `MAX_DISPERSION_FOR_CONFIDENCE`=0.6 ; une
+  dispersion élevée = libellé de modèle trop large mélangeant des générations, ex. « MacBook Air 13 » =
+  Intel 2015 ~100€ ET M3 ~1200€ → médiane non fiable). Sans (c), estimation peu sûre → plafond 🟡 (un
+  🔴 notifie + dit « fonce », il exige de la confiance). En pratique le
   comparateur tourne juste avant la vérif et remplit le grounding → un modèle parsable + ≥5 comparables
   s'ouvre au 🔴 ; un titre vague sans modèle (`extract_model_name` None) reste 🟡 max. Quand le compte
   Pro Gemini sera dispo : `GEMINI_PRO_ENABLED=true` + `GEMINI_VERIFY_MODEL` + clé Pro +
