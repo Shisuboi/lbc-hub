@@ -8,7 +8,7 @@ from engine.prompts import (
     TRIAGE_SCHEMA, VERIFY_SCHEMA, PHOTO_SCHEMA,
     build_triage_prompt, build_verify_prompt, build_photo_prompt,
 )
-from engine.grounding import market_grounding
+from engine.grounding import market_grounding, is_grounding_confident
 
 
 def compute_margin_and_category(
@@ -86,9 +86,10 @@ async def verify_one(ad: dict, search: dict, router, brain, urgent_score_thresho
     prompt = build_verify_prompt(ad, grounding)
     data, model_id, tier_rank = await router.generate("verify", prompt, VERIFY_SCHEMA)
 
-    # 🔴 seulement si le prix marché est ancré sur de VRAIS comparables du même modèle
-    # (grounding 'model' = ≥5 annonces LBC observées). Sinon estimation « de tête » → plafond 🟡.
-    grounding_confident = grounding.get("grounding_level") == "model"
+    # 🔴 seulement si le prix marché est ancré sur de VRAIS comparables du même modèle (grounding
+    # 'model', ≥5 annonces LBC) ET une distribution resserrée (sinon libellé trop large mélangeant
+    # des générations → médiane non fiable). Sinon estimation peu sûre → plafond 🟡.
+    grounding_confident = is_grounding_confident(grounding)
 
     margin = compute_margin_and_category(
         price=ad.get("price", 0.0),
