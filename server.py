@@ -40,10 +40,17 @@ def make_client_session() -> aiohttp.ClientSession:
     try:
         import truststore
         ctx = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        print("🔒 TLS via le magasin de certificats natif de l'OS (truststore).")
         return aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ctx))
     except ModuleNotFoundError:
         print("⚠️ truststore non installé (`pip install truststore`) — vérif TLS via OpenSSL. "
               "Si un antivirus/proxy intercepte HTTPS, Telegram (ou Supabase) peut échouer en SSL.")
+        return aiohttp.ClientSession()
+    except Exception as exc:
+        # truststore présent mais KO sur cette machine (version/plateforme) : un helper de
+        # confiance TLS ne doit JAMAIS empêcher le moteur de démarrer → on retombe sur OpenSSL.
+        print(f"⚠️ truststore indisponible ({type(exc).__name__}: {exc}) — vérif TLS via OpenSSL "
+              "(fallback). Telegram peut échouer en SSL si HTTPS est intercepté.")
         return aiohttp.ClientSession()
 
 
