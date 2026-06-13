@@ -43,26 +43,3 @@ class GeminiClient:
         tokens = payload.get("usageMetadata", {}).get("totalTokenCount", 0)
         return json.loads(text), tokens
 
-    async def generate_text(self, model_id: str, prompt: str, use_search: bool = False):
-        """Génère du texte libre. Retourne (text: str, token_count: int). Lève en cas d'erreur HTTP.
-
-        Si use_search=True, active l'outil Google Search natif de Gemini (grounding web). Dans ce
-        mode, on N'IMPOSE PAS de responseSchema/JSON : la recherche groundée renvoie du texte libre
-        (potentiellement en plusieurs `parts` qu'on concatène).
-        """
-        body: dict = {"contents": [{"parts": [{"text": prompt}]}]}
-        if use_search:
-            body["tools"] = [{"googleSearch": {}}]
-        url = f"{self.base}/v1beta/models/{model_id}:generateContent"
-        params = {"key": self.api_key}
-        async with self.session.post(url, params=params, json=body) as resp:
-            if resp.status >= 400:
-                # On conserve le DÉTAIL renvoyé par Google (motif réel du refus : quota grounding,
-                # facturation requise, RPM…) au lieu du laconique "Too Many Requests".
-                detail = (await resp.text())[:500]
-                raise RuntimeError(f"Gemini HTTP {resp.status}: {detail}")
-            payload = await resp.json()
-        parts = payload["candidates"][0]["content"].get("parts", [])
-        text = "".join(p.get("text", "") for p in parts)
-        tokens = payload.get("usageMetadata", {}).get("totalTokenCount", 0)
-        return text, tokens

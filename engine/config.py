@@ -50,9 +50,7 @@ def ai_settings(cfg: dict) -> dict:
         "api_key": cfg.get("GEMINI_API_KEY") or None,
         "triage_model": cfg.get("GEMINI_TRIAGE_MODEL") or "gemini-3.1-flash-lite",
         "verify_model": cfg.get("GEMINI_VERIFY_MODEL") or "gemini-3.1-flash-lite",
-        # Market Researcher (Google Search) : modèle dédié optionnel ; sinon = verify_model.
-        "research_model": cfg.get("GEMINI_RESEARCH_MODEL") or None,
-        "pro_model": cfg.get("GEMINI_PRO_MODEL") or "gemini-3.1-pro-preview",
+"pro_model": cfg.get("GEMINI_PRO_MODEL") or "gemini-3.1-pro-preview",
         "photo_model": cfg.get("GEMINI_PHOTO_MODEL") or "gemini-3.1-flash-lite",
         "pro_enabled": _to_bool(cfg.get("GEMINI_PRO_ENABLED")) and bool(cfg.get("GEMINI_API_KEY")),
         # Plafond DUR d'appels au modèle Pro (payant) par jour. Défaut conservateur = 50.
