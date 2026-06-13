@@ -49,6 +49,17 @@ def test_passable_when_low_score():
     assert out["category"] == "passable"
 
 
+def test_no_urgent_when_grounding_not_confident():
+    """Même score/marge/tier parfaits : sans grounding fiable (prix réel du modèle), pas de 🔴."""
+    out = compute_margin_and_category(
+        price=200.0, est_market_price=350.0, refined_score=95,
+        min_margin_eur=30, min_margin_pct=30, tier_rank=TIER_RANKS["pro"],
+        min_urgent_rank=TIER_RANKS["pro"], urgent_score_threshold=75,
+        grounding_confident=False,
+    )
+    assert out["category"] == "interesting"  # plafond 🟡 : on n'a pas vu de vrai comparable
+
+
 # ---- triage_batch (FakeRouter) ----
 
 class FakeRouter:
@@ -87,9 +98,16 @@ async def test_triage_batch_records_market_obs():
 
 # ---- verify_one (FakeRouter) ----
 
+def _seed_model_grounding(brain, model_name, n=6, price=300.0, category="ordinateurs"):
+    """Seed ≥5 observations marché du MÊME modèle → grounding 'model' (requis pour 🔴)."""
+    for _ in range(n):
+        brain.record_market_obs(category, float(price), "Paris", model_name=model_name)
+
+
 async def test_verify_one_promotes_urgent_with_pro():
-    ad = {"ad_id": "1", "title": "PS5", "price": 200.0, "city": "Paris",
-          "category": "consoles_jeux_video"}
+    # titre parsable + ≥5 comparables réels du même modèle → grounding fiable → 🔴 possible
+    ad = {"ad_id": "1", "title": "MacBook Air M1", "price": 200.0, "city": "Paris",
+          "category": "ordinateurs"}
     search = {"min_margin_eur": 30, "min_margin_pct": 30}
     router = FakeRouter(
         {"refined_score": 92, "est_market_price": 350.0, "signals": ["sous-coté"],
@@ -97,10 +115,26 @@ async def test_verify_one_promotes_urgent_with_pro():
         tier_rank=TIER_RANKS["pro"],
     )
     brain = Brain(":memory:")
+    _seed_model_grounding(brain, "MacBook Air M1")
     out = await verify_one(ad, search, router, brain, urgent_score_threshold=75)
     assert out["category"] == "urgent"
     assert out["est_margin_eur"] == 150.0
     assert out["model_used"] == "fake-model"
+
+
+async def test_verify_one_no_urgent_without_model_grounding():
+    """Score/marge/tier parfaits mais AUCUN comparable réel du modèle → plafond 🟡 (pas de 🔴)."""
+    ad = {"ad_id": "1", "title": "MacBook Air M1", "price": 200.0, "city": "Paris",
+          "category": "ordinateurs"}
+    search = {"min_margin_eur": 30, "min_margin_pct": 30}
+    router = FakeRouter(
+        {"refined_score": 95, "est_market_price": 350.0, "signals": [],
+         "is_lot": False, "explanation": "ok"},
+        tier_rank=TIER_RANKS["pro"],
+    )
+    brain = Brain(":memory:")  # vide → grounding non fiable
+    out = await verify_one(ad, search, router, brain, urgent_score_threshold=75)
+    assert out["category"] == "interesting"
 
 
 async def test_verify_one_capped_at_interesting_without_pro():

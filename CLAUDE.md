@@ -70,11 +70,15 @@ partagée (`/watchlist`) et un dashboard financier (`/dashboard`).
   `gemini-3.1-flash-lite` gratuit) → 🟡/⚫ + score, ne déclare JAMAIS urgent ; ② **vérification**
   (1 appel/candidate) → prix marché, marge €/%, prix max, lot, signaux ; ③ **photo** (vision, 🔴
   uniquement) → état réel + `scam_risk`.
-- **Gate 🔴** : `urgent` seulement si le vérificateur a un **tier ≥ `MIN_TIER_FOR_URGENT`**
-  (défaut `"flash-lite"` → gate ouverte aux modèles gratuits) **ET** un score ≥ `URGENT_SCORE_THRESHOLD`
-  (défaut 85). Quand le compte Pro Gemini sera dispo : `GEMINI_PRO_ENABLED=true` + `GEMINI_VERIFY_MODEL`
-  + clé Pro + `MIN_TIER_FOR_URGENT=pro` pour restreindre. `scam_risk == "high"` à la photo **rétrograde**
-  un 🔴 en 🟡.
+- **Gate 🔴** : `urgent` seulement si **(a)** le vérificateur a un **tier ≥ `MIN_TIER_FOR_URGENT`**
+  (défaut `"flash-lite"` → gate ouverte aux modèles gratuits), **(b)** un score ≥ `URGENT_SCORE_THRESHOLD`
+  (défaut 85), **ET (c)** un **grounding FIABLE** : prix marché ancré sur de vrais comparables du même
+  modèle (`grounding_level == "model"`, ≥5 annonces LBC observées). Sans (c), l'estimation est « de
+  tête » → plafond 🟡 (un 🔴 notifie + dit « fonce », il exige de la confiance). En pratique le
+  comparateur tourne juste avant la vérif et remplit le grounding → un modèle parsable + ≥5 comparables
+  s'ouvre au 🔴 ; un titre vague sans modèle (`extract_model_name` None) reste 🟡 max. Quand le compte
+  Pro Gemini sera dispo : `GEMINI_PRO_ENABLED=true` + `GEMINI_VERIFY_MODEL` + clé Pro +
+  `MIN_TIER_FOR_URGENT=pro` pour restreindre. `scam_risk == "high"` à la photo **rétrograde** un 🔴 en 🟡.
 - **Modules `engine/`** : `router` (LLMRouter, quotas `llm_usage`, fallback, gate tier),
   `llm_client` (GeminiClient REST), `cascade`, `prompts` (schémas JSON), `grounding` (médiane marché),
   `sink` (LocalSink), `enrich` (worker).

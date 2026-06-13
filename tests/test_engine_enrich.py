@@ -41,13 +41,19 @@ class ScriptedRouter:
 
 
 def queue_ad(brain, ad_id, price=200.0, image_url=None,
-             url="https://www.leboncoin.fr/ad/consoles_jeux_video/1"):
+             url="https://www.leboncoin.fr/ad/consoles_jeux_video/1", title=None):
     payload = {
-        "ad_id": ad_id, "source_search_id": "s1", "title": f"PS5 {ad_id}", "price": price,
+        "ad_id": ad_id, "source_search_id": "s1", "title": title or f"PS5 {ad_id}", "price": price,
         "url": url, "image_url": image_url, "location_city": "Paris",
         "category": None, "resale_score": None, "status": "active",
     }
     brain.queue_pending(payload, search_id="s1", ad_id=ad_id, now=1000)
+
+
+def seed_model_grounding(brain, model_name, n=6, price=300.0, category="consoles_jeux_video"):
+    """Seed ≥5 observations marché du MÊME modèle → grounding 'model' = requis pour un 🔴."""
+    for _ in range(n):
+        brain.record_market_obs(category, float(price), "Paris", model_name=model_name)
 
 
 async def test_enrich_once_writes_triaged_opportunity():
@@ -67,7 +73,8 @@ async def test_enrich_once_writes_triaged_opportunity():
 async def test_enrich_once_verifies_candidate_and_updates():
     brain = Brain(":memory:")
     supa = FakeSupa()
-    queue_ad(brain, "1")
+    queue_ad(brain, "1", title="MacBook Air M1")
+    seed_model_grounding(brain, "MacBook Air M1")  # grounding fiable → 🔴 possible
     router = ScriptedRouter(
         triage_items=[{"ad_id": "1", "category": "interesting", "score": 80, "dig_deeper": True}],
         verify={"refined_score": 92, "est_market_price": 350.0, "signals": [], "is_lot": False,
@@ -102,7 +109,8 @@ async def test_enrich_once_quota_exhausted_keeps_items():
 async def test_enrich_once_downgrades_urgent_on_high_scam():
     brain = Brain(":memory:")
     supa = FakeSupa()
-    queue_ad(brain, "1", image_url="https://img.leboncoin.fr/a.jpg")
+    queue_ad(brain, "1", image_url="https://img.leboncoin.fr/a.jpg", title="MacBook Air M1")
+    seed_model_grounding(brain, "MacBook Air M1")  # grounding fiable → 🔴 (avant rétrogradation photo)
     router = ScriptedRouter(
         triage_items=[{"ad_id": "1", "category": "interesting", "score": 85, "dig_deeper": True}],
         verify={"refined_score": 92, "est_market_price": 350.0, "signals": [], "is_lot": False,
@@ -204,7 +212,8 @@ async def test_enrich_once_sends_telegram_for_urgent(monkeypatch):
 
     brain = Brain(":memory:")
     supa = FakeSupa()
-    queue_ad(brain, "urgent-1", price=200.0)
+    queue_ad(brain, "urgent-1", price=200.0, title="MacBook Air M1")
+    seed_model_grounding(brain, "MacBook Air M1")  # grounding fiable → 🔴 → notif
     router = ScriptedRouter(
         triage_items=[{"ad_id": "urgent-1", "category": "interesting", "score": 85, "dig_deeper": True}],
         verify={"refined_score": 92, "est_market_price": 350.0, "signals": [], "is_lot": False,
@@ -372,7 +381,8 @@ async def test_enrich_once_no_duplicate_telegram(monkeypatch):
     brain = Brain(":memory:")
     brain.mark_telegram_sent("urgent-2")  # pré-marquer
     supa = FakeSupa()
-    queue_ad(brain, "urgent-2", price=200.0)
+    queue_ad(brain, "urgent-2", price=200.0, title="MacBook Air M1")
+    seed_model_grounding(brain, "MacBook Air M1")  # grounding fiable → 🔴
     router = ScriptedRouter(
         triage_items=[{"ad_id": "urgent-2", "category": "interesting", "score": 85, "dig_deeper": True}],
         verify={"refined_score": 92, "est_market_price": 350.0, "signals": [], "is_lot": False,
