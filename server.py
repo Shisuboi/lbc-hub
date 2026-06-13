@@ -23,6 +23,7 @@ from engine.maintenance import run_maintenance
 from engine.telegram import TelegramClient
 from engine.telegram_bot import telegram_poll_worker
 from engine.bootstrap import make_scrape_fn, build_searches_lookup
+from engine.comparator import build_comparator_url
 from engine.scraper import extract_ads_from_results, RESULTS_CONTAINER_SELECTOR, fetch_ad_description
 
 # Verrou global : scrape manuel et scrape auto ne naviguent jamais en même temps.
@@ -630,9 +631,34 @@ async def start_autonomous_engine(app):
                     print(f"[desc] erreur fetch {url}: {exc}")
                     return None
 
+        async def comparator_fetch(model_name: str, category: str | None = None) -> list:
+            """Recherche LBC ciblée sur un modèle (Chromium partagé, sérialisé par scrape_lock)."""
+            url = build_comparator_url(model_name, category)
+            async with _desc_sem:
+                if scrape_lock.locked():
+                    # le scrape principal a la priorité ; on réessaiera ce modèle plus tard
+                    return []
+                try:
+                    ctx = await get_context()
+                    page = await ctx.new_page()
+                    try:
+                        await page.goto(url, wait_until="domcontentloaded")
+                        try:
+                            await page.wait_for_selector(RESULTS_CONTAINER_SELECTOR, timeout=8000)
+                        except Exception:
+                            return []  # blocage/pas de résultats → best-effort, on abandonne ce modèle
+                        return await extract_ads_from_results(page)
+                    finally:
+                        await page.close()
+                        await asyncio.sleep(0.5)  # pause Datadome entre navigations
+                except Exception as exc:
+                    print(f"[comparateur] erreur navigation {url}: {exc}")
+                    return []
+
         tasks.append(asyncio.create_task(
             enrichment_worker(brain, supa, router, ai, fetch_searches, image_fetch, stop_event,
-                              telegram=telegram, desc_fetch=description_fetch)
+                              telegram=telegram, desc_fetch=description_fetch,
+                              comparator_fetch=comparator_fetch)
         ))
         print("🧠 Worker d'enrichissement IA démarré (cascade + descriptions).")
     else:
