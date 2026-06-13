@@ -81,8 +81,9 @@ verify stage (annonce candidate, dig_deeper ou score >= seuil)
 
 ### Orchestration — `engine/enrich.py`
 - Au stade vérif, avant `verify_one`, pour le `model_name` de l'annonce candidate :
-  - garde-fous : `model_name` non vide **ET** `brain.model_lookup_due(model_name)` **ET** plafond
-    journalier non atteint ;
+  - garde-fous : `extract_model_name` renvoie un **modèle réel non vide** (titre vague / sans modèle
+    identifiable → **on ne lance AUCUNE recherche**) **ET** `brain.model_lookup_due(model_name)`
+    **ET** plafond journalier non atteint ;
   - exécute `comparator_fetch`, enregistre chaque prix dans `market_observations`, puis
     `mark_model_lookup` ;
   - **best-effort** : tout échec (captcha Datadome, timeout, 0 résultat) → on log une ligne, on
