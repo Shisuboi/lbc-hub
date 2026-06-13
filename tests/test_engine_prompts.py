@@ -63,3 +63,18 @@ def test_verify_prompt_uses_product_knowledge_when_grounding_unknown():
     assert ("illusoire" in low) or ("dérisoire" in low) or ("pièces" in low)
 
 
+def test_verify_prompt_prioritizes_price_perf_over_aesthetics():
+    """Le barème doit valoriser le prix/perf et NE PLUS plafonner sur l'état esthétique."""
+    ad = {"title": "HP Envy i7", "price": 100.0, "city": "Bordeaux", "category": "informatique"}
+    prompt = build_verify_prompt(ad, {"median_price": 210.0, "sample_size": 8})
+    low = prompt.lower()
+    # l'ancien plafond dur sur le moindre doute a disparu
+    assert "ne peut pas dépasser 79" not in low
+    # priorité explicite prix/perf, état esthétique minoré, pas de double peine
+    assert "prix/perf" in low
+    assert "esthétique" in low
+    assert "deux fois" in low
+    # seuls les vrais red flags plafonnent bas (anti-arnaque préservé)
+    assert "red flag" in low
+
+
