@@ -110,23 +110,7 @@ def build_triage_prompt(ads: list[dict], grounding: dict) -> str:
     )
 
 
-def _market_context_block(market_context: str | None) -> str:
-    """Bloc d'injection de l'analyse marché web (Market Researcher). Vide si pas de contexte."""
-    if not market_context:
-        return ""
-    return (
-        "\n=== ANALYSE MARCHÉ WEB (recherche en temps réel, juin 2026) ===\n"
-        f"{market_context.strip()}\n"
-        "=== FIN ANALYSE MARCHÉ WEB ===\n"
-        "INSTRUCTION STRICTE : tu DOIS impérativement utiliser les prix issus de la recherche Web "
-        "ci-dessus pour calibrer ton estimation `est_market_price` (ils PRIMENT sur tes "
-        "connaissances internes ET sur la médiane LBC). Tu DOIS aussi résumer brièvement ces "
-        "constatations web dans ton `explanation` pour justifier ton prix "
-        "(ex : « Prix web moyen constaté : X€, après décote revente : Y€ »).\n"
-    )
-
-
-def build_verify_prompt(ad: dict, grounding: dict, market_context: str | None = None) -> str:
+def build_verify_prompt(ad: dict, grounding: dict) -> str:
     return (
         "Nous sommes en juin 2026. CALIBRAGE ESSENTIEL pour estimer est_market_price :\n"
         "① Tes prix internes sont trop élevés : divise ton estimation par 2 à 3 pour les smartphones/"
@@ -138,7 +122,6 @@ def build_verify_prompt(ad: dict, grounding: dict, market_context: str | None = 
         "Si le prix marché de référence ci-dessous est fourni, il a TOUJOURS priorité — utilise-le "
         "comme ancre principale. S'il est INCONNU, estime à partir de tes connaissances du modèle "
         "exact (gamme, année, capacité, état typique) en appliquant le calibrage ci-dessus.\n"
-        + _market_context_block(market_context) +
         "Tu vérifies une annonce Leboncoin pour de la revente. Estime le prix de revente réaliste "
         "(est_market_price), un score affiné 0-100, les signaux d'opportunité, et si c'est un LOT "
         "(is_lot, prix unitaire, notes).\n"

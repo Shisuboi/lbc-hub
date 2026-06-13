@@ -73,15 +73,11 @@ async def triage_batch(ads: list[dict], router, brain) -> dict:
     return out
 
 
-async def verify_one(ad: dict, search: dict, router, brain, urgent_score_threshold: float,
-                     market_context: str | None = None) -> dict:
-    """Étage 2 : vérification fine d'une annonce. Seul un tier >= min peut donner 🔴.
-
-    `market_context` : analyse marché web (Market Researcher), injectée dans le prompt si fournie.
-    """
+async def verify_one(ad: dict, search: dict, router, brain, urgent_score_threshold: float) -> dict:
+    """Étage 2 : vérification fine d'une annonce. Seul un tier >= min peut donner 🔴."""
     model = extract_model_name(ad.get("title", ""))
     grounding = market_grounding(brain, ad.get("category"), model_name=model)
-    prompt = build_verify_prompt(ad, grounding, market_context=market_context)
+    prompt = build_verify_prompt(ad, grounding)
     data, model_id, tier_rank = await router.generate("verify", prompt, VERIFY_SCHEMA)
 
     margin = compute_margin_and_category(

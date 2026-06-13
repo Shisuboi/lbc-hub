@@ -85,11 +85,9 @@ CREATE TABLE IF NOT EXISTS telegram_poll_offset (
 );
 INSERT OR IGNORE INTO telegram_poll_offset (id, offset) VALUES (1, 0);
 
-CREATE TABLE IF NOT EXISTS search_market_context (
-    search_id TEXT PRIMARY KEY,
-    query_title TEXT NOT NULL,
-    context_text TEXT NOT NULL,
-    updated_at INTEGER NOT NULL
+CREATE TABLE IF NOT EXISTS model_lookup (
+    model_name TEXT PRIMARY KEY,
+    fetched_at INTEGER NOT NULL
 );
 """
 
@@ -339,37 +337,24 @@ class Brain:
         )
         self.conn.commit()
 
-    def get_market_context(self, search_id: str, query_title: str,
-                           max_age_days: int = 3, now: int | None = None) -> str | None:
-        """Retourne l'analyse marché en cache si search_id ET query_title correspondent et que
-        le cache a moins de `max_age_days` jours. Sinon None (déclenche une nouvelle recherche).
-
-        L'invalidation par titre est implicite : une seule ligne par search_id (PK) ; si le titre
-        de la recherche active change, le `query_title` stocké ne matche plus → None.
-        """
+    def model_lookup_due(self, model_name: str, max_age_days: int = 3, now: int | None = None) -> bool:
+        """True si ce modèle n'a jamais fait l'objet d'une recherche comparative, ou il y a plus de
+        `max_age_days` jours. Borne la fréquence des recherches LBC ciblées (anti-captcha)."""
         now = int(now if now is not None else time.time())
         row = self.conn.execute(
-            "SELECT context_text, updated_at FROM search_market_context "
-            "WHERE search_id = ? AND query_title = ?",
-            (search_id, query_title),
+            "SELECT fetched_at FROM model_lookup WHERE model_name = ?", (model_name,)
         ).fetchone()
         if row is None:
-            return None
-        if now - row["updated_at"] > max_age_days * 86400:
-            return None
-        return row["context_text"]
+            return True
+        return now - row["fetched_at"] > max_age_days * 86400
 
-    def set_market_context(self, search_id: str, query_title: str, context_text: str,
-                           now: int | None = None) -> None:
-        """Enregistre/met à jour l'analyse marché (une ligne par search_id, upsert atomique)."""
+    def mark_model_lookup(self, model_name: str, now: int | None = None) -> None:
+        """Enregistre qu'une recherche comparative vient d'être faite pour ce modèle (upsert)."""
         now = int(now if now is not None else time.time())
         self.conn.execute(
-            "INSERT INTO search_market_context (search_id, query_title, context_text, updated_at) "
-            "VALUES (?, ?, ?, ?) "
-            "ON CONFLICT(search_id) DO UPDATE SET "
-            "query_title = excluded.query_title, context_text = excluded.context_text, "
-            "updated_at = excluded.updated_at",
-            (search_id, query_title, context_text, now),
+            "INSERT INTO model_lookup (model_name, fetched_at) VALUES (?, ?) "
+            "ON CONFLICT(model_name) DO UPDATE SET fetched_at = excluded.fetched_at",
+            (model_name, now),
         )
         self.conn.commit()
 

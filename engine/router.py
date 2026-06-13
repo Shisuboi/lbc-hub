@@ -52,9 +52,6 @@ class LLMRouter:
             if s.get("pro_enabled"):
                 return [s["pro_model"], s["verify_model"]]
             return [s["verify_model"]]
-        if stage == "research":
-            # Recherche web : on garde un modèle bon marché (verify_model par défaut, sinon flash-lite).
-            return [s.get("research_model") or s.get("verify_model") or "gemini-3.1-flash-lite"]
         raise ValueError(f"stage inconnu: {stage}")
 
     async def generate(self, stage: str, prompt: str, schema: dict, image_bytes=None):
@@ -70,19 +67,3 @@ class LLMRouter:
             return data, model_id, _tier_of(model_id)
         raise QuotaExhausted(f"stage={stage} : tous les modèles épuisés")
 
-    async def generate_text(self, stage: str, prompt: str, use_search: bool = False):
-        """Variante texte libre (recherche web). Retourne (text, model_id, tier_rank).
-
-        Même comptabilité de quota par modèle que `generate`, mais appelle `generate_text` du
-        provider (avec l'outil Google Search si use_search=True).
-        """
-        day = quota_day()
-        provider_name = getattr(self.provider, "name", "gemini")
-        for model_id in self._candidates(stage):
-            cap = self.caps.get(model_id, 1500)
-            if self.brain.usage_count(provider_name, model_id, day) >= cap:
-                continue
-            text, tokens = await self.provider.generate_text(model_id, prompt, use_search=use_search)
-            self.brain.inc_usage(provider_name, model_id, day, tokens=tokens or 0)
-            return text, model_id, _tier_of(model_id)
-        raise QuotaExhausted(f"stage={stage} : tous les modèles épuisés")

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "lbc-hub",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["server.py"],
+      "port": 8080
+    },
+    {
+      "name": "demo-static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8099"],
+      "port": 8099
+    }
+  ]
+}

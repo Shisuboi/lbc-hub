@@ -50,8 +50,6 @@ def ai_settings(cfg: dict) -> dict:
         "api_key": cfg.get("GEMINI_API_KEY") or None,
         "triage_model": cfg.get("GEMINI_TRIAGE_MODEL") or "gemini-3.1-flash-lite",
         "verify_model": cfg.get("GEMINI_VERIFY_MODEL") or "gemini-3.1-flash-lite",
-        # Market Researcher (Google Search) : modèle dédié optionnel ; sinon = verify_model.
-        "research_model": cfg.get("GEMINI_RESEARCH_MODEL") or None,
         "pro_model": cfg.get("GEMINI_PRO_MODEL") or "gemini-3.1-pro-preview",
         "photo_model": cfg.get("GEMINI_PHOTO_MODEL") or "gemini-3.1-flash-lite",
         "pro_enabled": _to_bool(cfg.get("GEMINI_PRO_ENABLED")) and bool(cfg.get("GEMINI_API_KEY")),
@@ -63,4 +61,6 @@ def ai_settings(cfg: dict) -> dict:
         "urgent_score_threshold": _to_float(cfg.get("URGENT_SCORE_THRESHOLD"), 85.0),
         "default_min_margin_eur": _to_float(cfg.get("DEFAULT_MIN_MARGIN_EUR"), 30.0),
         "default_min_margin_pct": _to_float(cfg.get("DEFAULT_MIN_MARGIN_PCT"), 30.0),
+        # Plafond journalier de recherches comparatives LBC (anti-captcha). Défaut 100.
+        "comparator_daily_cap": int(_to_float(cfg.get("COMPARATOR_DAILY_CAP"), 100)),
     }

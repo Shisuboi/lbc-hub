@@ -220,86 +220,74 @@ async def test_enrich_once_sends_telegram_for_urgent(monkeypatch):
     assert brain.is_telegram_sent("urgent-1"), "ad_id doit être marqué comme envoyé"
 
 
-class ResearchRouter(ScriptedRouter):
-    """ScriptedRouter + generate_text (Market Researcher) avec compteur d'appels web."""
-    def __init__(self, *a, research_text="Prix web ~300€", research_exc=None, **k):
-        super().__init__(*a, **k)
-        self.research_text = research_text
-        self.research_exc = research_exc
-        self.research_calls = []
+class FakeComparator:
+    """Simule la closure comparator_fetch de server.py : compte les appels, renvoie des annonces."""
+    def __init__(self, prices=(300.0, 320.0, 280.0, 310.0, 290.0), exc=None):
+        self.calls = []
+        self.prices = prices
+        self.exc = exc
 
-    async def generate_text(self, stage, prompt, use_search=False):
-        self.research_calls.append({"stage": stage, "prompt": prompt, "use_search": use_search})
-        if self.research_exc:
-            raise self.research_exc
-        return self.research_text, "research-model", TIER_RANKS["flash-lite"]
+    async def __call__(self, model_name, category=None):
+        self.calls.append({"model": model_name, "category": category})
+        if self.exc:
+            raise self.exc
+        return [{"title": f"{model_name} {i}", "price": p, "city": "Paris",
+                 "url": "https://www.leboncoin.fr/ad/informatique/1"} for i, p in enumerate(self.prices)]
 
 
-def _verify_router(**kw):
-    return ResearchRouter(
+def _candidate_router():
+    return ScriptedRouter(
         triage_items=[{"ad_id": "1", "category": "interesting", "score": 80, "dig_deeper": True}],
-        verify={"refined_score": 90, "est_market_price": 350.0, "signals": [], "is_lot": False,
+        verify={"refined_score": 70, "est_market_price": 300.0, "signals": [], "is_lot": False,
                 "explanation": "ok"},
-        verify_tier=TIER_RANKS["pro"],
-        **kw,
+        verify_tier=TIER_RANKS["flash"],
     )
 
 
-async def test_enrich_runs_research_on_cache_miss_and_stores_it():
+async def test_enrich_fetches_comparables_and_records_observations(monkeypatch):
+    monkeypatch.setattr("engine.enrich.extract_model_name", lambda t: "PS5 Slim")
     import engine.enrich as enrich_mod
-    enrich_mod._research_cooldown.clear()
+    enrich_mod._comparator_count.clear()
+    brain = Brain(":memory:")
+    supa = FakeSupa()
+    queue_ad(brain, "1", url="https://www.leboncoin.fr/ad/informatique/1")
+    comp = FakeComparator()
+    await enrich_once(brain, supa, _candidate_router(), settings={"urgent_score_threshold": 75},
+                      searches_by_id={"s1": {"title": "PC", "source_url": "https://www.leboncoin.fr/recherche?category=15&text=pc",
+                                             "min_margin_eur": 30, "min_margin_pct": 30}},
+                      image_fetch=None, comparator_fetch=comp)
+    assert len(comp.calls) == 1
+    assert comp.calls[0]["model"] == "PS5 Slim"
+    assert comp.calls[0]["category"] == "15"
+    assert brain.model_lookup_due("PS5 Slim") is False
+    rows = brain.conn.execute("SELECT COUNT(*) AS c FROM market_observations WHERE prix > 0").fetchone()
+    assert rows["c"] >= 5
+
+
+async def test_enrich_skips_comparator_when_no_model(monkeypatch):
+    monkeypatch.setattr("engine.enrich.extract_model_name", lambda t: None)
+    import engine.enrich as enrich_mod
+    enrich_mod._comparator_count.clear()
     brain = Brain(":memory:")
     supa = FakeSupa()
     queue_ad(brain, "1")
-    router = _verify_router()
-    await enrich_once(brain, supa, router, settings={"urgent_score_threshold": 75},
-                      searches_by_id={"s1": {"title": "iPhone 13", "min_margin_eur": 30, "min_margin_pct": 30}},
-                      image_fetch=None)
-    # recherche web déclenchée (cache vide) puis persistée
-    assert len(router.research_calls) == 1
-    assert router.research_calls[0]["use_search"] is True
-    assert brain.get_market_context("s1", "iPhone 13") == "Prix web ~300€"
+    comp = FakeComparator()
+    await enrich_once(brain, supa, _candidate_router(), settings={"urgent_score_threshold": 75},
+                      searches_by_id={"s1": {"title": "PC", "min_margin_eur": 30, "min_margin_pct": 30}},
+                      image_fetch=None, comparator_fetch=comp)
+    assert comp.calls == []
 
 
-async def test_enrich_uses_cached_research_no_second_web_call():
+async def test_enrich_uses_cache_no_second_comparator_call(monkeypatch):
+    monkeypatch.setattr("engine.enrich.extract_model_name", lambda t: "PS5 Slim")
     import engine.enrich as enrich_mod
-    enrich_mod._research_cooldown.clear()
-    brain = Brain(":memory:")
-    supa = FakeSupa()
-    brain.set_market_context("s1", "iPhone 13", "ctx pré-chargé")  # cache déjà chaud
-    queue_ad(brain, "1")
-    router = _verify_router()
-    await enrich_once(brain, supa, router, settings={"urgent_score_threshold": 75},
-                      searches_by_id={"s1": {"title": "iPhone 13", "min_margin_eur": 30, "min_margin_pct": 30}},
-                      image_fetch=None)
-    assert router.research_calls == []  # cache hit → aucune recherche web
-
-
-async def test_enrich_survives_research_failure():
-    import engine.enrich as enrich_mod
-    enrich_mod._research_cooldown.clear()
-    brain = Brain(":memory:")
-    supa = FakeSupa()
-    queue_ad(brain, "1")
-    router = _verify_router(research_exc=RuntimeError("réseau down"))
-    # un échec de recherche web ne doit PAS casser l'enrichissement : la vérif continue
-    n = await enrich_once(brain, supa, router, settings={"urgent_score_threshold": 75},
-                          searches_by_id={"s1": {"title": "iPhone 13", "min_margin_eur": 30, "min_margin_pct": 30}},
-                          image_fetch=None)
-    assert n == 1
-    assert supa.upserts[-1]["category"] == "urgent"
-    assert brain.get_market_context("s1", "iPhone 13") is None  # rien mis en cache sur échec
-
-
-async def test_enrich_research_backs_off_after_failure():
-    """Après un échec recherche, on ne relance PAS sur l'annonce suivante (back-off anti-spam 429)."""
-    import engine.enrich as enrich_mod
-    enrich_mod._research_cooldown.clear()
+    enrich_mod._comparator_count.clear()
     brain = Brain(":memory:")
     supa = FakeSupa()
     queue_ad(brain, "1")
     queue_ad(brain, "2")
-    router = ResearchRouter(
+    comp = FakeComparator()
+    await enrich_once(brain, supa, ScriptedRouter(
         triage_items=[
             {"ad_id": "1", "category": "interesting", "score": 80, "dig_deeper": True},
             {"ad_id": "2", "category": "interesting", "score": 80, "dig_deeper": True},
@@ -307,13 +295,40 @@ async def test_enrich_research_backs_off_after_failure():
         verify={"refined_score": 70, "est_market_price": 300.0, "signals": [], "is_lot": False,
                 "explanation": "ok"},
         verify_tier=TIER_RANKS["flash"],
-        research_exc=RuntimeError("Gemini HTTP 429: grounding quota"),
-    )
-    await enrich_once(brain, supa, router, settings={"urgent_score_threshold": 75},
-                      searches_by_id={"s1": {"title": "Ordinateurs", "min_margin_eur": 30, "min_margin_pct": 30}},
-                      image_fetch=None)
-    # 2 annonces candidates, MÊME recherche → une seule tentative web (la 2e est en cooldown)
-    assert len(router.research_calls) == 1
+    ), settings={"urgent_score_threshold": 75},
+        searches_by_id={"s1": {"title": "PS5", "min_margin_eur": 30, "min_margin_pct": 30}},
+        image_fetch=None, comparator_fetch=comp)
+    assert len(comp.calls) == 1
+
+
+async def test_enrich_survives_comparator_failure(monkeypatch):
+    monkeypatch.setattr("engine.enrich.extract_model_name", lambda t: "PS5 Slim")
+    import engine.enrich as enrich_mod
+    enrich_mod._comparator_count.clear()
+    brain = Brain(":memory:")
+    supa = FakeSupa()
+    queue_ad(brain, "1")
+    comp = FakeComparator(exc=RuntimeError("captcha Datadome"))
+    n = await enrich_once(brain, supa, _candidate_router(), settings={"urgent_score_threshold": 75},
+                          searches_by_id={"s1": {"title": "PS5", "min_margin_eur": 30, "min_margin_pct": 30}},
+                          image_fetch=None, comparator_fetch=comp)
+    assert n == 1
+    assert brain.model_lookup_due("PS5 Slim") is False
+
+
+async def test_enrich_respects_daily_cap(monkeypatch):
+    monkeypatch.setattr("engine.enrich.extract_model_name", lambda t: "PS5 Slim")
+    import engine.enrich as enrich_mod
+    enrich_mod._comparator_count.clear()
+    brain = Brain(":memory:")
+    supa = FakeSupa()
+    queue_ad(brain, "1")
+    comp = FakeComparator()
+    await enrich_once(brain, supa, _candidate_router(),
+                      settings={"urgent_score_threshold": 75, "comparator_daily_cap": 0},
+                      searches_by_id={"s1": {"title": "PS5", "min_margin_eur": 30, "min_margin_pct": 30}},
+                      image_fetch=None, comparator_fetch=comp)
+    assert comp.calls == []
 
 
 async def test_enrich_once_no_duplicate_telegram(monkeypatch):
