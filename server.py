@@ -636,7 +636,8 @@ async def start_autonomous_engine(app):
             url = build_comparator_url(model_name, category)
             async with _desc_sem:
                 if scrape_lock.locked():
-                    # le scrape principal a la priorité ; on réessaiera ce modèle plus tard
+                    # le scrape principal a la priorité ; l'appelant marque le cooldown (3 j) donc
+                    # ce modèle ne sera pas re-tenté avant l'expiration du cache (acceptable).
                     return []
                 try:
                     ctx = await get_context()

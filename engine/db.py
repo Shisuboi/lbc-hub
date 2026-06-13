@@ -85,13 +85,6 @@ CREATE TABLE IF NOT EXISTS telegram_poll_offset (
 );
 INSERT OR IGNORE INTO telegram_poll_offset (id, offset) VALUES (1, 0);
 
-CREATE TABLE IF NOT EXISTS search_market_context (
-    search_id TEXT PRIMARY KEY,
-    query_title TEXT NOT NULL,
-    context_text TEXT NOT NULL,
-    updated_at INTEGER NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS model_lookup (
     model_name TEXT PRIMARY KEY,
     fetched_at INTEGER NOT NULL
@@ -341,40 +334,6 @@ class Brain:
     def bump_pending_retry(self, pending_id: int) -> None:
         self.conn.execute(
             "UPDATE pending_enrichment SET retries = retries + 1 WHERE id = ?", (pending_id,)
-        )
-        self.conn.commit()
-
-    def get_market_context(self, search_id: str, query_title: str,
-                           max_age_days: int = 3, now: int | None = None) -> str | None:
-        """Retourne l'analyse marché en cache si search_id ET query_title correspondent et que
-        le cache a moins de `max_age_days` jours. Sinon None (déclenche une nouvelle recherche).
-
-        L'invalidation par titre est implicite : une seule ligne par search_id (PK) ; si le titre
-        de la recherche active change, le `query_title` stocké ne matche plus → None.
-        """
-        now = int(now if now is not None else time.time())
-        row = self.conn.execute(
-            "SELECT context_text, updated_at FROM search_market_context "
-            "WHERE search_id = ? AND query_title = ?",
-            (search_id, query_title),
-        ).fetchone()
-        if row is None:
-            return None
-        if now - row["updated_at"] > max_age_days * 86400:
-            return None
-        return row["context_text"]
-
-    def set_market_context(self, search_id: str, query_title: str, context_text: str,
-                           now: int | None = None) -> None:
-        """Enregistre/met à jour l'analyse marché (une ligne par search_id, upsert atomique)."""
-        now = int(now if now is not None else time.time())
-        self.conn.execute(
-            "INSERT INTO search_market_context (search_id, query_title, context_text, updated_at) "
-            "VALUES (?, ?, ?, ?) "
-            "ON CONFLICT(search_id) DO UPDATE SET "
-            "query_title = excluded.query_title, context_text = excluded.context_text, "
-            "updated_at = excluded.updated_at",
-            (search_id, query_title, context_text, now),
         )
         self.conn.commit()
 
