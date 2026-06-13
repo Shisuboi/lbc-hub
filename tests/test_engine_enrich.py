@@ -220,6 +220,117 @@ async def test_enrich_once_sends_telegram_for_urgent(monkeypatch):
     assert brain.is_telegram_sent("urgent-1"), "ad_id doit être marqué comme envoyé"
 
 
+class FakeComparator:
+    """Simule la closure comparator_fetch de server.py : compte les appels, renvoie des annonces."""
+    def __init__(self, prices=(300.0, 320.0, 280.0, 310.0, 290.0), exc=None):
+        self.calls = []
+        self.prices = prices
+        self.exc = exc
+
+    async def __call__(self, model_name, category=None):
+        self.calls.append({"model": model_name, "category": category})
+        if self.exc:
+            raise self.exc
+        return [{"title": f"{model_name} {i}", "price": p, "city": "Paris",
+                 "url": "https://www.leboncoin.fr/ad/informatique/1"} for i, p in enumerate(self.prices)]
+
+
+def _candidate_router():
+    return ScriptedRouter(
+        triage_items=[{"ad_id": "1", "category": "interesting", "score": 80, "dig_deeper": True}],
+        verify={"refined_score": 70, "est_market_price": 300.0, "signals": [], "is_lot": False,
+                "explanation": "ok"},
+        verify_tier=TIER_RANKS["flash"],
+    )
+
+
+async def test_enrich_fetches_comparables_and_records_observations(monkeypatch):
+    monkeypatch.setattr("engine.enrich.extract_model_name", lambda t: "PS5 Slim")
+    import engine.enrich as enrich_mod
+    enrich_mod._comparator_count.clear()
+    brain = Brain(":memory:")
+    supa = FakeSupa()
+    queue_ad(brain, "1", url="https://www.leboncoin.fr/ad/informatique/1")
+    comp = FakeComparator()
+    await enrich_once(brain, supa, _candidate_router(), settings={"urgent_score_threshold": 75},
+                      searches_by_id={"s1": {"title": "PC", "source_url": "https://www.leboncoin.fr/recherche?category=15&text=pc",
+                                             "min_margin_eur": 30, "min_margin_pct": 30}},
+                      image_fetch=None, comparator_fetch=comp)
+    assert len(comp.calls) == 1
+    assert comp.calls[0]["model"] == "PS5 Slim"
+    assert comp.calls[0]["category"] == "15"
+    assert brain.model_lookup_due("PS5 Slim") is False
+    rows = brain.conn.execute("SELECT COUNT(*) AS c FROM market_observations WHERE prix > 0").fetchone()
+    assert rows["c"] >= 5
+
+
+async def test_enrich_skips_comparator_when_no_model(monkeypatch):
+    monkeypatch.setattr("engine.enrich.extract_model_name", lambda t: None)
+    import engine.enrich as enrich_mod
+    enrich_mod._comparator_count.clear()
+    brain = Brain(":memory:")
+    supa = FakeSupa()
+    queue_ad(brain, "1")
+    comp = FakeComparator()
+    await enrich_once(brain, supa, _candidate_router(), settings={"urgent_score_threshold": 75},
+                      searches_by_id={"s1": {"title": "PC", "min_margin_eur": 30, "min_margin_pct": 30}},
+                      image_fetch=None, comparator_fetch=comp)
+    assert comp.calls == []
+
+
+async def test_enrich_uses_cache_no_second_comparator_call(monkeypatch):
+    monkeypatch.setattr("engine.enrich.extract_model_name", lambda t: "PS5 Slim")
+    import engine.enrich as enrich_mod
+    enrich_mod._comparator_count.clear()
+    brain = Brain(":memory:")
+    supa = FakeSupa()
+    queue_ad(brain, "1")
+    queue_ad(brain, "2")
+    comp = FakeComparator()
+    await enrich_once(brain, supa, ScriptedRouter(
+        triage_items=[
+            {"ad_id": "1", "category": "interesting", "score": 80, "dig_deeper": True},
+            {"ad_id": "2", "category": "interesting", "score": 80, "dig_deeper": True},
+        ],
+        verify={"refined_score": 70, "est_market_price": 300.0, "signals": [], "is_lot": False,
+                "explanation": "ok"},
+        verify_tier=TIER_RANKS["flash"],
+    ), settings={"urgent_score_threshold": 75},
+        searches_by_id={"s1": {"title": "PS5", "min_margin_eur": 30, "min_margin_pct": 30}},
+        image_fetch=None, comparator_fetch=comp)
+    assert len(comp.calls) == 1
+
+
+async def test_enrich_survives_comparator_failure(monkeypatch):
+    monkeypatch.setattr("engine.enrich.extract_model_name", lambda t: "PS5 Slim")
+    import engine.enrich as enrich_mod
+    enrich_mod._comparator_count.clear()
+    brain = Brain(":memory:")
+    supa = FakeSupa()
+    queue_ad(brain, "1")
+    comp = FakeComparator(exc=RuntimeError("captcha Datadome"))
+    n = await enrich_once(brain, supa, _candidate_router(), settings={"urgent_score_threshold": 75},
+                          searches_by_id={"s1": {"title": "PS5", "min_margin_eur": 30, "min_margin_pct": 30}},
+                          image_fetch=None, comparator_fetch=comp)
+    assert n == 1
+    assert brain.model_lookup_due("PS5 Slim") is False
+
+
+async def test_enrich_respects_daily_cap(monkeypatch):
+    monkeypatch.setattr("engine.enrich.extract_model_name", lambda t: "PS5 Slim")
+    import engine.enrich as enrich_mod
+    enrich_mod._comparator_count.clear()
+    brain = Brain(":memory:")
+    supa = FakeSupa()
+    queue_ad(brain, "1")
+    comp = FakeComparator()
+    await enrich_once(brain, supa, _candidate_router(),
+                      settings={"urgent_score_threshold": 75, "comparator_daily_cap": 0},
+                      searches_by_id={"s1": {"title": "PS5", "min_margin_eur": 30, "min_margin_pct": 30}},
+                      image_fetch=None, comparator_fetch=comp)
+    assert comp.calls == []
+
+
 async def test_enrich_once_no_duplicate_telegram(monkeypatch):
     """Si ad_id déjà marqué → send_opportunity pas rappelée."""
     sent = []

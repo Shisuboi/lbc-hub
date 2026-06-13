@@ -9,7 +9,8 @@ met à jour après vérif puis photo. Résilient :
 """
 import asyncio
 from datetime import date
-from engine.parse import extract_category
+from engine.parse import extract_category, extract_model_name
+from engine.comparator import lbc_category_from_url
 from engine.cascade import triage_batch, verify_one, photo_one
 from engine.supa import merge_enrichment
 from engine.geo import fill_latlon
@@ -33,6 +34,24 @@ def _mark_quota_exhausted() -> None:
     print("🔴 [quota] Quotas IA épuisés pour aujourd'hui — enrichissement en pause jusqu'à minuit.")
 
 
+# ── Plafond journalier de recherches comparatives LBC (module-level, reset le lendemain) ──
+# {jour-iso: nombre de recherches faites}. Borne le risque Datadome même en cas de pic de
+# nouveaux modèles. Défaut configurable via settings["comparator_daily_cap"].
+_comparator_count: dict = {}
+
+
+def _comparator_quota_left(cap: int) -> bool:
+    """True s'il reste du quota de recherches comparatives aujourd'hui."""
+    if cap <= 0:
+        return False
+    return _comparator_count.get(date.today().isoformat(), 0) < cap
+
+
+def _bump_comparator_count() -> None:
+    day = date.today().isoformat()
+    _comparator_count[day] = _comparator_count.get(day, 0) + 1
+
+
 def _ad_from_payload(payload: dict) -> dict:
     return {
         "ad_id": payload.get("ad_id"),
@@ -46,7 +65,7 @@ def _ad_from_payload(payload: dict) -> dict:
     }
 
 
-async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch, batch_size=15, telegram=None, desc_fetch=None) -> int:
+async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch, batch_size=15, telegram=None, desc_fetch=None, comparator_fetch=None) -> int:
     """Traite un lot. Retourne le nombre d'opportunités écrites (post-triage). 0 si rien/quota."""
     raw = brain.peek_pending(limit=batch_size)
     # Garde anti-poison : un item ayant échoué trop de fois est abandonné (file jamais bloquée).
@@ -114,6 +133,33 @@ async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch
                 "min_margin_pct": settings.get("default_min_margin_pct", 30.0),
             }
 
+            # Comparateur LBC ciblé : si l'annonce a un modèle identifiable, qu'il n'a pas été
+            # cherché récemment et qu'on est sous le plafond/jour, on relance une recherche LBC du
+            # MODÈLE, et on verse les prix trouvés dans market_observations (le grounding existant
+            # s'en sert ensuite). Best-effort : un échec (captcha, timeout) ne casse pas la vérif.
+            model_name = extract_model_name(ad.get("title", ""))
+            cap = int(settings.get("comparator_daily_cap", 100))
+            if (comparator_fetch and model_name and brain.model_lookup_due(model_name)
+                    and _comparator_quota_left(cap)):
+                category = lbc_category_from_url(search.get("source_url"))
+                print(f"🔍 [comparateur] Recherche LBC du modèle « {model_name} » "
+                      f"(catégorie {category or 'toutes'})…")
+                _bump_comparator_count()
+                try:
+                    comparables = await comparator_fetch(model_name, category)
+                    for c in comparables or []:
+                        if c.get("price"):
+                            brain.record_market_obs(
+                                extract_category(c.get("url") or "") or ad.get("category"),
+                                float(c["price"]), c.get("city"), model_name=model_name)
+                    print(f"  ✓ [comparateur] {len(comparables or [])} comparable(s) enregistré(s) "
+                          f"pour « {model_name} ».")
+                except Exception as exc:
+                    print(f"[comparateur] échec recherche « {model_name} » "
+                          f"({type(exc).__name__}: {exc}) — vérif sur les données existantes")
+                finally:
+                    brain.mark_model_lookup(model_name)  # cooldown même en cas d'échec/0 résultat
+
             try:
                 ia = await verify_one(ad, search, router, brain, urgent_score_threshold=threshold)
             except QuotaExhausted:
@@ -169,14 +215,15 @@ async def enrich_once(brain, supa, router, settings, searches_by_id, image_fetch
 
 async def enrichment_worker(brain, supa, router, settings, fetch_searches, image_fetch,
                             stop_event, pause: float = 5.0, max_loops=None, telegram=None,
-                            desc_fetch=None) -> None:
+                            desc_fetch=None, comparator_fetch=None) -> None:
     """Boucle du worker. `fetch_searches` → {search_id: {min_margin_eur, min_margin_pct}}."""
     loops = 0
     while not stop_event.is_set():
         try:
             searches_by_id = await fetch_searches()
             await enrich_once(brain, supa, router, settings, searches_by_id, image_fetch,
-                              telegram=telegram, desc_fetch=desc_fetch)
+                              telegram=telegram, desc_fetch=desc_fetch,
+                              comparator_fetch=comparator_fetch)
         except Exception as exc:
             print(f"[enrich] erreur cycle: {exc}")
         loops += 1
